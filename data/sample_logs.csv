@@ -1,0 +1,14 @@
+timestamp,event_type,carbs_g,med_name,med_units,glucose_mgdl,notes
+2026-01-10 08:10:00,med,,Metformin,1,,morning dose
+2026-01-10 08:25:00,meal,45,,,,
+2026-01-10 10:25:00,glucose,,,,168,post-breakfast
+2026-01-10 12:20:00,meal,70,,,,
+2026-01-10 14:20:00,glucose,,,,210,post-lunch spike
+2026-01-10 18:30:00,med,,Insulin,4,,pre-dinner
+2026-01-10 19:05:00,meal,60,,,,
+2026-01-10 21:05:00,glucose,,,,175,post-dinner
+2026-01-11 08:15:00,med,,Metformin,1,,morning dose
+2026-01-11 08:35:00,meal,35,,,,
+2026-01-11 10:35:00,glucose,,,,155,post-breakfast
+2026-01-11 12:10:00,meal,90,,,,
+2026-01-11 14:10:00,glucose,,,,240,post-lunch spike
