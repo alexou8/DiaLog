@@ -97,8 +97,11 @@ def build_training_examples(
     med_units = meds["med_units"].fillna(0).to_numpy()
     med_names = meds["med_name"].fillna("unknown").to_numpy()
 
-    def last_event_before(ts, times_array):
-        idx = np.searchsorted(times_array, ts) - 1
+    def last_event_before(ts: pd.Timestamp, times_array: np.ndarray) -> int | None:
+        # np.searchsorted needs a numpy datetime64 scalar, not a pandas
+        # Timestamp, to compare against a datetime64[ns] array reliably
+        # across numpy/pandas versions.
+        idx = np.searchsorted(times_array, np.datetime64(ts)) - 1
         return idx if idx >= 0 else None
 
     rows = []

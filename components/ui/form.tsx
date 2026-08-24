@@ -168,17 +168,20 @@ export function Checkbox({
   label,
   description,
   defaultChecked,
+  value,
 }: {
   name: string;
   label: string;
   description?: string;
   defaultChecked?: boolean;
+  value?: string;
 }) {
   return (
     <label className="mb-4 flex cursor-pointer items-start gap-3">
       <input
         type="checkbox"
         name={name}
+        value={value}
         defaultChecked={defaultChecked}
         className="mt-1 h-5 w-5 accent-[var(--color-brand)]"
       />

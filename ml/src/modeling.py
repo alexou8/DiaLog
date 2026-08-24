@@ -257,6 +257,14 @@ def time_series_cv_scores(
     X = ordered[ALL_FEATURES]
     y = ordered[TARGET_COL].astype(int)
 
+    # TimeSeriesSplit requires n_splits < n_samples; too little data to run
+    # the requested number of folds means we honestly report no CV scores
+    # rather than crash or silently under-fold.
+    max_possible_splits = len(X) - 1
+    if max_possible_splits < 2:
+        return []
+    n_splits = min(n_splits, max_possible_splits)
+
     tscv = TimeSeriesSplit(n_splits=n_splits)
     scores: list[float] = []
     for train_idx, test_idx in tscv.split(X):

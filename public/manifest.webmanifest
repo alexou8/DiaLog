@@ -1,0 +1,21 @@
+{
+  "name": "DiaLog — glucose and metabolic health tracking",
+  "short_name": "DiaLog",
+  "description": "Track glucose, meals, activity and sleep, and understand what your own data shows.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f6f2",
+  "theme_color": "#155e69",
+  "categories": ["health", "medical", "lifestyle"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Add a glucose reading", "url": "/app/glucose/new" },
+    { "name": "Log a meal", "url": "/app/meals/new" }
+  ]
+}

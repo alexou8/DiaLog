@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /$
+Allow: /about
+Allow: /privacy
+Allow: /terms
+Allow: /security
+Allow: /accessibility
+Allow: /help
+Disallow: /app
+Disallow: /api
+Disallow: /sign-in
+Disallow: /sign-up

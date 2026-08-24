@@ -1,0 +1,6 @@
+timestamp,glucose,notes
+2026-01-10 08:00,120,"simple note"
+2026-01-10 09:00,130,"note with, comma"
+2026-01-10 10:00,140,"note with ""quotes"" inside"
+2026-01-10 11:00,150,"multi
+line note"
