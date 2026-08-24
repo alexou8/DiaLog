@@ -210,3 +210,12 @@ __marimo__/
 models/*.pkl
 outputs/*.json
 outputs/*.csv
+.env
+.env.local
+.next/
+node_modules/
+playwright-report/
+test-results/
+coverage/
+*.tsbuildinfo
+next-env.d.ts

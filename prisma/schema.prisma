@@ -1,0 +1,550 @@
+// DiaLog data model.
+//
+// Design notes
+// ------------
+// * Canonical storage units are fixed and unit-agnostic at the UI layer:
+//   glucose is stored in mg/dL (float), mass in kg, volume in mL, duration in
+//   minutes. Presentation units (mg/dL vs mmol/L) are a per-user preference.
+// * Every health record carries provenance (source, device, import batch,
+//   external id, raw payload) so the user can always answer "where did this
+//   come from?".
+// * `dedupeKey` is a stable content hash scoped to the user; the unique
+//   constraint makes re-importing the same export a no-op rather than a
+//   silent duplicate.
+// * Time-series access is always (userId, takenAt) — indexed on every table.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- identity
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  // Bumped on password change / "sign out everywhere"; embedded in the session
+  // token so old cookies stop validating.
+  tokenVersion Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+
+  profile             Profile?
+  devices             Device[]
+  importBatches       ImportBatch[]
+  glucoseReadings     GlucoseReading[]
+  meals               Meal[]
+  exerciseSessions    ExerciseSession[]
+  sleepSessions       SleepSession[]
+  medicationEvents    MedicationEvent[]
+  weightMeasurements  WeightMeasurement[]
+  bloodPressure       BloodPressureMeasurement[]
+  hydrationEvents     HydrationEvent[]
+  symptoms            SymptomEntry[]
+  moods               MoodEntry[]
+  notes               NoteEntry[]
+  insights            Insight[]
+  conversations       AIConversation[]
+  auditEvents         AuditEvent[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum GlucoseUnit {
+  MGDL
+  MMOLL
+}
+
+enum ConditionType {
+  PREDIABETES
+  TYPE_1
+  TYPE_2
+  GESTATIONAL
+  CURIOUS
+  PREFER_NOT_TO_SAY
+}
+
+enum DetailLevel {
+  SIMPLE
+  STANDARD
+  DETAILED
+}
+
+model Profile {
+  id                    String        @id @default(cuid())
+  userId                String        @unique
+  displayName           String?
+  glucoseUnit           GlucoseUnit   @default(MMOLL)
+  locale                String        @default("en-CA")
+  timezone              String        @default("America/Toronto")
+  condition             ConditionType @default(PREFER_NOT_TO_SAY)
+  // Personal target range, stored in mg/dL. Defaults are the widely cited
+  // general adult non-pregnant targets; they are user-editable, never enforced.
+  targetLowMgdl         Float         @default(70)
+  targetHighMgdl        Float         @default(180)
+  goals                 String[]      @default([])
+  detailLevel           DetailLevel   @default(STANDARD)
+  largeText             Boolean       @default(false)
+  reduceMotion          Boolean       @default(false)
+  // AI is opt-in per user; external providers additionally require consent.
+  aiEnabled             Boolean       @default(true)
+  externalAiConsentAt   DateTime?
+  onboardingCompletedAt DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------------------------------------- provenance
+
+enum DataSource {
+  MANUAL
+  IMPORT
+  AI_ASSISTED
+  DEVICE
+  SEED
+}
+
+enum DeviceKind {
+  GLUCOSE_METER
+  CGM
+  BLOOD_PRESSURE_MONITOR
+  SCALE
+  WEARABLE
+  PHONE_HEALTH_PLATFORM
+  OTHER
+}
+
+model Device {
+  id          String     @id @default(cuid())
+  userId      String
+  label       String
+  vendor      String?
+  model       String?
+  kind        DeviceKind @default(GLUCOSE_METER)
+  // Identifier of the connector used to ingest data for this device.
+  connectorId String?
+  createdAt   DateTime   @default(now())
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  importBatches   ImportBatch[]
+  glucoseReadings GlucoseReading[]
+
+  @@index([userId])
+}
+
+enum ImportStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model ImportBatch {
+  id            String       @id @default(cuid())
+  userId        String
+  connectorId   String
+  connectorName String
+  filename      String
+  mimeType      String?
+  byteSize      Int          @default(0)
+  status        ImportStatus @default(PENDING)
+  rowsTotal     Int          @default(0)
+  rowsImported  Int          @default(0)
+  rowsDuplicate Int          @default(0)
+  rowsRejected  Int          @default(0)
+  errorMessage  String?
+  deviceId      String?
+  createdAt     DateTime     @default(now())
+  finishedAt    DateTime?
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device          Device?          @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  issues          ImportIssue[]
+  glucoseReadings GlucoseReading[]
+  meals           Meal[]
+
+  @@index([userId, createdAt])
+}
+
+model ImportIssue {
+  id        String  @id @default(cuid())
+  batchId   String
+  rowNumber Int
+  code      String
+  message   String
+  rawRow    String?
+
+  batch ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+}
+
+// ---------------------------------------------------------- health events
+
+enum GlucoseContext {
+  FASTING
+  BEFORE_MEAL
+  AFTER_MEAL
+  BEDTIME
+  RANDOM
+  UNKNOWN
+}
+
+model GlucoseReading {
+  id            String         @id @default(cuid())
+  userId        String
+  takenAt       DateTime
+  // Canonical storage unit: mg/dL.
+  valueMgdl     Float
+  context       GlucoseContext @default(UNKNOWN)
+  note          String?
+  source        DataSource     @default(MANUAL)
+  deviceId      String?
+  importBatchId String?
+  externalId    String?
+  // Original row/payload as imported, retained for provenance.
+  rawPayload    Json?
+  dedupeKey     String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device      Device?      @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+  OTHER
+}
+
+enum EstimateSource {
+  USER_ENTERED
+  AI_ESTIMATE
+  IMPORTED
+}
+
+model Meal {
+  id             String         @id @default(cuid())
+  userId         String
+  takenAt        DateTime
+  mealType       MealType       @default(OTHER)
+  description    String
+  carbsG         Float?
+  proteinG       Float?
+  fatG           Float?
+  fiberG         Float?
+  calories       Float?
+  portion        String?
+  note           String?
+  estimateSource EstimateSource @default(USER_ENTERED)
+  source         DataSource     @default(MANUAL)
+  importBatchId  String?
+  rawPayload     Json?
+  dedupeKey      String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  foodItems   FoodItem[]
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+model FoodItem {
+  id       String  @id @default(cuid())
+  mealId   String
+  name     String
+  quantity String?
+  carbsG   Float?
+  proteinG Float?
+  fatG     Float?
+  fiberG   Float?
+  calories Float?
+
+  meal Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  @@index([mealId])
+}
+
+enum Intensity {
+  LIGHT
+  MODERATE
+  VIGOROUS
+}
+
+model ExerciseSession {
+  id          String     @id @default(cuid())
+  userId      String
+  takenAt     DateTime
+  endedAt     DateTime?
+  activity    String
+  durationMin Int
+  intensity   Intensity  @default(MODERATE)
+  distanceKm  Float?
+  steps       Int?
+  note        String?
+  source      DataSource @default(MANUAL)
+  dedupeKey   String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+model SleepSession {
+  id          String     @id @default(cuid())
+  userId      String
+  // Bedtime.
+  takenAt     DateTime
+  endedAt     DateTime
+  durationMin Int
+  // 1 (poor) .. 5 (excellent)
+  quality     Int?
+  note        String?
+  source      DataSource @default(MANUAL)
+  dedupeKey   String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+// Medication *tracking* only. DiaLog never computes, suggests or adjusts doses.
+model MedicationEvent {
+  id        String     @id @default(cuid())
+  userId    String
+  takenAt   DateTime
+  name      String
+  dose      String?
+  route     String?
+  note      String?
+  source    DataSource @default(MANUAL)
+  dedupeKey String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+model WeightMeasurement {
+  id        String     @id @default(cuid())
+  userId    String
+  takenAt   DateTime
+  weightKg  Float
+  note      String?
+  source    DataSource @default(MANUAL)
+  dedupeKey String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+model BloodPressureMeasurement {
+  id        String     @id @default(cuid())
+  userId    String
+  takenAt   DateTime
+  systolic  Int
+  diastolic Int
+  pulse     Int?
+  note      String?
+  source    DataSource @default(MANUAL)
+  dedupeKey String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+model HydrationEvent {
+  id        String     @id @default(cuid())
+  userId    String
+  takenAt   DateTime
+  volumeMl  Int
+  source    DataSource @default(MANUAL)
+  dedupeKey String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+model SymptomEntry {
+  id        String     @id @default(cuid())
+  userId    String
+  takenAt   DateTime
+  symptom   String
+  // 1 (mild) .. 5 (severe), self-reported.
+  severity  Int?
+  note      String?
+  source    DataSource @default(MANUAL)
+  dedupeKey String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+model MoodEntry {
+  id        String     @id @default(cuid())
+  userId    String
+  takenAt   DateTime
+  // 1 (low) .. 5 (great)
+  mood      Int
+  // 1 (calm) .. 5 (very stressed)
+  stress    Int?
+  note      String?
+  source    DataSource @default(MANUAL)
+  dedupeKey String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+model NoteEntry {
+  id        String     @id @default(cuid())
+  userId    String
+  takenAt   DateTime
+  text      String
+  source    DataSource @default(MANUAL)
+  dedupeKey String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, takenAt])
+}
+
+// ------------------------------------------------------ insights & AI
+
+enum EvidenceLevel {
+  INSUFFICIENT
+  EARLY
+  EMERGING
+  CONSISTENT
+}
+
+enum InsightSource {
+  STATISTICAL
+  ML
+  REFERENCE
+}
+
+model Insight {
+  id            String        @id @default(cuid())
+  userId        String
+  kind          String
+  title         String
+  summary       String
+  detail        String?
+  evidenceLevel EvidenceLevel
+  sampleSize    Int           @default(0)
+  source        InsightSource @default(STATISTICAL)
+  // Structured evidence bundle backing the "Why am I seeing this?" panel.
+  evidence      Json
+  periodStart   DateTime
+  periodEnd     DateTime
+  generatedAt   DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, generatedAt])
+}
+
+model AIConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String   @default("New conversation")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AIMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model AIMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String
+  content        String
+  // Evidence bundle handed to the model for this turn (assistant messages).
+  evidence       Json?
+  providerId     String?
+  createdAt      DateTime @default(now())
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// Security-relevant actions only. Never contains health values.
+model AuditEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String?
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
