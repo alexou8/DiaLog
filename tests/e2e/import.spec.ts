@@ -71,19 +71,18 @@ test.describe('import', () => {
     await page.getByLabel(/Choose a file/).setInputFiles(MALFORMED);
     await page.getByRole('button', { name: 'Check this file' }).click();
 
-    // Either the whole file is rejected up front, or every row is reported as
-    // unreadable — either way the page must explain clearly and must not crash.
-    const formError = page.getByText(/could not|corrupted|could not be read/i).first();
-    const rejectedSummary = page.getByText('Could not be read').locator('..');
-
-    const sawFormError = await formError.isVisible().catch(() => false);
-    if (!sawFormError) {
-      await expect(page.getByText('Here is what DiaLog found')).toBeVisible();
-      await expect(rejectedSummary).toBeVisible();
-    }
+    // DiaLog can't match the file to any known layout and says so in plain
+    // language, rather than crashing or silently reporting zero rows. (A
+    // file DiaLog *can* parse but where every row is individually invalid
+    // would instead show a "rows could not be read" summary — this fixture
+    // fails earlier, at layout detection.)
+    await expect(
+      page.getByText('DiaLog could not recognise the layout of that file.'),
+    ).toBeVisible();
 
     // The app shell must still be intact — no crash page.
     await expect(page.getByRole('link', { name: 'DiaLog' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Import your data' })).toBeVisible();
   });
 });
 
