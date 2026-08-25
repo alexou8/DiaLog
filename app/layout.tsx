@@ -4,8 +4,19 @@ import { getCurrentUser } from '@/lib/auth/current-user';
 import { PreferencesScript } from '@/components/PreferencesScript';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
 
+// Resolve the canonical origin. `NEXT_PUBLIC_APP_URL` may be present but empty
+// on Vercel, so fall back through the deployment URL before localhost.
+function resolveAppUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (explicit) return explicit;
+  const vercel =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+  if (vercel) return `https://${vercel}`;
+  return 'http://localhost:3000';
+}
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(resolveAppUrl()),
   title: {
     default: 'DiaLog — understand your glucose data',
     template: '%s · DiaLog',
