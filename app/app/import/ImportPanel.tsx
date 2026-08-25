@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useRef, useState } from 'react';
+import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { analyzeImportAction, commitImportAction, type ImportState } from '@/lib/actions/import';
 import { Button, Callout, Card, CardHeader } from '@/components/ui';
@@ -47,8 +47,11 @@ export function ImportPanel() {
     null,
   );
   const [commit, doCommit] = useActionState<ImportState | null, FormData>(commitImportAction, null);
-  const [filename, setFilename] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
+  // The chosen File is held in state rather than read back from the input at
+  // confirm time: submitting the analyze form re-renders it and clears the
+  // uncontrolled input's FileList, so by the second stage the input is empty.
+  // The File object itself stays readable.
+  const [file, setFile] = useState<File | null>(null);
 
   const state = commit?.stage === 'committed' ? commit : analysis;
   const summary = state?.summary;
@@ -56,7 +59,6 @@ export function ImportPanel() {
 
   /** Carry the already-chosen file into the confirmation submission. */
   function confirmImport(formData: FormData) {
-    const file = fileInput.current?.files?.[0];
     if (file) formData.set('file', file);
     doCommit(formData);
   }
@@ -80,19 +82,18 @@ export function ImportPanel() {
               CSV, Excel, JSON or XML, up to 100 MB. Nothing is saved until you confirm.
             </p>
             <input
-              ref={fileInput}
               id="import-file"
               name="file"
               type="file"
               required
               accept=".csv,.tsv,.txt,.json,.xml,.xlsx,.xls"
               aria-describedby="import-file-hint"
-              onChange={(event) => setFilename(event.target.files?.[0]?.name ?? null)}
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
               className="w-full rounded-xl border-2 border-dashed border-line-strong bg-surface-sunken p-4 text-base file:mr-4 file:rounded-lg file:border-0 file:bg-brand file:px-4 file:py-2 file:font-semibold file:text-white"
             />
-            {filename ? (
+            {file ? (
               <p className="mt-2 text-sm" aria-live="polite">
-                Selected: <strong>{filename}</strong>
+                Selected: <strong>{file.name}</strong>
               </p>
             ) : null}
           </div>
