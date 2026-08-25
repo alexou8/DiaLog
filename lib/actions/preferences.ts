@@ -175,8 +175,6 @@ export async function changePasswordAction(
     );
   }
 
-  revalidatePath('/app/settings');
-
   return {
     ok: true,
     message: settingFirstPassword
@@ -335,45 +333,4 @@ export async function deleteAccountAction(
 
   await clearSessionCookie();
   redirect('/?deleted=1');
-}
-
-// ------------------------------------------------------- connected accounts
-
-/**
- * Disconnect Google. Refused when it is the only way in, because removing it
- * would lock the person out of their own health records with no recovery path
- * — they are told to set a password first.
- */
-export async function unlinkGoogleAction(
-  _prev: ActionState | null,
-  _formData: FormData,
-): Promise<ActionState> {
-  const user = await requireUser();
-  const limited = guard(user.id, 'unlinkgoogle');
-  if (limited) return limited;
-
-  const identity = await prisma.authIdentity.findUnique({
-    where: { userId_provider: { userId: user.id, provider: 'google' } },
-    select: { id: true },
-  });
-  if (!identity) {
-    return { ok: false, message: 'Your account is not connected to Google.' };
-  }
-
-  if (user.passwordHash === null) {
-    return {
-      ok: false,
-      message:
-        'Google is currently the only way to sign in to this account. Set a password above first, then you can disconnect Google.',
-    };
-  }
-
-  await prisma.authIdentity.delete({ where: { id: identity.id } });
-  await audit({ userId: user.id, action: 'auth.google_unlinked' });
-  revalidatePath('/app/settings');
-
-  return {
-    ok: true,
-    message: 'Google has been disconnected. Sign in with your email and password from now on.',
-  };
 }

@@ -27,9 +27,19 @@ test.describe('logging records', () => {
 
     await expect(page).toHaveURL(/\/app\/glucose\?added=1/);
     await expect(page.getByText('Reading saved')).toBeVisible();
-    await expect(page.getByText(value).first()).toBeVisible();
+    // Filtered to what is actually on screen: the timeline chart labels each
+    // point with an SVG <title> ("... 240 mg/dL - Above your target range"),
+    // which matches both of these texts but is never visible. Whether that
+    // hidden title or the list row came first in the DOM decided whether this
+    // test passed, which is what made it flaky.
+    await expect(page.getByText(value).filter({ visible: true }).first()).toBeVisible();
     // A plain-language status label ("Above your target range", etc.) accompanies the value.
-    await expect(page.getByText(/target range/i).first()).toBeVisible();
+    await expect(
+      page
+        .getByText(/target range/i)
+        .filter({ visible: true })
+        .first(),
+    ).toBeVisible();
   });
 
   test('log a meal and see it in history with provenance', async ({ page }) => {

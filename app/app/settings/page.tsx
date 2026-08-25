@@ -33,6 +33,12 @@ const NOTICES = {
     google: 'Your Google account is now connected. You can sign in with it next time.',
     google_already: 'That Google account was already connected to your DiaLog account.',
   },
+  unlinked: {
+    google: 'Google has been disconnected. Sign in with your email and password from now on.',
+    absent: 'Your account is not connected to Google.',
+    blocked:
+      'Google is currently the only way to sign in to this account. Set a password above first, then you can disconnect Google.',
+  },
 } satisfies Record<string, Record<string, string>>;
 
 /** Looks up one notice, tolerating a hand-edited query string. */
@@ -46,6 +52,7 @@ export default async function SettingsPage({
   searchParams: Promise<{
     error?: string;
     linked?: string;
+    unlinked?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -64,7 +71,10 @@ export default async function SettingsPage({
       })
     : null;
 
-  const linkNotice = notice(NOTICES.linked, params.linked);
+  const unlinkNotice = notice(NOTICES.unlinked, params.unlinked);
+  const linkNotice = notice(NOTICES.linked, params.linked) ?? unlinkNotice;
+  // Only a completed disconnect is good news; the other two explain a refusal.
+  const linkNoticeIsGood = params.unlinked ? params.unlinked === 'google' : true;
   const linkError = oauthMessage(params.error);
 
   return (
@@ -137,7 +147,7 @@ export default async function SettingsPage({
                 linkError
                   ? { ok: false, message: linkError }
                   : linkNotice
-                    ? { ok: true, message: linkNotice }
+                    ? { ok: linkNoticeIsGood, message: linkNotice }
                     : null
               }
             />

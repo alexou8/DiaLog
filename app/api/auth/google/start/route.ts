@@ -39,7 +39,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     request.headers.get('x-real-ip') ??
     'unknown';
-  const limit = rateLimit(`oauth:${ip}`, RATE_LIMITS.signIn.limit, RATE_LIMITS.signIn.windowMs);
+  const limit = rateLimit(
+    `oauth:${ip}`,
+    RATE_LIMITS.oauthStart.limit,
+    RATE_LIMITS.oauthStart.windowMs,
+  );
   if (!limit.ok) return bounce(request, linking ? '/app/settings' : '/sign-in', 'exchange_failed');
 
   const state = randomToken();

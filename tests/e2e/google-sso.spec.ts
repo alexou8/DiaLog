@@ -154,6 +154,7 @@ test.describe('connecting and disconnecting Google', () => {
     // the shared demo account exactly as the spec found it.
     await page.goto('/app/settings');
     await page.getByRole('button', { name: 'Disconnect Google' }).click();
+    await expect(page).toHaveURL(/\/app\/settings\?unlinked=google/);
     await expect(page.getByText('Google has been disconnected')).toBeVisible();
     await page.goto('/app');
     await signOut(page);
@@ -188,8 +189,14 @@ test.describe('connecting and disconnecting Google', () => {
     await page.getByRole('button', { name: 'Set password' }).click();
     await expect(page.getByText('Your password has been set')).toBeVisible();
 
+    // Reload before disconnecting: setting the password revalidates the page,
+    // and clicking into a section that is mid-refresh loses the click.
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Change your password' })).toBeVisible();
+
     // With a password in place, Google is no longer the only way in.
     await page.getByRole('button', { name: 'Disconnect Google' }).click();
+    await expect(page).toHaveURL(/\/app\/settings\?unlinked=google/);
     await expect(page.getByText('Google has been disconnected')).toBeVisible();
   });
 });

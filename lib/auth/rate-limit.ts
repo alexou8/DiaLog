@@ -44,6 +44,12 @@ export function pruneRateLimits(now = Date.now()): void {
 
 export const RATE_LIMITS = {
   signIn: { limit: 10, windowMs: 15 * 60_000 },
+  // Starting a redirect to Google is not a credential guess — there is nothing
+  // to brute force — so this gets its own, looser budget rather than spending
+  // the sign-in one. It exists only to stop the endpoint being used to mint
+  // attempt cookies in bulk. Shared-NAT offices and the e2e suite both make
+  // more than ten of these in a quarter of an hour.
+  oauthStart: { limit: 30, windowMs: 15 * 60_000 },
   signUp: { limit: 5, windowMs: 60 * 60_000 },
   import: { limit: 20, windowMs: 60 * 60_000 },
   ai: { limit: 30, windowMs: 60 * 60_000 },

@@ -1,21 +1,11 @@
-'use client';
-
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { unlinkGoogleAction, type ActionState } from '@/lib/actions/preferences';
-import { Button } from '@/components/ui';
-import { FormStatus } from '@/components/ui/form';
 import { GoogleButton } from '@/components/auth/GoogleButton';
+import { Button } from '@/components/ui';
 
-function Unlink() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="secondary" disabled={pending}>
-      {pending ? 'Disconnecting…' : 'Disconnect Google'}
-    </Button>
-  );
-}
-
+/**
+ * The Google connection panel. A server component: every outcome of connecting
+ * or disconnecting is a page-level notice carried on the query string, so
+ * nothing here needs to hold state on the client.
+ */
 export function ConnectedAccounts({
   googleEmail,
   hasPassword,
@@ -25,9 +15,6 @@ export function ConnectedAccounts({
   hasPassword: boolean;
   notice: { ok: boolean; message: string } | null;
 }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(unlinkGoogleAction, null);
-  const status = state?.message ? { ok: state.ok, message: state.message } : notice;
-
   return (
     <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6">
       <h3 className="text-lg font-semibold">Sign in with Google</h3>
@@ -37,23 +24,37 @@ export function ConnectedAccounts({
           : 'Connect your Google account so you can sign in with one tap. DiaLog only uses Google to check it is you — none of your health data is shared with Google.'}
       </p>
 
-      <div className="mt-4">
-        <FormStatus status={status} />
-      </div>
+      {notice ? (
+        <p
+          role="status"
+          className={
+            notice.ok
+              ? 'mt-4 rounded-xl border border-positive/40 bg-positive-soft p-3 text-sm font-medium text-positive'
+              : 'mt-4 rounded-xl border border-critical/40 bg-critical-soft p-3 text-sm font-medium text-critical'
+          }
+        >
+          <span aria-hidden="true">{notice.ok ? '✓ ' : '⚠ '}</span>
+          {notice.message}
+        </p>
+      ) : null}
 
-      {googleEmail ? (
-        <form action={action}>
-          <Unlink />
-          {!hasPassword ? (
-            <p className="mt-2 text-sm text-ink-muted">
-              Google is currently the only way in to this account. Set a password above before
-              disconnecting it.
-            </p>
-          ) : null}
-        </form>
-      ) : (
-        <GoogleButton mode="link" label="Connect Google" />
-      )}
+      <div className="mt-4">
+        {googleEmail ? (
+          <form method="post" action="/api/auth/google/disconnect">
+            <Button type="submit" variant="secondary">
+              Disconnect Google
+            </Button>
+            {!hasPassword ? (
+              <p className="mt-2 text-sm text-ink-muted">
+                Google is currently the only way in to this account. Set a password above before
+                disconnecting it.
+              </p>
+            ) : null}
+          </form>
+        ) : (
+          <GoogleButton mode="link" label="Connect Google" />
+        )}
+      </div>
     </div>
   );
 }
