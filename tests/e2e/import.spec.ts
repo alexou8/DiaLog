@@ -7,9 +7,11 @@ const MALFORMED = path.join(process.cwd(), 'tests/e2e/fixtures/malformed.csv');
 
 test.describe('import', () => {
   test.use({ storageState: IMPORT_STATE });
-  // Both tests share one dedicated, otherwise-untouched account; serial mode
-  // keeps the first test's "nothing saved yet" assertion deterministic.
-  test.describe.configure({ mode: 'serial' });
+  // Both tests share one dedicated account, but the malformed-file test never
+  // commits any record (every row is rejected), so it cannot disturb the
+  // first test's "nothing saved yet"/count assertions even running in
+  // parallel — kept unserialized so a failure in one never blocks the other
+  // from being verified.
 
   test('review stage shows counts and saves nothing until confirmed; re-import reports duplicates', async ({
     page,

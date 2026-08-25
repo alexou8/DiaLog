@@ -3,6 +3,11 @@ import { SHARED_STATE } from './setup/auth-state';
 
 test.describe('logging records', () => {
   test.use({ storageState: SHARED_STATE });
+  // All five tests write to the same shared account (kept small to conserve
+  // the server's sign-up rate limit — see setup/auth.setup.ts). Serial mode
+  // avoids two of them mutating/re-rendering that account's pages at once,
+  // which could otherwise race the delete test's own list re-render.
+  test.describe.configure({ mode: 'serial' });
 
   test('add a glucose reading and see it with value and status', async ({ page }) => {
     await page.goto('/app/glucose/new');

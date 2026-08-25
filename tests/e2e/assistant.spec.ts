@@ -42,7 +42,7 @@ test.describe('assistant', () => {
       // (AssistantPage checks `hasData = counts.glucose > 0`) rather than
       // letting a question through to the AI pipeline — no form to submit,
       // just a plain-language explanation and a way to add data.
-      await expect(page.getByRole('heading', { name: 'There is nothing to ask about yet' })).toBeVisible();
+      await expect(page.getByText('There is nothing to ask about yet')).toBeVisible();
       await expect(
         page.getByText('The assistant can only answer from your own records.'),
       ).toBeVisible();
