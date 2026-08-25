@@ -13,6 +13,8 @@ const ADDED_MESSAGES: Record<string, string> = {
   weight: 'Weight saved.',
   bloodPressure: 'Blood pressure saved.',
   mood: 'Mood saved.',
+  hydration: 'Drink saved.',
+  symptom: 'Note saved.',
 };
 
 export default async function HealthPage({
@@ -25,7 +27,7 @@ export default async function HealthPage({
   const { added } = await searchParams;
   const addedMessage = added ? (ADDED_MESSAGES[added] ?? null) : null;
 
-  const [sleep, medication, weight, bloodPressure, mood] = await Promise.all([
+  const [sleep, medication, weight, bloodPressure, mood, hydration, symptoms] = await Promise.all([
     prisma.sleepSession.findMany({
       where: { userId: user.id },
       orderBy: { takenAt: 'desc' },
@@ -55,6 +57,18 @@ export default async function HealthPage({
       orderBy: { takenAt: 'desc' },
       take: 5,
       select: { id: true, takenAt: true, mood: true, stress: true },
+    }),
+    prisma.hydrationEvent.findMany({
+      where: { userId: user.id },
+      orderBy: { takenAt: 'desc' },
+      take: 5,
+      select: { id: true, takenAt: true, volumeMl: true },
+    }),
+    prisma.symptomEntry.findMany({
+      where: { userId: user.id },
+      orderBy: { takenAt: 'desc' },
+      take: 5,
+      select: { id: true, takenAt: true, symptom: true, severity: true, note: true },
     }),
   ]);
 
@@ -276,6 +290,85 @@ export default async function HealthPage({
                     <p className="mt-1 text-sm text-ink-muted">{dtFmt.format(m.takenAt)}</p>
                   </div>
                   <DeleteRecordButton type="mood" id={m.id} label="this mood entry" />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </section>
+
+      {/* ------------------------------------------------------- Hydration */}
+      <section aria-labelledby="hydration-heading">
+        <Card>
+          <CardHeader
+            id="hydration-heading"
+            title="Drinks"
+            action={
+              <ButtonLink href="/app/health/hydration/new" variant="secondary">
+                Add
+              </ButtonLink>
+            }
+          />
+          {hydration.length === 0 ? (
+            <EmptyState title="No drinks logged yet" icon="\u{1F4A7}">
+              <p>
+                A rough note of what you drink adds context to your readings. It is entirely
+                optional.
+              </p>
+            </EmptyState>
+          ) : (
+            <ul>
+              {hydration.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0"
+                >
+                  <div>
+                    <p className="font-semibold tabular-nums">{entry.volumeMl} mL</p>
+                    <p className="mt-1 text-sm text-ink-muted">{dtFmt.format(entry.takenAt)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </section>
+
+      {/* -------------------------------------------------------- Symptoms */}
+      <section aria-labelledby="symptom-heading">
+        <Card>
+          <CardHeader
+            id="symptom-heading"
+            title="How you've been feeling"
+            description="Notes in your own words. DiaLog records them, it does not interpret them."
+            action={
+              <ButtonLink href="/app/health/symptom/new" variant="secondary">
+                Add
+              </ButtonLink>
+            }
+          />
+          {symptoms.length === 0 ? (
+            <EmptyState title="Nothing noted yet" icon="\u{1F4DD}">
+              <p>
+                If you notice something — feeling tired, shaky, unusually thirsty — noting it here
+                gives you something concrete to mention at your next appointment.
+              </p>
+            </EmptyState>
+          ) : (
+            <ul>
+              {symptoms.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0"
+                >
+                  <div>
+                    <p className="font-semibold">{entry.symptom}</p>
+                    <p className="mt-1 text-sm text-ink-muted">
+                      {dtFmt.format(entry.takenAt)}
+                      {entry.severity != null ? ` \u00B7 strength ${entry.severity}/5` : ''}
+                    </p>
+                    {entry.note ? <p className="mt-1 text-sm">{entry.note}</p> : null}
+                  </div>
                 </li>
               ))}
             </ul>

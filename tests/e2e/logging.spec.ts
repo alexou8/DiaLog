@@ -74,7 +74,9 @@ test.describe('logging records', () => {
     await expect(row).toBeVisible();
 
     // First click opens the confirmation; the record must not vanish yet.
-    await row.getByRole('button', { name: 'Delete' }).click();
+    // <summary> exposes an ARIA role of "DisclosureTriangle" in Chromium, not
+    // "button", so it is targeted by its visible text rather than by role.
+    await row.locator('summary').filter({ hasText: 'Delete' }).click();
     await expect(page.getByText('Delete this record? This cannot be undone.')).toBeVisible();
     await expect(row).toBeVisible();
 

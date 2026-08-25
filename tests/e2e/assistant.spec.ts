@@ -10,11 +10,15 @@ test.describe('assistant', () => {
     }) => {
       await page.goto('/app/assistant');
 
-      await page.getByLabel('Your question').fill('What patterns have you noticed recently?');
+      // A custom question, not one of the pre-set suggestion pills, so the
+      // echoed question text below doesn't collide with a suggestion button
+      // showing the same words.
+      const question = 'How has my glucose been trending overall?';
+      await page.getByLabel('Your question').fill(question);
       await page.getByRole('button', { name: 'Ask', exact: true }).click();
 
       await expect(page.getByText('You asked')).toBeVisible();
-      await expect(page.getByText('What patterns have you noticed recently?')).toBeVisible();
+      await expect(page.getByText(question, { exact: true })).toBeVisible();
 
       const confidenceBadge = page.getByText(/confidence|Not enough evidence/i).first();
       await expect(confidenceBadge).toBeVisible();

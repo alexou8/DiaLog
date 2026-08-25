@@ -72,6 +72,10 @@ async function assertHtmlLang(page: Page, label: string) {
 
 /** The skip link is off-screen until focused, and moves focus into <main>. */
 async function assertSkipLink(page: Page, label: string) {
+  // Some pages (e.g. the glucose entry form) autoFocus a field on load, which
+  // would otherwise make the first Tab move away from that field instead of
+  // landing on the skip link. Start from a known "nothing focused" state.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press('Tab');
   const skipLink = page.locator('.dl-skip-link');
   await expect(skipLink, `${label}: first Tab should reach the skip link`).toBeFocused();
