@@ -104,5 +104,8 @@ async function countGlucoseRows(page: import('@playwright/test').Page): Promise<
   await page.goto('/app/history?type=glucose');
   // Scoped to the record list: `main ul > li` would also match the record-type
   // tab bar, which is itself a list.
-  return page.locator('main ul > li').filter({ has: page.getByRole('group') }).count();
+  return page
+    .locator('main ul > li')
+    .filter({ has: page.getByRole('group') })
+    .count();
 }
