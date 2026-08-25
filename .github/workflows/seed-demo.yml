@@ -1,0 +1,115 @@
+# Seed the demo account into a deployed database.
+#
+# Manual only. There is no push, schedule or pull_request trigger here on
+# purpose: this writes to a real database, so it runs when a maintainer asks
+# it to and never as a side effect of anything else. `workflow_dispatch`
+# requires write access to the repository, so a public fork or a drive-by
+# visitor cannot start it.
+#
+# What it touches: `prisma/seed.ts` deletes the single account
+# demo@dialog.health and recreates it with ~90 days of synthetic records.
+# Every other account is untouched, and the delete cascades only to the demo
+# account's own rows. Re-running it is therefore safe and produces the same
+# result rather than duplicating data.
+#
+# The connection string is fetched at run time from the Neon API and masked
+# before anything else happens, so it never reaches the logs. It is resolved
+# and used inside a single step, so it is never written to GITHUB_ENV, an
+# artifact, or an output.
+name: Seed demo account
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type SEED to confirm writing the demo account to a real database'
+        required: true
+        type: string
+      neon_branch:
+        description: 'Neon branch to seed (production is "main")'
+        required: false
+        default: 'main'
+        type: string
+      neon_project_id:
+        description: 'Neon project id (defaults to the NEON_PROJECT_ID repository variable)'
+        required: false
+        default: ''
+        type: string
+
+# Two of these running at once would race on the same rows.
+concurrency:
+  group: seed-demo
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    name: Seed the demo account
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require an explicit confirmation
+        if: inputs.confirm != 'SEED'
+        run: |
+          echo "::error::Refusing to run. Type SEED in the confirm input to proceed."
+          exit 1
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # postinstall runs `prisma generate`, which the seed script needs.
+      - run: npm ci
+
+      - name: Resolve the connection string and seed
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ inputs.neon_project_id || vars.NEON_PROJECT_ID }}
+          NEON_BRANCH: ${{ inputs.neon_branch }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${NEON_API_KEY:-}" ]; then
+            echo "::error::NEON_API_KEY is not set. Add it via the Neon GitHub integration."
+            exit 1
+          fi
+          if [ -z "${NEON_PROJECT_ID:-}" ]; then
+            echo "::error::No Neon project id. Set the NEON_PROJECT_ID repository variable or pass neon_project_id."
+            exit 1
+          fi
+
+          api="https://console.neon.tech/api/v2/projects/${NEON_PROJECT_ID}"
+          auth="Authorization: Bearer ${NEON_API_KEY}"
+
+          # `first(...)` rather than `| head -1`: under `pipefail` a closing
+          # head can take jq down with it.
+          branch_id="$(curl -sfS -H "$auth" "$api/branches" \
+            | jq -r --arg n "$NEON_BRANCH" 'first(.branches[] | select(.name == $n) | .id) // empty')"
+          if [ -z "$branch_id" ]; then
+            echo "::error::No Neon branch named '${NEON_BRANCH}' in project ${NEON_PROJECT_ID}."
+            exit 1
+          fi
+
+          database="$(curl -sfS -H "$auth" "$api/branches/$branch_id/databases" \
+            | jq -r '.databases[0].name')"
+          role="$(curl -sfS -H "$auth" "$api/branches/$branch_id/roles" \
+            | jq -r '.roles[0].name')"
+
+          echo "Seeding branch '${NEON_BRANCH}' (${branch_id}), database '${database}', role '${role}'."
+
+          uri="$(curl -sfS -H "$auth" \
+            "$api/connection_uri?branch_id=${branch_id}&database_name=${database}&role_name=${role}&pooled=true" \
+            | jq -r '.uri')"
+          # Mask before the value can appear anywhere else in this log.
+          echo "::add-mask::$uri"
+
+          if [ -z "$uri" ] || [ "$uri" = "null" ]; then
+            echo "::error::Neon returned no connection string for that branch."
+            exit 1
+          fi
+
+          DATABASE_URL="$uri" DIRECT_DATABASE_URL="$uri" npx tsx prisma/seed.ts
