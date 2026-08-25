@@ -67,7 +67,12 @@ test.describe('keyboard-only journey', () => {
     await page.keyboard.press('Enter');
 
     await expect(page).toHaveURL(/\/app\/glucose\?added=1/);
-    await expect(page.getByText('133').first()).toBeVisible();
+    // Check the specific reading row rather than any "133" substring on the
+    // page: this account is shared with logging.spec.ts, whose concurrent
+    // writes can shift aggregate stats (average, median) to other numbers
+    // that may or may not contain "133", which would make a page-wide text
+    // search flaky. The individual record row is unambiguous regardless.
+    await expect(page.locator('li').filter({ hasText: '133' }).first()).toBeVisible();
   });
 });
 

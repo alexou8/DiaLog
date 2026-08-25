@@ -87,13 +87,11 @@ describe('AnthropicProvider', () => {
   });
 
   it('throws AIProviderError with kind malformed_json when no matching tool_use block is present', async () => {
-    global.fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ content: [{ type: 'text', text: 'oops' }] }), {
-          status: 200,
-        }),
-      );
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ content: [{ type: 'text', text: 'oops' }] }), {
+        status: 200,
+      }),
+    );
     const provider = new AnthropicProvider();
     await expect(provider.complete(baseReq)).rejects.toMatchObject({
       kind: 'malformed_json',

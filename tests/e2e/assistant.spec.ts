@@ -38,20 +38,16 @@ test.describe('assistant', () => {
       await page.goto('/app/assistant');
       await page.waitForLoadState('networkidle');
 
-      await page.getByLabel('Your question').fill('Why were my readings higher this week?');
-      await page.getByRole('button', { name: 'Ask', exact: true }).click();
-
-      await expect(page.getByText('You asked')).toBeVisible();
-      await expect(page.getByText('Not enough evidence')).toBeVisible();
-      await expect(page.getByText('Limited data')).toBeVisible();
-
-      const disclosure = page.getByText('What was this answer based on?');
-      await disclosure.click();
+      // With zero logged records the app gates the question form entirely
+      // (AssistantPage checks `hasData = counts.glucose > 0`) rather than
+      // letting a question through to the AI pipeline — no form to submit,
+      // just a plain-language explanation and a way to add data.
+      await expect(page.getByRole('heading', { name: 'There is nothing to ask about yet' })).toBeVisible();
       await expect(
-        page.getByText(
-          'No specific finding was strong enough to cite, which is why the answer is cautious.',
-        ),
+        page.getByText('The assistant can only answer from your own records.'),
       ).toBeVisible();
+      await expect(page.getByLabel('Your question')).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'Add a reading' })).toBeVisible();
     });
   });
 });
