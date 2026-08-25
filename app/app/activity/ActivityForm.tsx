@@ -17,7 +17,11 @@ const COMMON_ACTIVITIES = [
   'Housework/gardening',
 ];
 
-const INTENSITY_OPTIONS: { value: 'LIGHT' | 'MODERATE' | 'VIGOROUS'; label: string; description: string }[] = [
+const INTENSITY_OPTIONS: {
+  value: 'LIGHT' | 'MODERATE' | 'VIGOROUS';
+  label: string;
+  description: string;
+}[] = [
   { value: 'LIGHT', label: 'Light', description: 'You could sing' },
   { value: 'MODERATE', label: 'Moderate', description: 'You could talk but not sing' },
   { value: 'VIGOROUS', label: 'Vigorous', description: 'Talking is hard' },
@@ -33,12 +37,17 @@ function Submit() {
 }
 
 export function ActivityForm({ timezone }: { timezone: string }) {
-  const [state, action] = useActionState<RecordActionState | null, FormData>(addExerciseAction, null);
+  const [state, action] = useActionState<RecordActionState | null, FormData>(
+    addExerciseAction,
+    null,
+  );
   const defaultTakenAt = toLocalInputValue(new Date(), timezone);
 
   return (
     <form action={action} noValidate>
-      <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+      <FormStatus
+        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
+      />
 
       <Field label="Activity" required error={state?.errors?.activity} htmlFor="activity">
         {({ id, describedBy, invalid }) => (
@@ -77,7 +86,13 @@ export function ActivityForm({ timezone }: { timezone: string }) {
         )}
       </Field>
 
-      <Field label="Duration" required error={state?.errors?.durationMin} htmlFor="durationMin" hint="minutes">
+      <Field
+        label="Duration"
+        required
+        error={state?.errors?.durationMin}
+        htmlFor="durationMin"
+        hint="minutes"
+      >
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -103,7 +118,12 @@ export function ActivityForm({ timezone }: { timezone: string }) {
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Distance" error={state?.errors?.distanceKm} htmlFor="distanceKm" hint="kilometres">
+        <Field
+          label="Distance"
+          error={state?.errors?.distanceKm}
+          htmlFor="distanceKm"
+          hint="kilometres"
+        >
           {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
@@ -135,7 +155,13 @@ export function ActivityForm({ timezone }: { timezone: string }) {
 
       <Field label="Note" error={state?.errors?.note} htmlFor="note">
         {({ id, describedBy, invalid }) => (
-          <TextInput id={id} name="note" maxLength={500} aria-describedby={describedBy} invalid={invalid} />
+          <TextInput
+            id={id}
+            name="note"
+            maxLength={500}
+            aria-describedby={describedBy}
+            invalid={invalid}
+          />
         )}
       </Field>
 

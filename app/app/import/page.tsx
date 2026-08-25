@@ -76,9 +76,9 @@ export default async function ImportPage() {
           <WhyThis label="Why can't DiaLog connect to my meter directly?">
             <p>
               For most home glucose meters there is no public interface a website is allowed to use.
-              Some manufacturers offer no developer access at all; some expose data only through their
-              own cloud app; and browser-to-device communication over Bluetooth is not supported on
-              iPhones and is not implemented by most meters. Rather than shipping a
+              Some manufacturers offer no developer access at all; some expose data only through
+              their own cloud app; and browser-to-device communication over Bluetooth is not
+              supported on iPhones and is not implemented by most meters. Rather than shipping a
               &ldquo;Connect&rdquo; button that could not work, DiaLog invests in reading the export
               files that manufacturers do provide. The full research notes, with sources, are in the
               project documentation under <code>docs/DEVICE_INTEGRATIONS.md</code>.
@@ -110,7 +110,9 @@ export default async function ImportPage() {
                       </p>
                       <p className="mt-1 text-sm">
                         {batch.rowsImported} added
-                        {batch.rowsDuplicate > 0 ? `, ${batch.rowsDuplicate} skipped as duplicates` : ''}
+                        {batch.rowsDuplicate > 0
+                          ? `, ${batch.rowsDuplicate} skipped as duplicates`
+                          : ''}
                         {batch.rowsRejected > 0 ? `, ${batch.rowsRejected} could not be read` : ''}
                       </p>
                     </div>
@@ -118,7 +120,10 @@ export default async function ImportPage() {
                       <summary className="dl-target cursor-pointer rounded-xl border-2 border-critical px-4 py-2 text-sm font-semibold text-critical">
                         Undo this import
                       </summary>
-                      <form action={undoImportAction} className="mt-3 max-w-xs rounded-lg border border-line p-3">
+                      <form
+                        action={undoImportAction}
+                        className="mt-3 max-w-xs rounded-lg border border-line p-3"
+                      >
                         <input type="hidden" name="batchId" value={batch.id} />
                         <p className="mb-3 text-sm">
                           This permanently removes the {batch.rowsImported} records this file added.

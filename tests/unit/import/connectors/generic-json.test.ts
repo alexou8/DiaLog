@@ -17,7 +17,11 @@ describe('genericJsonConnector', () => {
   });
 
   it('does not detect an array of untyped objects', () => {
-    const file: ParsedFile = { filename: 'x.json', mimeType: 'application/json', json: [{ foo: 'bar' }] };
+    const file: ParsedFile = {
+      filename: 'x.json',
+      mimeType: 'application/json',
+      json: [{ foo: 'bar' }],
+    };
     expect(genericJsonConnector.detect(file)).toBe(0);
   });
 
@@ -45,7 +49,11 @@ describe('genericJsonConnector', () => {
   });
 
   it('flags a missing timestamp', async () => {
-    const file: ParsedFile = { filename: 'x.json', mimeType: 'application/json', json: [{ type: 'glucose', value: 100 }] };
+    const file: ParsedFile = {
+      filename: 'x.json',
+      mimeType: 'application/json',
+      json: [{ type: 'glucose', value: 100 }],
+    };
     const result = await genericJsonConnector.parse(file, { now: NOW });
     expect(result.issues[0]?.code).toBe('MISSING_TIMESTAMP');
   });
@@ -62,7 +70,11 @@ describe('genericJsonConnector', () => {
   });
 
   it('reports a non-array JSON payload as a warning with no records', async () => {
-    const file: ParsedFile = { filename: 'x.json', mimeType: 'application/json', json: { foo: 'bar' } };
+    const file: ParsedFile = {
+      filename: 'x.json',
+      mimeType: 'application/json',
+      json: { foo: 'bar' },
+    };
     const result = await genericJsonConnector.parse(file, { now: NOW });
     expect(result.records).toHaveLength(0);
     expect(result.warnings.length).toBeGreaterThan(0);

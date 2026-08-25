@@ -2,7 +2,14 @@ import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { getProvider } from '@/lib/ai/provider';
 import { recordCounts } from '@/lib/db/health-records';
-import { ButtonLink, Callout, Card, EmptyState, MedicalDisclaimer, PageHeader } from '@/components/ui';
+import {
+  ButtonLink,
+  Callout,
+  Card,
+  EmptyState,
+  MedicalDisclaimer,
+  PageHeader,
+} from '@/components/ui';
 import { AssistantPanel } from './AssistantPanel';
 
 export const metadata: Metadata = { title: 'Assistant' };
@@ -24,8 +31,8 @@ export default async function AssistantPage() {
           action={<ButtonLink href="/app/settings">Open settings</ButtonLink>}
         >
           <p>
-            You turned the assistant off for your account. Everything else in DiaLog — your readings,
-            charts and observations — keeps working exactly the same.
+            You turned the assistant off for your account. Everything else in DiaLog — your
+            readings, charts and observations — keeps working exactly the same.
           </p>
         </EmptyState>
       </div>
@@ -42,13 +49,17 @@ export default async function AssistantPage() {
       <Callout
         tone={provider.isExternal ? 'notice' : 'positive'}
         icon={provider.isExternal ? 'ⓘ' : '🔒'}
-        title={provider.isExternal ? `Answers are written by ${provider.name}` : 'Answers are written on this server'}
+        title={
+          provider.isExternal
+            ? `Answers are written by ${provider.name}`
+            : 'Answers are written on this server'
+        }
       >
         {provider.isExternal ? (
           <p>
             Only the summarised findings — figures such as &ldquo;average post-dinner reading across
-            14 days&rdquo; — are sent. Your individual readings and your notes are not. You can switch
-            this off in Settings.
+            14 days&rdquo; — are sent. Your individual readings and your notes are not. You can
+            switch this off in Settings.
           </p>
         ) : (
           <p>
@@ -65,8 +76,8 @@ export default async function AssistantPage() {
           action={<ButtonLink href="/app/glucose/new">Add a reading</ButtonLink>}
         >
           <p>
-            The assistant can only answer from your own records. Add a few readings first, and it will
-            have something to work with.
+            The assistant can only answer from your own records. Add a few readings first, and it
+            will have something to work with.
           </p>
         </EmptyState>
       ) : (

@@ -33,19 +33,33 @@ export function OnboardingForm({
   defaultName: string;
   defaultTimezone: string;
 }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(completeOnboardingAction, null);
+  const [state, action] = useActionState<ActionState | null, FormData>(
+    completeOnboardingAction,
+    null,
+  );
 
   // The browser knows the visitor's zone; offering it as the default saves a
   // scroll through a long list for almost everyone.
-  const detected = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : defaultTimezone;
+  const detected =
+    typeof Intl !== 'undefined'
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : defaultTimezone;
 
   return (
     <>
       <form action={action} className="mt-8 space-y-6" noValidate>
-        <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+        <FormStatus
+          status={
+            state && !state.ok && state.message ? { ok: false, message: state.message } : null
+          }
+        />
 
         <Card>
-          <Field label="What should we call you?" hint="Only used to greet you." error={state?.errors?.displayName}>
+          <Field
+            label="What should we call you?"
+            hint="Only used to greet you."
+            error={state?.errors?.displayName}
+          >
             {({ id, describedBy, invalid }) => (
               <TextInput
                 id={id}
@@ -91,9 +105,17 @@ export function OnboardingForm({
         </Card>
 
         <Card>
-          <Field label="Your time zone" hint="So that a reading at 8 in the morning is filed as the morning.">
+          <Field
+            label="Your time zone"
+            hint="So that a reading at 8 in the morning is filed as the morning."
+          >
             {({ id, describedBy }) => (
-              <Select id={id} name="timezone" defaultValue={detected} aria-describedby={describedBy}>
+              <Select
+                id={id}
+                name="timezone"
+                defaultValue={detected}
+                aria-describedby={describedBy}
+              >
                 {TIMEZONE_GROUPS.map((group) => (
                   <optgroup key={group.label} label={group.label}>
                     {group.zones.map((zone) => (

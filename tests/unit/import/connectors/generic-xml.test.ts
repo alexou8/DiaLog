@@ -18,7 +18,11 @@ describe('genericXmlConnector', () => {
   });
 
   it('does not detect an unrelated XML document', () => {
-    const file: ParsedFile = { filename: 'x.xml', mimeType: 'application/xml', xml: { foo: { bar: 'baz' } } };
+    const file: ParsedFile = {
+      filename: 'x.xml',
+      mimeType: 'application/xml',
+      xml: { foo: { bar: 'baz' } },
+    };
     expect(genericXmlConnector.detect(file)).toBe(0);
   });
 
@@ -34,8 +38,14 @@ describe('genericXmlConnector', () => {
   });
 
   it('handles a single <record> element (not wrapped in an array)', async () => {
-    const text = '<records><record type="weight" takenAt="2026-01-10T08:00:00Z" weightKg="70" /></records>';
-    const file: ParsedFile = { filename: 'x.xml', mimeType: 'application/xml', text, xml: parseXmlText(text) };
+    const text =
+      '<records><record type="weight" takenAt="2026-01-10T08:00:00Z" weightKg="70" /></records>';
+    const file: ParsedFile = {
+      filename: 'x.xml',
+      mimeType: 'application/xml',
+      text,
+      xml: parseXmlText(text),
+    };
     const result = await genericXmlConnector.parse(file, { now: NOW });
     expect(result.records).toHaveLength(1);
     expect(result.records[0]?.kind).toBe('weight');
@@ -43,14 +53,24 @@ describe('genericXmlConnector', () => {
 
   it('flags an unrecognised record type', async () => {
     const text = '<records><record type="unknown" takenAt="2026-01-10T08:00:00Z" /></records>';
-    const file: ParsedFile = { filename: 'x.xml', mimeType: 'application/xml', text, xml: parseXmlText(text) };
+    const file: ParsedFile = {
+      filename: 'x.xml',
+      mimeType: 'application/xml',
+      text,
+      xml: parseXmlText(text),
+    };
     const result = await genericXmlConnector.parse(file, { now: NOW });
     expect(result.issues[0]?.code).toBe('UNSUPPORTED_ROW');
   });
 
   it('reports a document with no <record> elements as a warning', async () => {
     const text = '<foo><bar/></foo>';
-    const file: ParsedFile = { filename: 'x.xml', mimeType: 'application/xml', text, xml: parseXmlText(text) };
+    const file: ParsedFile = {
+      filename: 'x.xml',
+      mimeType: 'application/xml',
+      text,
+      xml: parseXmlText(text),
+    };
     const result = await genericXmlConnector.parse(file, { now: NOW });
     expect(result.records).toHaveLength(0);
     expect(result.warnings.length).toBeGreaterThan(0);

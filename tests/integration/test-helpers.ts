@@ -32,7 +32,9 @@ export async function createTestUser(
   label: string,
   overrides: { password?: string; targetLowMgdl?: number; targetHighMgdl?: number } = {},
 ): Promise<SeededUser> {
-  const passwordHash = await hashPassword(overrides.password ?? 'a-reasonably-long-test-password-1');
+  const passwordHash = await hashPassword(
+    overrides.password ?? 'a-reasonably-long-test-password-1',
+  );
   const user = await prisma.user.create({
     data: {
       email: testEmail(label),

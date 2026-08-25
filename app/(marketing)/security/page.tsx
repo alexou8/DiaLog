@@ -11,7 +11,10 @@ export default function SecurityPage() {
     <Prose title="Security">
       <h2>Accounts</h2>
       <ul>
-        <li>Passwords are hashed with bcrypt at cost factor 12 and never stored or logged in the clear.</li>
+        <li>
+          Passwords are hashed with bcrypt at cost factor 12 and never stored or logged in the
+          clear.
+        </li>
         <li>
           A minimum length of ten characters is required, and passwords appearing on common breach
           lists are rejected. Length is favoured over symbol requirements.
@@ -33,10 +36,13 @@ export default function SecurityPage() {
 
       <h2>Input and uploads</h2>
       <ul>
-        <li>All request bodies are validated against strict schemas before reaching business logic.</li>
         <li>
-          Uploaded files are size-capped and parsed defensively. Nothing from a file is ever executed
-          or interpolated into a query; database access goes through a parameterised query builder.
+          All request bodies are validated against strict schemas before reaching business logic.
+        </li>
+        <li>
+          Uploaded files are size-capped and parsed defensively. Nothing from a file is ever
+          executed or interpolated into a query; database access goes through a parameterised query
+          builder.
         </li>
         <li>
           The application renders text as text — no HTML from user input or from an AI response is

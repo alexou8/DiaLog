@@ -53,14 +53,26 @@ export function BarChart({
     >
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" preserveAspectRatio="xMidYMid meet">
         <defs>
-          <pattern id="dl-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+          <pattern
+            id="dl-hatch"
+            width="6"
+            height="6"
+            patternTransform="rotate(45)"
+            patternUnits="userSpaceOnUse"
+          >
             <line x1="0" y1="0" x2="0" y2="6" stroke="var(--color-line-strong)" strokeWidth="3" />
           </pattern>
         </defs>
         {ticks(0, maxV, 4).map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--color-line)" />
-            <text x={PAD.left - 8} y={y(t) + 4} fontSize="12" textAnchor="end" fill="var(--color-ink-muted)">
+            <text
+              x={PAD.left - 8}
+              y={y(t) + 4}
+              fontSize="12"
+              textAnchor="end"
+              fill="var(--color-ink-muted)"
+            >
               {format(t)}
             </text>
           </g>
@@ -83,17 +95,35 @@ export function BarChart({
                   <title>{`${b.label}: ${format(b.value)} ${valueLabel}${b.n != null ? ` (${b.n} records)` : ''}`}</title>
                 </rect>
               ) : (
-                <text x={cx} y={H - PAD.bottom - 6} fontSize="11" textAnchor="middle" fill="var(--color-ink-muted)">
+                <text
+                  x={cx}
+                  y={H - PAD.bottom - 6}
+                  fontSize="11"
+                  textAnchor="middle"
+                  fill="var(--color-ink-muted)"
+                >
                   —
                 </text>
               )}
-              <text x={cx} y={H - PAD.bottom + 18} fontSize="12" textAnchor="middle" fill="var(--color-ink-muted)">
+              <text
+                x={cx}
+                y={H - PAD.bottom + 18}
+                fontSize="12"
+                textAnchor="middle"
+                fill="var(--color-ink-muted)"
+              >
                 {b.label}
               </text>
             </g>
           );
         })}
-        <line x1={PAD.left} x2={W - PAD.right} y1={H - PAD.bottom} y2={H - PAD.bottom} stroke="var(--color-line-strong)" />
+        <line
+          x1={PAD.left}
+          x2={W - PAD.right}
+          y1={H - PAD.bottom}
+          y2={H - PAD.bottom}
+          stroke="var(--color-line-strong)"
+        />
       </svg>
     </ChartFrame>
   );

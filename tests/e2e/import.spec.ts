@@ -1,14 +1,19 @@
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
-import { signUpFreshUser } from './helpers';
+import { IMPORT_STATE } from './setup/auth-state';
 
 const SAMPLE_LOGS = path.join(process.cwd(), 'ml/data/sample_logs.csv');
 const MALFORMED = path.join(process.cwd(), 'tests/e2e/fixtures/malformed.csv');
 
 test.describe('import', () => {
-  test('review stage shows counts and saves nothing until confirmed; re-import reports duplicates', async ({ page }) => {
-    await signUpFreshUser(page, { label: 'import' });
+  test.use({ storageState: IMPORT_STATE });
+  // Both tests share one dedicated, otherwise-untouched account; serial mode
+  // keeps the first test's "nothing saved yet" assertion deterministic.
+  test.describe.configure({ mode: 'serial' });
 
+  test('review stage shows counts and saves nothing until confirmed; re-import reports duplicates', async ({
+    page,
+  }) => {
     await page.goto('/app/import');
     await page.getByLabel(/Choose a file/).setInputFiles(SAMPLE_LOGS);
     await page.getByRole('button', { name: 'Check this file' }).click();
@@ -29,7 +34,9 @@ test.describe('import', () => {
     await page.getByLabel(/Choose a file/).setInputFiles(SAMPLE_LOGS);
     await page.getByRole('button', { name: 'Check this file' }).click();
     await expect(page.getByRole('button', { name: /^Import \d+ record/ })).toBeVisible();
-    const importCountMatch = await page.getByRole('button', { name: /^Import \d+ record/ }).textContent();
+    const importCountMatch = await page
+      .getByRole('button', { name: /^Import \d+ record/ })
+      .textContent();
     const expectedCount = Number(importCountMatch?.match(/\d+/)?.[0] ?? '0');
     expect(expectedCount).toBeGreaterThan(0);
 
@@ -45,7 +52,9 @@ test.describe('import', () => {
     await page.getByLabel(/Choose a file/).setInputFiles(SAMPLE_LOGS);
     await page.getByRole('button', { name: 'Check this file' }).click();
     await expect(page.getByText('Here is what DiaLog found')).toBeVisible();
-    await expect(page.getByText('Already in DiaLog, so skipped').locator('..')).toContainText(String(expectedCount));
+    await expect(page.getByText('Already in DiaLog, so skipped').locator('..')).toContainText(
+      String(expectedCount),
+    );
 
     const recordCountBefore = await countGlucoseRows(page);
     // Nothing new to import, so the commit form should not appear; even if it
@@ -56,8 +65,6 @@ test.describe('import', () => {
   });
 
   test('uploading a malformed file shows a clear, non-crashing error', async ({ page }) => {
-    await signUpFreshUser(page, { label: 'importbad' });
-
     await page.goto('/app/import');
     await page.getByLabel(/Choose a file/).setInputFiles(MALFORMED);
     await page.getByRole('button', { name: 'Check this file' }).click();

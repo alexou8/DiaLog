@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { signUpFreshUser } from './helpers';
+import { SHARED_STATE } from './setup/auth-state';
 
 /**
  * This file always runs under the `mobile-chromium` Playwright project (see
@@ -15,21 +15,25 @@ async function tabToAccessibleName(page: Page, name: string, maxPresses = 40): P
       const el = document.activeElement as HTMLElement | null;
       return { text: el?.textContent?.trim() ?? '', tag: el?.tagName ?? '' };
     });
-    if (info.text === name || (info.text.length > 0 && info.text.includes(name) && info.tag === 'A')) {
+    if (
+      info.text === name ||
+      (info.text.length > 0 && info.text.includes(name) && info.tag === 'A')
+    ) {
       return;
     }
   }
-  throw new Error(`Could not reach an element named "${name}" by tabbing within ${maxPresses} presses.`);
+  throw new Error(
+    `Could not reach an element named "${name}" by tabbing within ${maxPresses} presses.`,
+  );
 }
 
 test.describe('keyboard-only journey', () => {
-  test.use({ viewport: { width: 1280, height: 900 } });
+  test.use({ viewport: { width: 1280, height: 900 }, storageState: SHARED_STATE });
 
   test('tab to Add, submit the glucose form with only the keyboard, and see a visible focus indicator', async ({
     page,
   }) => {
-    await signUpFreshUser(page, { label: 'kbd' });
-    await expect(page).toHaveURL(/\/app$/);
+    await page.goto('/app');
 
     // A visible focus indicator exists: tab once and check the computed outline.
     await page.keyboard.press('Tab');
@@ -78,15 +82,14 @@ const MOBILE_PAGES = ['/app', '/app/glucose', '/app/insights', '/app/settings'];
 test.describe('mobile layout', () => {
   for (const viewport of MOBILE_VIEWPORTS) {
     test.describe(`viewport ${viewport.name}`, () => {
-      test.use({ viewport: { width: viewport.width, height: viewport.height } });
+      test.use({
+        viewport: { width: viewport.width, height: viewport.height },
+        storageState: SHARED_STATE,
+      });
 
       test(`bottom nav visible, sidebar hidden, no horizontal overflow, 44px targets (${viewport.name})`, async ({
         page,
       }) => {
-        const { email, password } = await signUpFreshUser(page, { label: `mobile${viewport.width}` });
-        void email;
-        void password;
-
         for (const url of MOBILE_PAGES) {
           await page.goto(url);
 
@@ -104,12 +107,17 @@ test.describe('mobile layout', () => {
             `${url} at ${viewport.name}: horizontal overflow (scrollWidth ${overflow.scrollWidth} > innerWidth ${overflow.innerWidth})`,
           ).toBeLessThanOrEqual(overflow.innerWidth);
 
-          const primaryButton = page.getByRole('button', { name: /save|add|ask|check this file/i }).first();
+          const primaryButton = page
+            .getByRole('button', { name: /save|add|ask|check this file/i })
+            .first();
           const addLink = page.getByRole('link', { name: 'Add' }).first();
           const target = (await addLink.isVisible().catch(() => false)) ? addLink : primaryButton;
           if (await target.isVisible().catch(() => false)) {
             const box = await target.boundingBox();
-            expect(box, `${url} at ${viewport.name}: primary action should have a bounding box`).not.toBeNull();
+            expect(
+              box,
+              `${url} at ${viewport.name}: primary action should have a bounding box`,
+            ).not.toBeNull();
             expect(
               box!.height,
               `${url} at ${viewport.name}: primary action should be at least 44px tall`,

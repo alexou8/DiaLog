@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { detectFileGlucoseUnit, mapGlucoseContext, normalizeGlucoseValue } from '@/lib/import/normalize';
+import {
+  detectFileGlucoseUnit,
+  mapGlucoseContext,
+  normalizeGlucoseValue,
+} from '@/lib/import/normalize';
 
 describe('normalizeGlucoseValue', () => {
   it('converts a plausible mmol/L value to canonical mg/dL', () => {

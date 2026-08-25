@@ -1,5 +1,10 @@
 import { afterAll, describe, expect, it } from 'vitest';
-import { analyzeUser, insightsFor, toEvidenceBundle, type AnalyticsWindow } from '@/lib/services/analytics-service';
+import {
+  analyzeUser,
+  insightsFor,
+  toEvidenceBundle,
+  type AnalyticsWindow,
+} from '@/lib/services/analytics-service';
 import { prisma, createTestUser, deleteTestUser } from './test-helpers';
 
 const createdUserIds: string[] = [];
@@ -80,14 +85,19 @@ describe('analytics pipeline on a known synthetic history', () => {
       }
     }
 
-    const window: AnalyticsWindow = { from: new Date(Date.UTC(2026, 1, 1)), to: new Date(Date.UTC(2026, 1, 28)) };
+    const window: AnalyticsWindow = {
+      from: new Date(Date.UTC(2026, 1, 1)),
+      to: new Date(Date.UTC(2026, 1, 28)),
+    };
     const { result } = await analyzeUser(user.id, profile, window);
 
     const finding = result.findings.find((f) => f.kind === 'post-dinner-activity');
     expect(finding).toBeDefined();
     expect(finding?.sampleSize).toBe(days);
     expect(finding?.evidenceLevel).not.toBe('INSUFFICIENT');
-    expect(finding?.metrics.avgWithActivityMgdl as number).toBeLessThan(finding?.metrics.avgWithoutActivityMgdl as number);
+    expect(finding?.metrics.avgWithActivityMgdl as number).toBeLessThan(
+      finding?.metrics.avgWithoutActivityMgdl as number,
+    );
 
     const cards = insightsFor(result);
     const card = cards.find((c) => c.kind === 'post-dinner-activity');
@@ -102,11 +112,19 @@ describe('analytics pipeline on a known synthetic history', () => {
     const base = new Date(Date.UTC(2026, 2, 1, 8, 0, 0));
     for (let i = 0; i < 3; i++) {
       await prisma.glucoseReading.create({
-        data: { userId: user.id, takenAt: new Date(base.getTime() + i * 86_400_000), valueMgdl: 110, dedupeKey: `sparse-${i}` },
+        data: {
+          userId: user.id,
+          takenAt: new Date(base.getTime() + i * 86_400_000),
+          valueMgdl: 110,
+          dedupeKey: `sparse-${i}`,
+        },
       });
     }
 
-    const window: AnalyticsWindow = { from: new Date(Date.UTC(2026, 1, 1)), to: new Date(Date.UTC(2026, 2, 28)) };
+    const window: AnalyticsWindow = {
+      from: new Date(Date.UTC(2026, 1, 1)),
+      to: new Date(Date.UTC(2026, 2, 28)),
+    };
     const { result } = await analyzeUser(user.id, profile, window);
 
     // No association findings should have fired off 3 readings — every association
@@ -117,7 +135,9 @@ describe('analytics pipeline on a known synthetic history', () => {
     expect(result.dataQuality.skippedAnalyses.length).toBeGreaterThan(0);
 
     const cards = insightsFor(result);
-    expect(cards.every((c) => c.evidenceLevel !== 'CONSISTENT' && c.evidenceLevel !== 'EMERGING')).toBe(true);
+    expect(
+      cards.every((c) => c.evidenceLevel !== 'CONSISTENT' && c.evidenceLevel !== 'EMERGING'),
+    ).toBe(true);
   });
 });
 
@@ -134,7 +154,10 @@ describe('toEvidenceBundle privacy invariant', () => {
       });
     }
 
-    const window: AnalyticsWindow = { from: new Date(Date.UTC(2026, 3, 1)), to: new Date(Date.UTC(2026, 3, 30)) };
+    const window: AnalyticsWindow = {
+      from: new Date(Date.UTC(2026, 3, 1)),
+      to: new Date(Date.UTC(2026, 3, 30)),
+    };
     const { result } = await analyzeUser(user.id, profile, window);
     const bundle = toEvidenceBundle(result, profile, window);
 

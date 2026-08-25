@@ -69,7 +69,14 @@ export function RangeBar({ slices, total }: { slices: RangeSlice[]; total: numbe
           slices.map((s) => {
             const w = (pct(s.count) / 100) * 720;
             const el = (
-              <rect key={s.id} x={offset} y={8} width={Math.max(0, w)} height={28} fill={TONE_FILL[s.tone]}>
+              <rect
+                key={s.id}
+                x={offset}
+                y={8}
+                width={Math.max(0, w)}
+                height={28}
+                fill={TONE_FILL[s.tone]}
+              >
                 <title>{`${s.label}: ${s.count} readings (${pct(s.count).toFixed(0)}%)`}</title>
               </rect>
             );

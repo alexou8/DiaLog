@@ -21,11 +21,15 @@ describe('AssistantAnswerSchema', () => {
   });
 
   it('rejects extra-long shortAnswer', () => {
-    expect(AssistantAnswerSchema.safeParse({ ...good, shortAnswer: 'a'.repeat(300) }).success).toBe(false);
+    expect(AssistantAnswerSchema.safeParse({ ...good, shortAnswer: 'a'.repeat(300) }).success).toBe(
+      false,
+    );
   });
 
   it('rejects a bad confidence value', () => {
-    expect(AssistantAnswerSchema.safeParse({ ...good, confidence: 'super-sure' }).success).toBe(false);
+    expect(AssistantAnswerSchema.safeParse({ ...good, confidence: 'super-sure' }).success).toBe(
+      false,
+    );
   });
 
   it('rejects missing fields', () => {

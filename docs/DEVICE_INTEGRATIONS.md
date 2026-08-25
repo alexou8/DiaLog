@@ -44,12 +44,12 @@ adjacent, better-documented Abbott export.
   Reports/download section. The layout is not formally published by Abbott,
   but has been independently documented and reverse-engineered by multiple
   open-source projects. Reported columns include: `ID`, `Device`, `Serial
-  Number`, `Device Timestamp`, `Record Type`, `Historic Glucose mmol/L` (or
+Number`, `Device Timestamp`, `Record Type`, `Historic Glucose mmol/L` (or
   `mg/dL`), `Scan Glucose mmol/L` (or `mg/dL`), `Non-numeric Rapid-Acting
-  Insulin`, `Rapid-Acting Insulin (units)`, `Non-numeric Food`,
+Insulin`, `Rapid-Acting Insulin (units)`, `Non-numeric Food`,
   `Carbohydrates (grams)`, `Non-numeric Long-Acting Insulin`, `Long-Acting
-  Insulin (units)`, `Notes`, `Strip Glucose mmol/L` (or `mg/dL)`, `Ketone
-  mmol/L`, and a few insulin-dose breakdown columns. `Record Type` is
+Insulin (units)`, `Notes`, `Strip Glucose mmol/L` (or `mg/dL)`, `Ketone
+mmol/L`, and a few insulin-dose breakdown columns. `Record Type` is
   numeric: `0` = Historic Glucose (periodic sensor reading), `1` = Scan
   Glucose (user-initiated NFC scan), and other values cover insulin/food/note
   rows.
@@ -62,6 +62,7 @@ adjacent, better-documented Abbott export.
   spec and the layout is known to shift slightly across LibreView versions.
 
 Sources:
+
 - [sourcetable.com — export CSV from FreeStyle Libre](https://sourcetable.com/export-csv/freestyle-libre)
 - [github.com/nahog/freestyle-libre-parser-viewer](https://github.com/nahog/freestyle-libre-parser-viewer)
 - [github.com/shrugalic/LibreView_to_AppleHealth_converter](https://github.com/shrugalic/LibreView_to_AppleHealth_converter)
@@ -92,6 +93,7 @@ Sources:
   (see above).
 
 Sources:
+
 - [github.com/FokkeZB/libreview-unofficial](https://github.com/FokkeZB/libreview-unofficial)
 - [github.com/DRFR0ST/libre-link-unofficial-api](https://github.com/DRFR0ST/libre-link-unofficial-api)
 - [thryve.health — Abbott FreeStyle Libre integration](https://www.thryve.health/features/connections/abbott-freestyle-libre-integration)
@@ -101,7 +103,7 @@ Sources:
 
 - **Official public API**: no self-serve public developer API found. Some
   digital-health data-aggregation vendors (e.g. MyDataHelps) mention
-  "the US Omron API", implying Omron offers *some* B2B/partner API access,
+  "the US Omron API", implying Omron offers _some_ B2B/partner API access,
   but not one that is publicly documented or self-serve.
 - **File export**: the Omron Connect mobile app has an in-app export
   feature — from History, use the share icon or the "···" menu on a graph
@@ -117,6 +119,7 @@ Sources:
   blood pressure and weight — see `lib/import/connectors/omron.ts`.
 
 Sources:
+
 - [omron-healthcare.com/omronconnect-support](https://www.omron-healthcare.com/omronconnect-support)
 - [support.mydatahelps.org — Omron blood pressure readings data export](https://support.mydatahelps.org/omron-blood-pressure-readings-data-export)
 - [omronwellness.com — OMRON connect FAQ](https://omronwellness.com/mobilefaq/page?id=6997-connectivity%2F29569-how-can-i-transfer-all-the-readings-from-the-device)
@@ -137,6 +140,7 @@ Sources:
   because there is no verified, direct file format to target.
 
 Sources:
+
 - [glooko.com/compatibility](https://glooko.com/compatibility/)
 - [support.glooko.com — Ascensia CONTOUR compatibility](https://glooko.com/glucose_meter/ascensia-contour-next/)
 
@@ -158,6 +162,7 @@ Sources:
   Apple Health connector.
 
 Sources:
+
 - [onetouch.com/developer](https://www.onetouch.com/developer)
 - [support.glooko.com — connect OneTouch Reveal account to Glooko](https://support.glooko.com/hc/en-us/articles/9300150541331-How-do-I-connect-my-OneTouch-Reveal-Account-to-Glooko)
 - [support.glooko.com — sync OneTouch Verio via Apple Health](https://support.glooko.com/hc/en-us/articles/115003859409-How-do-I-sync-my-LifeScan-OneTouch-Verio-Flex-Verio-Reflect-or-Verio-Sync-meter-with-Glooko-via-Apple-Health-iOS)
@@ -178,6 +183,7 @@ Sources:
   export format we could verify; DiaLog cannot claim to read it.
 
 Sources:
+
 - [diabetes.roche.com — mySugr connected devices](https://diabetes.roche.com/hcp-us/apps-and-data-management/mysugr-connected-devices)
 - [mysugr.com/accuchek](https://www.mysugr.com/accuchek)
 - [accu-chek.com — connecting to mySugr](https://www.accu-chek.com/support/faq/getting-started/connecting-to-mysugr)
@@ -205,6 +211,7 @@ Sources:
   refresh-token flow that belongs outside `lib/import`.
 
 Sources:
+
 - [developer.dexcom.com/docs](https://developer.dexcom.com/docs/)
 - [developer.dexcom.com — V3 Endpoint Overview](https://developer.dexcom.com/docs/dexcomv3/endpoint-overview/)
 - [developer.dexcom.com — Glossary](https://developer.dexcom.com/docs/dexcom/glossary/)
@@ -218,7 +225,7 @@ Sources:
 - **Format**: `export.xml`'s schema is not formally published by Apple, but
   is stable and extensively documented by the community. It is a flat list
   of `<Record type="HKQuantityTypeIdentifier..." sourceName="..."
-  unit="..." startDate="..." endDate="..." value="..." .../>` elements (plus
+unit="..." startDate="..." endDate="..." value="..." .../>` elements (plus
   `<Workout>` elements for exercise), where `startDate`/`endDate` use the
   format `YYYY-MM-DD HH:mm:ss ±HHMM`. Relevant identifiers for DiaLog:
   `HKQuantityTypeIdentifierBloodGlucose`,
@@ -231,6 +238,7 @@ Sources:
   native iOS app only, which is out of scope for a server-side importer.
 
 Sources:
+
 - [applehealthdata.com — how to export Apple Health data](https://applehealthdata.com/export-apple-health-data/)
 - [aihealthexport.com — Apple Health XML format guide](https://www.aihealthexport.com/guides/apple-health-xml-format)
 - [tdda.info — In Defence of XML: exporting and analysing Apple Health data](https://www.tdda.info/in-defence-of-xml-exporting-and-analysing-apple-health-data)
@@ -252,6 +260,7 @@ Sources:
   implemented for it here.
 
 Sources:
+
 - [developer.android.com/health-and-fitness/health-connect](https://developer.android.com/health-and-fitness/health-connect)
 - [developer.android.com — BloodGlucoseRecord API reference](https://developer.android.com/reference/android/health/connect/datatypes/BloodGlucoseRecord)
 - [android-developers.googleblog.com — Introducing Health Connect](https://android-developers.googleblog.com/2022/05/introducing-health-connect.html)
@@ -269,6 +278,7 @@ Sources:
   Fitbit's API does not carry glucose data at all. No connector implemented.
 
 Sources:
+
 - [community.fitbit.com — Fitbit Web API deprecated?](https://community.fitbit.com/t5/Web-API-Development/Fitbit-Web-API-deprecated/td-p/5657469)
 - [thryve.health — Fitbit API deprecation](https://www.thryve.health/blog/fitbit-api-deprecation)
 - [community.fitbit.com — Introducing the next phase of the Fitbit Web API](https://community.fitbit.com/t5/Web-API-Development/Introducing-the-next-phase-of-the-Fitbit-Web-API/td-p/5821061)
@@ -282,13 +292,14 @@ Sources:
 - **CGM data on Garmin devices**: some Garmin Connect IQ watch-face/data-field
   apps display CGM readings by pulling from a third-party CGM cloud service
   (Dexcom Share, or the unofficial LibreLinkUp channel) rather than Garmin
-  having any native glucose capability — Garmin is a *display* surface for
+  having any native glucose capability — Garmin is a _display_ surface for
   glucose data sourced elsewhere, not a source of it.
 - **Verdict**: not applicable as a glucose data source. Garmin data (steps,
   heart rate, sleep) is out of this importer's scope; no connector
   implemented.
 
 Sources:
+
 - [gluroo.com — blood sugar readings on your smartwatch (Garmin/Gluroo)](https://gluroo.com/blog/glucrew/blood-sugar-readings-smartwatch-gluroo/)
 
 ## Nightscout
@@ -299,17 +310,18 @@ Sources:
   reachable at `GET /api/v1/entries.json` (optionally with an API
   token/secret depending on site configuration), returning entries shaped
   as `{ type: "sgv"|"mbg"|..., sgv or mbg: number, date: epoch-ms,
-  dateString: ISO string, direction, device, ... }`. `sgv` = continuous
+dateString: ISO string, direction, device, ... }`. `sgv` = continuous
   sensor glucose value; `mbg` = meter blood glucose (calibration reading).
   Both are always in mg/dL per the Nightscout API convention.
 - **Verdict**: real and well-documented, but it's a live API belonging to
-  *the user's own Nightscout site* (not a vendor DiaLog would register with)
+  _the user's own Nightscout site_ (not a vendor DiaLog would register with)
   — for this file-import subsystem we treat a saved `entries.json` response
   as a file import target rather than building live OAuth/token
   credential-management for arbitrary user-hosted Nightscout URLs. See
   `lib/import/connectors/nightscout.ts`.
 
 Sources:
+
 - [github.com/nightscout/documentation — api.rst](https://github.com/nightscout/documentation/blob/master/Nightscout/EN/Technical%20info/api.rst)
 - [github.com/ecc1/nightscout — api.go](https://github.com/ecc1/nightscout/blob/main/api.go)
 
@@ -346,6 +358,7 @@ Sources:
   the reliable path for every vendor above.
 
 Sources:
+
 - [Web Bluetooth browser support overview](https://www.testmuai.com/learning-hub/web-bluetooth-browser-support/)
 - [Bluetooth GATT glucose service definition (sputnikdev mirror)](https://github.com/sputnikdev/bluetooth-gatt-parser/blob/master/src/main/resources/gatt/service/org.bluetooth.service.glucose.xml)
 - [Silicon Labs AN982 — BLE glucose sensor application note](https://www.silabs.com/documents/public/application-notes/AN982-Bluetooth-LE-Glucose-Sensor.pdf)
@@ -354,23 +367,23 @@ Sources:
 
 ## Summary table
 
-| Device / platform | Supported today via file import | Possible future direct integration | Not available |
-| --- | --- | --- | --- |
-| Abbott FreeStyle Optium Neo | ✅ (unverified layout — thin generic-CSV wrapper) | Desktop-software protocol, if Abbott ever documents it | — |
-| Abbott FreeStyle Libre / LibreView | ✅ (community-documented CSV layout) | — | Abbott has no public developer API |
-| Abbott LibreLinkUp | — | Only via an official Abbott partner/OAuth agreement (e.g. Thryve-style) | Public self-serve API — only unofficial, credential-based reverse-engineered clients exist |
-| Omron / Omron Connect | ✅ (app CSV export; BP + weight, glucose handled defensively) | Possible if Omron's partner API (implied by MyDataHelps) opens up | Public self-serve developer API |
-| Contour / Ascensia | — (no dedicated connector; generic CSV could read a Glooko export) | Via Glooko's platform, if Glooko offers a documented export/API | Direct meter-to-app path without Glooko |
-| OneTouch / LifeScan | — (same as above; Apple Health bridge works via the Apple Health connector) | LifeScan's OneTouch Reveal developer program (NDA + agreement required) | Public self-serve developer API |
-| Accu-Chek / Roche (mySugr) | — | If Roche/mySugr publish a documented export/API | Public self-serve developer API or documented file export |
-| Dexcom | — (not built in this PR; file-import scope only) | ✅ Real, documented OAuth 2.0 REST API (`/v3/users/self/egvs`) | — |
-| Apple Health export | ✅ (`export.xml`, community-documented schema) | Native iOS HealthKit app for live sync | Server-side/cloud API — HealthKit is on-device only |
-| Google Health Connect | — | Native Android companion app using the Health Connect SDK | Server-side/cloud API — on-device only |
-| Fitbit | — | — | Glucose/BP explicitly removed from the Fitbit API; API itself being decommissioned by Sept 2026 |
-| Garmin | — | — | No glucose capability; watches only display CGM data sourced elsewhere |
-| Nightscout | ✅ (saved `entries.json` response, as a file) | Live per-user OAuth/token integration against the user's own Nightscout site URL | — |
-| Browser Web Bluetooth (GATT 0x1808) | — | Narrow: only for a meter implementing the standard Glucose Profile, in a Chromium-family browser | Not general — excludes Safari/Firefox/iOS entirely, and most consumer meters don't expose 0x1808 |
-| Browser WebUSB | — | Only if a vendor ever documents a USB protocol | No documented USB protocol found for any covered vendor |
+| Device / platform                   | Supported today via file import                                             | Possible future direct integration                                                               | Not available                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Abbott FreeStyle Optium Neo         | ✅ (unverified layout — thin generic-CSV wrapper)                           | Desktop-software protocol, if Abbott ever documents it                                           | —                                                                                                |
+| Abbott FreeStyle Libre / LibreView  | ✅ (community-documented CSV layout)                                        | —                                                                                                | Abbott has no public developer API                                                               |
+| Abbott LibreLinkUp                  | —                                                                           | Only via an official Abbott partner/OAuth agreement (e.g. Thryve-style)                          | Public self-serve API — only unofficial, credential-based reverse-engineered clients exist       |
+| Omron / Omron Connect               | ✅ (app CSV export; BP + weight, glucose handled defensively)               | Possible if Omron's partner API (implied by MyDataHelps) opens up                                | Public self-serve developer API                                                                  |
+| Contour / Ascensia                  | — (no dedicated connector; generic CSV could read a Glooko export)          | Via Glooko's platform, if Glooko offers a documented export/API                                  | Direct meter-to-app path without Glooko                                                          |
+| OneTouch / LifeScan                 | — (same as above; Apple Health bridge works via the Apple Health connector) | LifeScan's OneTouch Reveal developer program (NDA + agreement required)                          | Public self-serve developer API                                                                  |
+| Accu-Chek / Roche (mySugr)          | —                                                                           | If Roche/mySugr publish a documented export/API                                                  | Public self-serve developer API or documented file export                                        |
+| Dexcom                              | — (not built in this PR; file-import scope only)                            | ✅ Real, documented OAuth 2.0 REST API (`/v3/users/self/egvs`)                                   | —                                                                                                |
+| Apple Health export                 | ✅ (`export.xml`, community-documented schema)                              | Native iOS HealthKit app for live sync                                                           | Server-side/cloud API — HealthKit is on-device only                                              |
+| Google Health Connect               | —                                                                           | Native Android companion app using the Health Connect SDK                                        | Server-side/cloud API — on-device only                                                           |
+| Fitbit                              | —                                                                           | —                                                                                                | Glucose/BP explicitly removed from the Fitbit API; API itself being decommissioned by Sept 2026  |
+| Garmin                              | —                                                                           | —                                                                                                | No glucose capability; watches only display CGM data sourced elsewhere                           |
+| Nightscout                          | ✅ (saved `entries.json` response, as a file)                               | Live per-user OAuth/token integration against the user's own Nightscout site URL                 | —                                                                                                |
+| Browser Web Bluetooth (GATT 0x1808) | —                                                                           | Narrow: only for a meter implementing the standard Glucose Profile, in a Chromium-family browser | Not general — excludes Safari/Firefox/iOS entirely, and most consumer meters don't expose 0x1808 |
+| Browser WebUSB                      | —                                                                           | Only if a vendor ever documents a USB protocol                                                   | No documented USB protocol found for any covered vendor                                          |
 
 **Bottom line**: file import (CSV/XLSX/XML/JSON from a vendor's own export
 feature) is the only integration path that is verifiably real and available

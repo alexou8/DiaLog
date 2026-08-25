@@ -176,11 +176,16 @@ model ImportBatch {
   createdAt     DateTime     @default(now())
   finishedAt    DateTime?
 
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  device          Device?          @relation(fields: [deviceId], references: [id], onDelete: SetNull)
-  issues          ImportIssue[]
-  glucoseReadings GlucoseReading[]
-  meals           Meal[]
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device             Device?             @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  issues             ImportIssue[]
+  glucoseReadings    GlucoseReading[]
+  meals              Meal[]
+  exerciseSessions   ExerciseSession[]
+  sleepSessions      SleepSession[]
+  medicationEvents   MedicationEvent[]
+  weightMeasurements WeightMeasurement[]
+  noteEntries        NoteEntry[]
 
   @@index([userId, createdAt])
 }
@@ -301,43 +306,51 @@ enum Intensity {
 }
 
 model ExerciseSession {
-  id          String     @id @default(cuid())
-  userId      String
-  takenAt     DateTime
-  endedAt     DateTime?
-  activity    String
-  durationMin Int
-  intensity   Intensity  @default(MODERATE)
-  distanceKm  Float?
-  steps       Int?
-  note        String?
-  source      DataSource @default(MANUAL)
-  dedupeKey   String
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  userId        String
+  takenAt       DateTime
+  endedAt       DateTime?
+  activity      String
+  durationMin   Int
+  intensity     Intensity  @default(MODERATE)
+  distanceKm    Float?
+  steps         Int?
+  note          String?
+  source        DataSource @default(MANUAL)
+  importBatchId String?
+  externalId    String?
+  rawPayload    Json?
+  dedupeKey     String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
 
   @@unique([userId, dedupeKey])
   @@index([userId, takenAt])
 }
 
 model SleepSession {
-  id          String     @id @default(cuid())
-  userId      String
+  id            String     @id @default(cuid())
+  userId        String
   // Bedtime.
-  takenAt     DateTime
-  endedAt     DateTime
-  durationMin Int
+  takenAt       DateTime
+  endedAt       DateTime
+  durationMin   Int
   // 1 (poor) .. 5 (excellent)
-  quality     Int?
-  note        String?
-  source      DataSource @default(MANUAL)
-  dedupeKey   String
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  quality       Int?
+  note          String?
+  source        DataSource @default(MANUAL)
+  importBatchId String?
+  externalId    String?
+  rawPayload    Json?
+  dedupeKey     String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
 
   @@unique([userId, dedupeKey])
   @@index([userId, takenAt])
@@ -345,36 +358,44 @@ model SleepSession {
 
 // Medication *tracking* only. DiaLog never computes, suggests or adjusts doses.
 model MedicationEvent {
-  id        String     @id @default(cuid())
-  userId    String
-  takenAt   DateTime
-  name      String
-  dose      String?
-  route     String?
-  note      String?
-  source    DataSource @default(MANUAL)
-  dedupeKey String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  userId        String
+  takenAt       DateTime
+  name          String
+  dose          String?
+  route         String?
+  note          String?
+  source        DataSource @default(MANUAL)
+  importBatchId String?
+  externalId    String?
+  rawPayload    Json?
+  dedupeKey     String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
 
   @@unique([userId, dedupeKey])
   @@index([userId, takenAt])
 }
 
 model WeightMeasurement {
-  id        String     @id @default(cuid())
-  userId    String
-  takenAt   DateTime
-  weightKg  Float
-  note      String?
-  source    DataSource @default(MANUAL)
-  dedupeKey String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  userId        String
+  takenAt       DateTime
+  weightKg      Float
+  note          String?
+  source        DataSource @default(MANUAL)
+  importBatchId String?
+  externalId    String?
+  rawPayload    Json?
+  dedupeKey     String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
 
   @@unique([userId, dedupeKey])
   @@index([userId, takenAt])
@@ -455,16 +476,20 @@ model MoodEntry {
 }
 
 model NoteEntry {
-  id        String     @id @default(cuid())
-  userId    String
-  takenAt   DateTime
-  text      String
-  source    DataSource @default(MANUAL)
-  dedupeKey String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  userId        String
+  takenAt       DateTime
+  text          String
+  source        DataSource @default(MANUAL)
+  importBatchId String?
+  externalId    String?
+  rawPayload    Json?
+  dedupeKey     String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
 
   @@unique([userId, dedupeKey])
   @@index([userId, takenAt])

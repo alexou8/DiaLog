@@ -27,11 +27,20 @@ export function AssistantForm({
   providerName: string;
   providerIsExternal: boolean;
 }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(updatePreferencesAction, null);
+  const [state, action] = useActionState<ActionState | null, FormData>(
+    updatePreferencesAction,
+    null,
+  );
 
   return (
-    <form action={action} noValidate className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6">
-      <FormStatus status={state && state.message ? { ok: state.ok, message: state.message } : null} />
+    <form
+      action={action}
+      noValidate
+      className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6"
+    >
+      <FormStatus
+        status={state && state.message ? { ok: state.ok, message: state.message } : null}
+      />
 
       <Checkbox
         name="aiEnabled"
@@ -40,18 +49,21 @@ export function AssistantForm({
         defaultChecked={profile.aiEnabled}
       />
 
-      <Callout tone={providerIsExternal ? 'notice' : 'positive'} icon={providerIsExternal ? '☁️' : '🔒'}>
+      <Callout
+        tone={providerIsExternal ? 'notice' : 'positive'}
+        icon={providerIsExternal ? '☁️' : '🔒'}
+      >
         {providerIsExternal ? (
           <>
-            <strong>Currently configured: {providerName} (external).</strong> When the assistant answers
-            a question, a structured summary of your findings can be sent to this outside service to
-            help generate the reply.
+            <strong>Currently configured: {providerName} (external).</strong> When the assistant
+            answers a question, a structured summary of your findings can be sent to this outside
+            service to help generate the reply.
           </>
         ) : (
           <>
             <strong>Currently configured: {providerName} — nothing leaves this server.</strong> The
-            assistant runs entirely on DiaLog&apos;s own infrastructure, so no external company ever sees
-            your data.
+            assistant runs entirely on DiaLog&apos;s own infrastructure, so no external company ever
+            sees your data.
           </>
         )}
       </Callout>
@@ -80,12 +92,22 @@ export function AssistantForm({
       <input type="hidden" name="glucoseUnit" value={profile.glucoseUnit} />
       <input type="hidden" name="locale" value={profile.locale} />
       <input type="hidden" name="timezone" value={profile.timezone} />
-      <input type="hidden" name="targetLow" value={fromMgdl(profile.targetLowMgdl, profile.glucoseUnit)} />
-      <input type="hidden" name="targetHigh" value={fromMgdl(profile.targetHighMgdl, profile.glucoseUnit)} />
+      <input
+        type="hidden"
+        name="targetLow"
+        value={fromMgdl(profile.targetLowMgdl, profile.glucoseUnit)}
+      />
+      <input
+        type="hidden"
+        name="targetHigh"
+        value={fromMgdl(profile.targetHighMgdl, profile.glucoseUnit)}
+      />
       <input type="hidden" name="detailLevel" value={profile.detailLevel} />
       <HiddenBool name="largeText" value={profile.largeText} />
       <HiddenBool name="reduceMotion" value={profile.reduceMotion} />
-      {!providerIsExternal ? <HiddenBool name="externalAiConsent" value={profile.externalAiConsentAt != null} /> : null}
+      {!providerIsExternal ? (
+        <HiddenBool name="externalAiConsent" value={profile.externalAiConsentAt != null} />
+      ) : null}
 
       <div className="mt-5">
         <Submit />

@@ -39,7 +39,9 @@ export default async function HistoryPage({
   const user = await requireOnboardedUser();
   const { locale, timezone, glucoseUnit, targetLowMgdl, targetHighMgdl } = user.profile;
   const params = await searchParams;
-  const type: RecordType = isRecordType(params.type ?? '') ? (params.type as RecordType) : 'glucose';
+  const type: RecordType = isRecordType(params.type ?? '')
+    ? (params.type as RecordType)
+    : 'glucose';
   const cursor = params.cursor;
 
   const dtFmt = new Intl.DateTimeFormat(locale, {
@@ -85,7 +87,9 @@ export default async function HistoryPage({
                   aria-current={active ? 'page' : undefined}
                   className={
                     'dl-target inline-flex min-h-11 items-center rounded-xl px-4 py-2 text-sm font-semibold ' +
-                    (active ? 'bg-brand text-white' : 'border-2 border-line-strong text-ink hover:border-brand hover:text-brand-ink')
+                    (active
+                      ? 'bg-brand text-white'
+                      : 'border-2 border-line-strong text-ink hover:border-brand hover:text-brand-ink')
                   }
                 >
                   {TAB_LABELS[t]}
@@ -99,13 +103,18 @@ export default async function HistoryPage({
       <Card>
         {rows.length === 0 ? (
           <EmptyState title={`No ${TAB_LABELS[type].toLowerCase()} records yet`} icon="🗂️">
-            <p>Once you log some, they will show up here with the option to review or delete them.</p>
+            <p>
+              Once you log some, they will show up here with the option to review or delete them.
+            </p>
           </EmptyState>
         ) : (
           <>
             <ul>
               {rows.map((row) => (
-                <li key={row.id} className="flex flex-wrap items-start justify-between gap-3 border-b border-line py-3 last:border-0">
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-start justify-between gap-3 border-b border-line py-3 last:border-0"
+                >
                   <div className="min-w-0">
                     <p className="text-base font-semibold">{row.summary}</p>
                     <p className="text-sm text-ink-muted">{dtFmt.format(row.when)}</p>
@@ -117,7 +126,10 @@ export default async function HistoryPage({
             </ul>
             {nextCursor ? (
               <div className="mt-4 flex justify-center">
-                <ButtonLink href={`/app/history?type=${type}&cursor=${nextCursor}`} variant="secondary">
+                <ButtonLink
+                  href={`/app/history?type=${type}&cursor=${nextCursor}`}
+                  variant="secondary"
+                >
                   Show older records
                 </ButtonLink>
               </div>
@@ -290,7 +302,9 @@ function splitPage<T extends { id: string }>(rows: T[]): { page: T[]; nextCursor
   return { page, nextCursor: hasMore ? page[page.length - 1]?.id : undefined };
 }
 
-function provenanceFrom(importBatch: { filename: string; connectorName: string } | null | undefined): string {
+function provenanceFrom(
+  importBatch: { filename: string; connectorName: string } | null | undefined,
+): string {
   if (!importBatch) return 'Added by you';
   return `Imported from ${importBatch.filename} via ${importBatch.connectorName}`;
 }

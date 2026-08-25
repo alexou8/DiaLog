@@ -1,7 +1,15 @@
 import type { ReactNode } from 'react';
 
 /** Shared layout for the long-form public pages. */
-export function Prose({ title, updated, children }: { title: string; updated?: string; children: ReactNode }) {
+export function Prose({
+  title,
+  updated,
+  children,
+}: {
+  title: string;
+  updated?: string;
+  children: ReactNode;
+}) {
   return (
     <article className="mx-auto max-w-2xl px-5 py-12">
       <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>

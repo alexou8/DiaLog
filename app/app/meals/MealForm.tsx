@@ -31,11 +31,18 @@ export function MealForm({ timezone }: { timezone: string }) {
 
   return (
     <form action={action} noValidate>
-      <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+      <FormStatus
+        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
+      />
 
       <Callout />
 
-      <Field label="What did you eat?" required error={state?.errors?.description} htmlFor="description">
+      <Field
+        label="What did you eat?"
+        required
+        error={state?.errors?.description}
+        htmlFor="description"
+      >
         {({ id, describedBy, invalid }) => (
           <TextArea
             id={id}
@@ -65,7 +72,13 @@ export function MealForm({ timezone }: { timezone: string }) {
 
       <Field label="Meal type" error={state?.errors?.mealType} htmlFor="mealType">
         {({ id, describedBy, invalid }) => (
-          <Select id={id} name="mealType" defaultValue="OTHER" aria-describedby={describedBy} invalid={invalid}>
+          <Select
+            id={id}
+            name="mealType"
+            defaultValue="OTHER"
+            aria-describedby={describedBy}
+            invalid={invalid}
+          >
             {MEAL_TYPES.map((m) => (
               <option key={m.value} value={m.value}>
                 {m.label}
@@ -155,15 +168,32 @@ export function MealForm({ timezone }: { timezone: string }) {
                 />
               )}
             </Field>
-            <Field label="Portion" error={state?.errors?.portion} htmlFor="portion" hint="e.g. 1 bowl, 200 ml">
+            <Field
+              label="Portion"
+              error={state?.errors?.portion}
+              htmlFor="portion"
+              hint="e.g. 1 bowl, 200 ml"
+            >
               {({ id, describedBy, invalid }) => (
-                <TextInput id={id} name="portion" maxLength={80} aria-describedby={describedBy} invalid={invalid} />
+                <TextInput
+                  id={id}
+                  name="portion"
+                  maxLength={80}
+                  aria-describedby={describedBy}
+                  invalid={invalid}
+                />
               )}
             </Field>
           </div>
           <Field label="Note" error={state?.errors?.note} htmlFor="note">
             {({ id, describedBy, invalid }) => (
-              <TextArea id={id} name="note" maxLength={500} aria-describedby={describedBy} invalid={invalid} />
+              <TextArea
+                id={id}
+                name="note"
+                maxLength={500}
+                aria-describedby={describedBy}
+                invalid={invalid}
+              />
             )}
           </Field>
         </div>
@@ -180,7 +210,10 @@ function Callout() {
   return (
     <p className="mb-5 rounded-xl border border-line bg-surface-sunken p-4 text-sm text-ink-muted">
       In a hurry? You can{' '}
-      <Link href="/app/quick-log" className="font-semibold text-brand-ink underline underline-offset-4">
+      <Link
+        href="/app/quick-log"
+        className="font-semibold text-brand-ink underline underline-offset-4"
+      >
         type what you ate in your own words
       </Link>{' '}
       instead, and check what DiaLog suggests before saving.

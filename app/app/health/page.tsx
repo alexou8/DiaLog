@@ -85,7 +85,15 @@ export default async function HealthPage({
       {/* --------------------------------------------------------- Sleep */}
       <section aria-labelledby="sleep-heading">
         <Card>
-          <CardHeader id="sleep-heading" title="Sleep" action={<ButtonLink href="/app/health/sleep/new" variant="secondary">Add</ButtonLink>} />
+          <CardHeader
+            id="sleep-heading"
+            title="Sleep"
+            action={
+              <ButtonLink href="/app/health/sleep/new" variant="secondary">
+                Add
+              </ButtonLink>
+            }
+          />
           {sleep.length === 0 ? (
             <EmptyState title="No sleep logged yet" icon="🌙">
               <p>Log your bedtime and wake time to start seeing patterns.</p>
@@ -93,7 +101,10 @@ export default async function HealthPage({
           ) : (
             <ul>
               {sleep.map((s) => (
-                <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0">
+                <li
+                  key={s.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0"
+                >
                   <div>
                     <p className="font-semibold">
                       {Math.floor(s.durationMin / 60)}h {s.durationMin % 60}m
@@ -117,11 +128,15 @@ export default async function HealthPage({
           <CardHeader
             id="medication-heading"
             title="Medication"
-            action={<ButtonLink href="/app/health/medication/new" variant="secondary">Add</ButtonLink>}
+            action={
+              <ButtonLink href="/app/health/medication/new" variant="secondary">
+                Add
+              </ButtonLink>
+            }
           />
           <Callout tone="info" icon="ℹ️">
-            DiaLog records medication events so you can see your own timing next to your
-            readings. It never calculates or suggests doses.
+            DiaLog records medication events so you can see your own timing next to your readings.
+            It never calculates or suggests doses.
           </Callout>
           {medication.length === 0 ? (
             <EmptyState title="No medication events yet" icon="💊">
@@ -130,7 +145,10 @@ export default async function HealthPage({
           ) : (
             <ul className="mt-4">
               {medication.map((m) => (
-                <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0">
+                <li
+                  key={m.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0"
+                >
                   <div>
                     <p className="font-semibold">{m.name}</p>
                     <p className="text-sm text-ink-muted">
@@ -150,7 +168,15 @@ export default async function HealthPage({
       {/* --------------------------------------------------------- Weight */}
       <section aria-labelledby="weight-heading">
         <Card>
-          <CardHeader id="weight-heading" title="Weight" action={<ButtonLink href="/app/health/weight/new" variant="secondary">Add</ButtonLink>} />
+          <CardHeader
+            id="weight-heading"
+            title="Weight"
+            action={
+              <ButtonLink href="/app/health/weight/new" variant="secondary">
+                Add
+              </ButtonLink>
+            }
+          />
           {weight.length === 0 ? (
             <EmptyState title="No weight logged yet" icon="⚖️">
               <p>Log your weight to track it over time.</p>
@@ -158,7 +184,10 @@ export default async function HealthPage({
           ) : (
             <ul>
               {weight.map((w) => (
-                <li key={w.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0">
+                <li
+                  key={w.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0"
+                >
                   <div>
                     <p className="font-semibold">{formatWeight(w.weightKg, locale)} kg</p>
                     <p className="text-sm text-ink-muted">{dtFmt.format(w.takenAt)}</p>
@@ -177,7 +206,11 @@ export default async function HealthPage({
           <CardHeader
             id="bp-heading"
             title="Blood pressure"
-            action={<ButtonLink href="/app/health/blood-pressure/new" variant="secondary">Add</ButtonLink>}
+            action={
+              <ButtonLink href="/app/health/blood-pressure/new" variant="secondary">
+                Add
+              </ButtonLink>
+            }
           />
           {bloodPressure.length === 0 ? (
             <EmptyState title="No blood pressure logged yet" icon="🩺">
@@ -186,17 +219,25 @@ export default async function HealthPage({
           ) : (
             <ul>
               {bloodPressure.map((b) => (
-                <li key={b.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0">
+                <li
+                  key={b.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0"
+                >
                   <div>
                     <p className="font-semibold">
-                      {b.systolic}/{b.diastolic} <span className="font-normal text-ink-muted text-sm">mmHg</span>
+                      {b.systolic}/{b.diastolic}{' '}
+                      <span className="font-normal text-ink-muted text-sm">mmHg</span>
                     </p>
                     <p className="text-sm text-ink-muted">
                       {dtFmt.format(b.takenAt)}
                       {b.pulse != null ? ` · Pulse ${b.pulse} bpm` : ''}
                     </p>
                   </div>
-                  <DeleteRecordButton type="bloodPressure" id={b.id} label="this blood pressure reading" />
+                  <DeleteRecordButton
+                    type="bloodPressure"
+                    id={b.id}
+                    label="this blood pressure reading"
+                  />
                 </li>
               ))}
             </ul>
@@ -207,7 +248,15 @@ export default async function HealthPage({
       {/* -------------------------------------------------- Mood / stress */}
       <section aria-labelledby="mood-heading">
         <Card>
-          <CardHeader id="mood-heading" title="Mood & stress" action={<ButtonLink href="/app/health/mood/new" variant="secondary">Add</ButtonLink>} />
+          <CardHeader
+            id="mood-heading"
+            title="Mood & stress"
+            action={
+              <ButtonLink href="/app/health/mood/new" variant="secondary">
+                Add
+              </ButtonLink>
+            }
+          />
           {mood.length === 0 ? (
             <EmptyState title="No mood entries yet" icon="🙂">
               <p>A quick check-in helps you see how you have been feeling over time.</p>
@@ -215,7 +264,10 @@ export default async function HealthPage({
           ) : (
             <ul>
               {mood.map((m) => (
-                <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0">
+                <li
+                  key={m.id}
+                  className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0"
+                >
                   <div>
                     <p className="flex flex-wrap items-center gap-2">
                       <Badge tone="neutral">Mood {m.mood}/5</Badge>
@@ -235,5 +287,8 @@ export default async function HealthPage({
 }
 
 function formatWeight(kg: number, locale: string): string {
-  return new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(kg);
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(kg);
 }

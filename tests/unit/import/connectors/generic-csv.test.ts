@@ -21,7 +21,9 @@ describe('genericCsvConnector.detect', () => {
   });
 
   it('does not detect an empty file', async () => {
-    expect(genericCsvConnector.detect({ filename: 'x.csv', mimeType: 'text/csv', rows: [] })).toBe(0);
+    expect(genericCsvConnector.detect({ filename: 'x.csv', mimeType: 'text/csv', rows: [] })).toBe(
+      0,
+    );
   });
 });
 
@@ -41,7 +43,9 @@ describe('genericCsvConnector.parse', () => {
     const file = fileFromCsv('date,time,bg\n2026-01-10,08:00,120\n');
     const result = await genericCsvConnector.parse(file, { now: NOW });
     expect(result.records).toHaveLength(1);
-    expect((result.records[0] as GlucoseRecord).takenAt.toISOString()).toBe('2026-01-10T08:00:00.000Z');
+    expect((result.records[0] as GlucoseRecord).takenAt.toISOString()).toBe(
+      '2026-01-10T08:00:00.000Z',
+    );
   });
 
   it('infers mmol/L from value magnitude when no unit column is present', async () => {
@@ -54,7 +58,9 @@ describe('genericCsvConnector.parse', () => {
   });
 
   it('respects an explicit unit column value per row', async () => {
-    const file = fileFromCsv('timestamp,glucose,unit\n2026-01-10 08:00,120,mg/dL\n2026-01-10 09:00,7.2,mmol/L\n');
+    const file = fileFromCsv(
+      'timestamp,glucose,unit\n2026-01-10 08:00,120,mg/dL\n2026-01-10 09:00,7.2,mmol/L\n',
+    );
     const result = await genericCsvConnector.parse(file, { now: NOW });
     expect(result.issues).toHaveLength(0);
     expect((result.records[0] as GlucoseRecord).valueMgdl).toBe(120);
@@ -94,7 +100,10 @@ describe('genericCsvConnector.parse', () => {
   });
 
   it('reports an empty file as a warning with no records or issues', async () => {
-    const result = await genericCsvConnector.parse({ filename: 'x.csv', mimeType: 'text/csv', rows: [] }, { now: NOW });
+    const result = await genericCsvConnector.parse(
+      { filename: 'x.csv', mimeType: 'text/csv', rows: [] },
+      { now: NOW },
+    );
     expect(result.records).toHaveLength(0);
     expect(result.warnings.length).toBeGreaterThan(0);
   });

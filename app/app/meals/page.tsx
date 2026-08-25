@@ -49,19 +49,31 @@ export default async function MealsPage() {
         <header>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Meals</h1>
         </header>
-        <EmptyState title="No meals logged yet" icon="🍽️" action={<ButtonLink href="/app/meals/new">Log your first meal</ButtonLink>}>
+        <EmptyState
+          title="No meals logged yet"
+          icon="🍽️"
+          action={<ButtonLink href="/app/meals/new">Log your first meal</ButtonLink>}
+        >
           <p>
             Log what you eat to see it here — a short description and the time are all that is
-            required. If you add carbs, DiaLog can start showing how meals relate to your
-            readings.
+            required. If you add carbs, DiaLog can start showing how meals relate to your readings.
           </p>
         </EmptyState>
       </div>
     );
   }
 
-  const dayFmt = new Intl.DateTimeFormat(locale, { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' });
-  const timeFmt = new Intl.DateTimeFormat(locale, { timeZone: timezone, hour: 'numeric', minute: '2-digit' });
+  const dayFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  const timeFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 
   const groups = new Map<string, typeof meals>();
   for (const meal of meals) {
@@ -127,7 +139,10 @@ export default async function MealsPage() {
               </h3>
               <ul>
                 {dayMeals.map((meal) => (
-                  <li key={meal.id} className="flex flex-wrap items-start justify-between gap-3 border-b border-line py-3 last:border-0">
+                  <li
+                    key={meal.id}
+                    className="flex flex-wrap items-start justify-between gap-3 border-b border-line py-3 last:border-0"
+                  >
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-2">
                         <span className="text-base font-semibold">{meal.description}</span>
@@ -138,7 +153,8 @@ export default async function MealsPage() {
                         ) : null}
                       </p>
                       <p className="text-sm text-ink-muted">
-                        {MEAL_TYPE_LABELS[meal.mealType] ?? meal.mealType} · {timeFmt.format(meal.takenAt)}
+                        {MEAL_TYPE_LABELS[meal.mealType] ?? meal.mealType} ·{' '}
+                        {timeFmt.format(meal.takenAt)}
                         {meal.portion ? ` · ${meal.portion}` : ''}
                       </p>
                       <p className="mt-1 text-sm text-ink-muted">{formatMacros(meal)}</p>

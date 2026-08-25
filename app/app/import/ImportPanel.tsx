@@ -42,7 +42,10 @@ function CommitSubmit({ count }: { count: number }) {
  * stages, so nothing has to be parked on the server in the meantime.
  */
 export function ImportPanel() {
-  const [analysis, analyze] = useActionState<ImportState | null, FormData>(analyzeImportAction, null);
+  const [analysis, analyze] = useActionState<ImportState | null, FormData>(
+    analyzeImportAction,
+    null,
+  );
   const [commit, doCommit] = useActionState<ImportState | null, FormData>(commitImportAction, null);
   const [filename, setFilename] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -63,7 +66,11 @@ export function ImportPanel() {
       <Card>
         <form action={analyze}>
           <FormStatus
-            status={analysis && !analysis.ok && analysis.message ? { ok: false, message: analysis.message } : null}
+            status={
+              analysis && !analysis.ok && analysis.message
+                ? { ok: false, message: analysis.message }
+                : null
+            }
           />
           <div className="mb-5">
             <label htmlFor="import-file" className="mb-1.5 block text-base font-semibold">
@@ -97,7 +104,9 @@ export function ImportPanel() {
         {state?.ok && summary ? (
           <Card>
             <CardHeader
-              title={commit?.stage === 'committed' ? 'Import complete' : 'Here is what DiaLog found'}
+              title={
+                commit?.stage === 'committed' ? 'Import complete' : 'Here is what DiaLog found'
+              }
               description={`Read as: ${state.connectorName}`}
             />
 
@@ -191,13 +200,19 @@ export function ImportPanel() {
             {commit?.stage === 'committed' ? (
               <div className="mt-6">
                 <Callout tone="positive" icon="✓" title="Saved">
-                  Your readings are now in DiaLog. If this was the wrong file, you can undo the whole
-                  import below.
+                  Your readings are now in DiaLog. If this was the wrong file, you can undo the
+                  whole import below.
                 </Callout>
               </div>
             ) : null}
 
-            <FormStatus status={commit && !commit.ok && commit.message ? { ok: false, message: commit.message } : null} />
+            <FormStatus
+              status={
+                commit && !commit.ok && commit.message
+                  ? { ok: false, message: commit.message }
+                  : null
+              }
+            />
           </Card>
         ) : null}
       </div>

@@ -20,7 +20,9 @@ export function SignInForm() {
 
   return (
     <form action={action} className="mt-8" noValidate>
-      <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+      <FormStatus
+        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
+      />
 
       <Field label="Email address" required error={state?.errors?.email}>
         {({ id, describedBy, invalid }) => (

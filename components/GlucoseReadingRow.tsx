@@ -45,7 +45,9 @@ export function GlucoseReadingRow({
     <li className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 last:border-0">
       <div className="min-w-0">
         <p className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold tabular-nums">{formatGlucose(valueMgdl, unit, locale)}</span>
+          <span className="text-2xl font-bold tabular-nums">
+            {formatGlucose(valueMgdl, unit, locale)}
+          </span>
           <span className="text-sm text-ink-muted">{unitLabel(unit)}</span>
         </p>
         <p className="text-sm text-ink-muted">

@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { LocalProvider } from '@/lib/ai/providers/local';
-import { buildAnswerQuestionSystemPrompt, buildWeeklyNarrativeSystemPrompt } from '@/lib/ai/prompts';
-import { AssistantAnswerJsonSchema, WeeklyNarrativeJsonSchema, MealParseJsonSchema } from '@/lib/ai/schemas';
+import {
+  buildAnswerQuestionSystemPrompt,
+  buildWeeklyNarrativeSystemPrompt,
+} from '@/lib/ai/prompts';
+import {
+  AssistantAnswerJsonSchema,
+  WeeklyNarrativeJsonSchema,
+  MealParseJsonSchema,
+} from '@/lib/ai/schemas';
 import { AssistantAnswerSchema, WeeklyNarrativeSchema, MealParseSchema } from '@/lib/ai/schemas';
 import { makeBundle, makeFinding, makeInsufficientBundle } from './fixtures';
 
@@ -50,7 +57,12 @@ describe('LocalProvider', () => {
   it('produces the not-enough-data path when nothing relevant is found', async () => {
     const bundle = makeBundle({
       findings: [
-        makeFinding({ id: 'unrelated', kind: 'sleep_pattern', statement: 'Sleep duration is stable.', evidenceLevel: 'CONSISTENT' }),
+        makeFinding({
+          id: 'unrelated',
+          kind: 'sleep_pattern',
+          statement: 'Sleep duration is stable.',
+          evidenceLevel: 'CONSISTENT',
+        }),
       ],
     });
     const provider = new LocalProvider();
@@ -85,7 +97,11 @@ describe('LocalProvider', () => {
   it('builds a deterministic weekly narrative from findings', async () => {
     const bundle = makeBundle({
       findings: [
-        makeFinding({ id: 'a', evidenceLevel: 'CONSISTENT', statement: 'Weekday mornings run higher.' }),
+        makeFinding({
+          id: 'a',
+          evidenceLevel: 'CONSISTENT',
+          statement: 'Weekday mornings run higher.',
+        }),
         makeFinding({ id: 'b', evidenceLevel: 'EARLY', statement: 'Weekend evenings look lower.' }),
       ],
     });

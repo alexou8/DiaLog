@@ -5,7 +5,16 @@ import { analyzeUser, defaultWindow } from '@/lib/services/analytics-service';
 import { allBands, classifyGlucose } from '@/lib/domain/thresholds';
 import { formatGlucose, unitLabel } from '@/lib/domain/units';
 import { TIME_OF_DAY_LABELS } from '@/lib/domain/time';
-import { ButtonLink, Callout, Card, CardHeader, EmptyState, PageHeader, Stat, WhyThis } from '@/components/ui';
+import {
+  ButtonLink,
+  Callout,
+  Card,
+  CardHeader,
+  EmptyState,
+  PageHeader,
+  Stat,
+  WhyThis,
+} from '@/components/ui';
 import { GlucoseTimeline, type TimelineMarker } from '@/components/charts/GlucoseTimeline';
 import { BarChart } from '@/components/charts/BarChart';
 import { RangeBar } from '@/components/charts/RangeBar';
@@ -53,7 +62,9 @@ export default async function GlucosePage({
   ]);
 
   const summary = result.summary;
-  const timeline = [...readings].reverse().map((r) => ({ takenAt: r.takenAt, valueMgdl: r.valueMgdl }));
+  const timeline = [...readings]
+    .reverse()
+    .map((r) => ({ takenAt: r.takenAt, valueMgdl: r.valueMgdl }));
   const markers: TimelineMarker[] = [
     ...meals.map((m) => ({ at: m.takenAt, kind: 'meal' as const, label: m.description })),
     ...exercise.map((e) => ({ at: e.takenAt, kind: 'exercise' as const, label: e.activity })),
@@ -126,17 +137,27 @@ export default async function GlucosePage({
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Stat
                   label="Average"
-                  value={summary.averageMgdl == null ? '—' : formatGlucose(summary.averageMgdl, unit, locale)}
+                  value={
+                    summary.averageMgdl == null
+                      ? '—'
+                      : formatGlucose(summary.averageMgdl, unit, locale)
+                  }
                   unit={unitLabel(unit)}
                 />
                 <Stat
                   label="Middle value (median)"
-                  value={summary.medianMgdl == null ? '—' : formatGlucose(summary.medianMgdl, unit, locale)}
+                  value={
+                    summary.medianMgdl == null
+                      ? '—'
+                      : formatGlucose(summary.medianMgdl, unit, locale)
+                  }
                   unit={unitLabel(unit)}
                 />
                 <Stat
                   label="In your target range"
-                  value={summary.percentInRange == null ? '—' : `${Math.round(summary.percentInRange)}%`}
+                  value={
+                    summary.percentInRange == null ? '—' : `${Math.round(summary.percentInRange)}%`
+                  }
                   hint="Share of readings"
                 />
                 <Stat
@@ -200,9 +221,9 @@ export default async function GlucosePage({
               </div>
               <WhyThis label="Why are some bars marked as not enough data?">
                 <p>
-                  A bar drawn with diagonal hatching is based on fewer than three readings. An average
-                  of one or two readings tells you about those readings, not about that time of day,
-                  so DiaLog shows it as unreliable rather than dropping it silently.
+                  A bar drawn with diagonal hatching is based on fewer than three readings. An
+                  average of one or two readings tells you about those readings, not about that time
+                  of day, so DiaLog shows it as unreliable rather than dropping it silently.
                 </p>
               </WhyThis>
             </Card>
@@ -252,7 +273,14 @@ function groupByBucket(hours: { hour: number; averageMgdl: number | null; count:
   const buckets: Record<string, { sum: number; n: number }> = {};
   for (const hour of hours) {
     if (hour.averageMgdl == null || hour.count === 0) continue;
-    const key = hour.hour < 6 ? 'overnight' : hour.hour < 12 ? 'morning' : hour.hour < 18 ? 'afternoon' : 'evening';
+    const key =
+      hour.hour < 6
+        ? 'overnight'
+        : hour.hour < 12
+          ? 'morning'
+          : hour.hour < 18
+            ? 'afternoon'
+            : 'evening';
     const bucket = (buckets[key] ??= { sum: 0, n: 0 });
     bucket.sum += hour.averageMgdl * hour.count;
     bucket.n += hour.count;

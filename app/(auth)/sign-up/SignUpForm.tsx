@@ -20,11 +20,23 @@ export function SignUpForm() {
 
   return (
     <form action={action} className="mt-8" noValidate>
-      <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+      <FormStatus
+        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
+      />
 
-      <Field label="Your name" hint="Used to greet you. You can leave it blank." error={state?.errors?.displayName}>
+      <Field
+        label="Your name"
+        hint="Used to greet you. You can leave it blank."
+        error={state?.errors?.displayName}
+      >
         {({ id, describedBy, invalid }) => (
-          <TextInput id={id} name="displayName" autoComplete="name" aria-describedby={describedBy} invalid={invalid} />
+          <TextInput
+            id={id}
+            name="displayName"
+            autoComplete="name"
+            aria-describedby={describedBy}
+            invalid={invalid}
+          />
         )}
       </Field>
 
@@ -65,7 +77,8 @@ export function SignUpForm() {
 
       <Submit />
       <p className="mt-4 text-sm text-ink-muted">
-        By creating an account you agree to the terms of use. DiaLog does not provide medical advice.
+        By creating an account you agree to the terms of use. DiaLog does not provide medical
+        advice.
       </p>
     </form>
   );

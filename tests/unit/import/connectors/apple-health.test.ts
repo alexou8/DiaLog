@@ -3,12 +3,22 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parseXmlText } from '@/lib/import/parse';
 import { appleHealthConnector } from '@/lib/import/connectors/apple-health';
-import type { ExerciseRecord, GlucoseRecord, MealRecord, ParsedFile, SleepRecord, WeightRecord } from '@/lib/import/types';
+import type {
+  ExerciseRecord,
+  GlucoseRecord,
+  MealRecord,
+  ParsedFile,
+  SleepRecord,
+  WeightRecord,
+} from '@/lib/import/types';
 
 const NOW = new Date('2026-08-24T12:00:00Z');
 
 function loadFixture(): ParsedFile {
-  const text = readFileSync(path.join(process.cwd(), 'tests/fixtures/import/apple-health-export.xml'), 'utf8');
+  const text = readFileSync(
+    path.join(process.cwd(), 'tests/fixtures/import/apple-health-export.xml'),
+    'utf8',
+  );
   return { filename: 'export.xml', mimeType: 'application/xml', text, xml: parseXmlText(text) };
 }
 
@@ -18,7 +28,11 @@ describe('appleHealthConnector', () => {
   });
 
   it('does not detect an unrelated XML document', () => {
-    const file: ParsedFile = { filename: 'x.xml', mimeType: 'application/xml', xml: { foo: 'bar' } };
+    const file: ParsedFile = {
+      filename: 'x.xml',
+      mimeType: 'application/xml',
+      xml: { foo: 'bar' },
+    };
     expect(appleHealthConnector.detect(file)).toBe(0);
   });
 
@@ -59,7 +73,9 @@ describe('appleHealthConnector', () => {
   it('ignores irrelevant record types (e.g. step count) without producing an issue', async () => {
     const result = await appleHealthConnector.parse(loadFixture(), { now: NOW });
     // Step count is present in the fixture but is not one of the types this connector imports.
-    expect(result.records.some((r) => r.kind === 'exercise' && r.activity === 'Running')).toBe(true);
+    expect(result.records.some((r) => r.kind === 'exercise' && r.activity === 'Running')).toBe(
+      true,
+    );
     expect(result.issues).toHaveLength(0);
   });
 });

@@ -9,7 +9,10 @@ const NOW = new Date('2026-08-24T12:00:00Z');
 
 describe('empty files', () => {
   it('an empty CSV file produces no records, no issues, and a warning', async () => {
-    const result = await genericCsvConnector.parse({ filename: 'x.csv', mimeType: 'text/csv', rows: [] }, { now: NOW });
+    const result = await genericCsvConnector.parse(
+      { filename: 'x.csv', mimeType: 'text/csv', rows: [] },
+      { now: NOW },
+    );
     expect(result.records).toHaveLength(0);
     expect(result.issues).toHaveLength(0);
     expect(result.warnings.length).toBeGreaterThan(0);
@@ -20,7 +23,10 @@ describe('empty files', () => {
   });
 
   it('an empty JSON array produces no records and no issues', async () => {
-    const result = await genericJsonConnector.parse({ filename: 'x.json', mimeType: 'application/json', json: [] }, { now: NOW });
+    const result = await genericJsonConnector.parse(
+      { filename: 'x.json', mimeType: 'application/json', json: [] },
+      { now: NOW },
+    );
     expect(result.records).toHaveLength(0);
     expect(result.issues).toHaveLength(0);
   });

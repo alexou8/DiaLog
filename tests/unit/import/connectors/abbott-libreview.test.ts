@@ -8,7 +8,10 @@ import type { GlucoseRecord, MealRecord, ParsedFile } from '@/lib/import/types';
 const NOW = new Date('2026-08-24T12:00:00Z');
 
 function loadFixture(): ParsedFile {
-  const text = readFileSync(path.join(process.cwd(), 'tests/fixtures/import/libreview.csv'), 'utf8');
+  const text = readFileSync(
+    path.join(process.cwd(), 'tests/fixtures/import/libreview.csv'),
+    'utf8',
+  );
   return { filename: 'libreview.csv', mimeType: 'text/csv', text, rows: parseCsv(text) };
 }
 
@@ -18,7 +21,14 @@ describe('abbottLibreViewConnector', () => {
   });
 
   it('does not detect an unrelated CSV', async () => {
-    const file: ParsedFile = { filename: 'x.csv', mimeType: 'text/csv', rows: [['a', 'b'], ['1', '2']] };
+    const file: ParsedFile = {
+      filename: 'x.csv',
+      mimeType: 'text/csv',
+      rows: [
+        ['a', 'b'],
+        ['1', '2'],
+      ],
+    };
     expect(abbottLibreViewConnector.detect(file)).toBe(0);
   });
 

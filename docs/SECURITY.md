@@ -14,7 +14,7 @@ Sessions are stateless, signed JWT cookies (`lib/auth/session.ts`), not a server
 - Payload is minimal: `{ sub: userId, tokenVersion, iss: 'dialog', iat, exp }` — no email, name, or health data ever goes in the cookie.
 - Cookie flags: `httpOnly`, `sameSite: 'lax'`, `secure` in production, 30-day `maxAge`, scoped to `/`.
 - **Revocation**: `User.tokenVersion` (an integer, default 0) is embedded in every signed token. `getCurrentUser()` (`lib/auth/current-user.ts`) rejects a valid, unexpired token if `user.tokenVersion !== session.tokenVersion` — bumping the database column invalidates every outstanding cookie for that user instantly ("sign out everywhere"), without needing a revocation list or server-side session store.
-- `middleware.ts` does a fast edge-level check (redirect unauthenticated visitors away from `/app/*`) but is explicitly documented as *not* the authorization boundary — every server component and Server Action independently calls `requireUser()`/`requireOnboardedUser()` and re-verifies the session.
+- `middleware.ts` does a fast edge-level check (redirect unauthenticated visitors away from `/app/*`) but is explicitly documented as _not_ the authorization boundary — every server component and Server Action independently calls `requireUser()`/`requireOnboardedUser()` and re-verifies the session.
 
 ## Password handling
 
@@ -40,7 +40,7 @@ There is no row-level security at the Postgres level; authorization is enforced 
 Every external input — form submissions, the export API's query params, imported files — is parsed before touching domain logic:
 
 - Forms and Server Action payloads: Zod schemas in `lib/validation.ts` (`signUpSchema`, `glucoseEntrySchema`, etc.), each with user-facing error messages rather than developer-facing ones.
-- AI structured output: Zod schemas in `lib/ai/schemas.ts`, applied to *model output*, not just user input — the model is treated as an untrusted input source too.
+- AI structured output: Zod schemas in `lib/ai/schemas.ts`, applied to _model output_, not just user input — the model is treated as an untrusted input source too.
 - Numeric health values: bounds-checked against physiological plausibility, not just type-checked (`isPlausibleGlucose()` in `lib/domain/units.ts`; systolic/diastolic/pulse ranges in `lib/validation.ts`).
 
 ## Upload handling
@@ -59,10 +59,10 @@ Every external input — form submissions, the export API's query params, import
 ```ts
 export const RATE_LIMITS = {
   signIn: { limit: 10, windowMs: 15 * 60_000 },
-  signUp: { limit: 5,  windowMs: 60 * 60_000 },
+  signUp: { limit: 5, windowMs: 60 * 60_000 },
   import: { limit: 20, windowMs: 60 * 60_000 },
-  ai:     { limit: 30, windowMs: 60 * 60_000 },
-  write:  { limit: 240, windowMs: 60 * 60_000 },
+  ai: { limit: 30, windowMs: 60 * 60_000 },
+  write: { limit: 240, windowMs: 60 * 60_000 },
 } as const;
 ```
 
@@ -74,14 +74,14 @@ applied on sign-in/sign-up by client IP (`clientKey()` in `lib/actions/auth.ts`,
 
 Applied to every response via `headers()`:
 
-| Header | Value | Purpose |
-|---|---|---|
-| `X-Content-Type-Options` | `nosniff` | Blocks MIME-sniffing. |
-| `X-Frame-Options` | `DENY` | No embedding in a frame anywhere. |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | Limits referrer leakage to other origins. |
-| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Denies device APIs DiaLog never uses. |
-| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | Forces HTTPS for two years including subdomains. |
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'unsafe-inline'` (+`'unsafe-eval'` only in development, for Next's dev tooling)`; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'` | No third-party script/style/connect origins anywhere; `'unsafe-inline'` on script/style is required because Next.js injects inline bootstrap scripts and the app uses inline chart CSS variables — noted directly in the config's comment. |
+| Header                      | Value                                                                                                                                                                                                                                                                                                             | Purpose                                                                                                                                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `X-Content-Type-Options`    | `nosniff`                                                                                                                                                                                                                                                                                                         | Blocks MIME-sniffing.                                                                                                                                                                                                                      |
+| `X-Frame-Options`           | `DENY`                                                                                                                                                                                                                                                                                                            | No embedding in a frame anywhere.                                                                                                                                                                                                          |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                                                                                                                                                                                                                                                                 | Limits referrer leakage to other origins.                                                                                                                                                                                                  |
+| `Permissions-Policy`        | `camera=(), microphone=(), geolocation=()`                                                                                                                                                                                                                                                                        | Denies device APIs DiaLog never uses.                                                                                                                                                                                                      |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload`                                                                                                                                                                                                                                                                    | Forces HTTPS for two years including subdomains.                                                                                                                                                                                           |
+| `Content-Security-Policy`   | `default-src 'self'; script-src 'self' 'unsafe-inline'` (+`'unsafe-eval'` only in development, for Next's dev tooling)`; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'` | No third-party script/style/connect origins anywhere; `'unsafe-inline'` on script/style is required because Next.js injects inline bootstrap scripts and the app uses inline chart CSS variables — noted directly in the config's comment. |
 
 Additionally, every route under `/app/*` gets `X-Robots-Tag: noindex, nofollow, noarchive` so authenticated surfaces are never indexed.
 

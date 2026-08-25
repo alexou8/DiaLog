@@ -22,7 +22,9 @@ export function WeightForm({ timezone }: { timezone: string }) {
 
   return (
     <form action={action} noValidate>
-      <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+      <FormStatus
+        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
+      />
 
       <div className="grid grid-cols-[1fr,auto] items-start gap-3">
         <Field label="Weight" required error={state?.errors?.weight} htmlFor="weight">
@@ -52,13 +54,27 @@ export function WeightForm({ timezone }: { timezone: string }) {
 
       <Field label="When" required error={state?.errors?.takenAt} htmlFor="takenAt">
         {({ id, describedBy, invalid }) => (
-          <TextInput id={id} name="takenAt" type="datetime-local" required defaultValue={now} aria-describedby={describedBy} invalid={invalid} />
+          <TextInput
+            id={id}
+            name="takenAt"
+            type="datetime-local"
+            required
+            defaultValue={now}
+            aria-describedby={describedBy}
+            invalid={invalid}
+          />
         )}
       </Field>
 
       <Field label="Note" error={state?.errors?.note} htmlFor="note">
         {({ id, describedBy, invalid }) => (
-          <TextInput id={id} name="note" maxLength={500} aria-describedby={describedBy} invalid={invalid} />
+          <TextInput
+            id={id}
+            name="note"
+            maxLength={500}
+            aria-describedby={describedBy}
+            invalid={invalid}
+          />
         )}
       </Field>
 

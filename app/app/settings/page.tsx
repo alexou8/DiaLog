@@ -9,7 +9,12 @@ import { RegionForm } from './RegionForm';
 import { DisplayForm } from './DisplayForm';
 import { AssistantForm } from './AssistantForm';
 import { DataExport } from './DataExport';
-import { ChangePasswordForm, SignOutEverywhereForm, DeleteAllRecordsForm, DeleteAccountForm } from './AccountForms';
+import {
+  ChangePasswordForm,
+  SignOutEverywhereForm,
+  DeleteAllRecordsForm,
+  DeleteAccountForm,
+} from './AccountForms';
 
 export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
@@ -61,7 +66,11 @@ export default async function SettingsPage() {
         <h2 id="assistant-heading" className="text-xl font-semibold sm:text-2xl">
           The assistant
         </h2>
-        <AssistantForm profile={profile} providerName={provider.name} providerIsExternal={provider.isExternal} />
+        <AssistantForm
+          profile={profile}
+          providerName={provider.name}
+          providerIsExternal={provider.isExternal}
+        />
       </section>
 
       {/* -------------------------------------------------------------- Your data */}
@@ -89,8 +98,8 @@ export default async function SettingsPage() {
             Permanently delete
           </h3>
           <p className="mt-1 max-w-prose text-sm text-ink">
-            These actions cannot be undone. Nothing is kept in a recoverable state — once you confirm,
-            the data is gone.
+            These actions cannot be undone. Nothing is kept in a recoverable state — once you
+            confirm, the data is gone.
           </p>
           <div className="mt-5 space-y-6">
             <DeleteAllRecordsForm totalRecords={totalRecords} userEmail={user.email} />

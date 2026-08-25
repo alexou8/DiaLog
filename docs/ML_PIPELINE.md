@@ -11,13 +11,13 @@ in the product and its models are not served to users.
 
 ## Relationship to the production analytics engine
 
-| | `ml/` (this pipeline) | Production TS analytics engine (repo root) |
-|---|---|---|
-| Purpose | Research: does a method work at all, and how well? | Serves real users |
-| Language | Python (pandas, scikit-learn) | TypeScript |
-| Data | Local sqlite export / CSV, including synthetic fixtures | Live user data |
-| Deployment | Not deployed, run manually / in CI as a check | Deployed |
-| Role | Produces a findings report a human reads | Implements whatever the findings justify |
+|            | `ml/` (this pipeline)                                   | Production TS analytics engine (repo root) |
+| ---------- | ------------------------------------------------------- | ------------------------------------------ |
+| Purpose    | Research: does a method work at all, and how well?      | Serves real users                          |
+| Language   | Python (pandas, scikit-learn)                           | TypeScript                                 |
+| Data       | Local sqlite export / CSV, including synthetic fixtures | Live user data                             |
+| Deployment | Not deployed, run manually / in CI as a check           | Deployed                                   |
+| Role       | Produces a findings report a human reads                | Implements whatever the findings justify   |
 
 Nothing in `ml/` is imported by, or executes inside, the production app. The
 intended workflow is: prototype and evaluate a method here -> read the
@@ -36,7 +36,7 @@ fixed in `ml/src/features.py` and `ml/src/modeling.py`:
    `train_classifier` used `sklearn.model_selection.train_test_split` with
    `stratify`, i.e. a random shuffle. Because the underlying data is a time
    series (glucose readings anchored to timestamps), a random split lets the
-   model train on readings that are chronologically *after* some of the
+   model train on readings that are chronologically _after_ some of the
    readings it is evaluated on -- an easy way to look better than a
    real-world forward-predicting deployment ever would. **Fix:** the model
    is now trained and evaluated with a strict chronological split

@@ -46,7 +46,11 @@ export function AssistantPanel({ defaultDetail }: { defaultDetail: DetailLevel }
     <div className="space-y-6">
       <Card>
         <form action={action} noValidate>
-          <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+          <FormStatus
+            status={
+              state && !state.ok && state.message ? { ok: false, message: state.message } : null
+            }
+          />
 
           <Field label="Your question" required error={state?.errors?.question}>
             {({ id, describedBy, invalid }) => (
@@ -63,7 +67,10 @@ export function AssistantPanel({ defaultDetail }: { defaultDetail: DetailLevel }
             )}
           </Field>
 
-          <Field label="How much detail would you like?" hint="You can change this for any question.">
+          <Field
+            label="How much detail would you like?"
+            hint="You can change this for any question."
+          >
             {({ id }) => (
               <Select id={id} name="detailLevel" defaultValue={defaultDetail.toLowerCase()}>
                 <option value="simple">Simple — a short, plain answer</option>
@@ -139,15 +146,16 @@ export function AssistantPanel({ defaultDetail }: { defaultDetail: DetailLevel }
                       <p className="font-medium text-ink">{finding.statement}</p>
                       <p>
                         {finding.basis} Based on {finding.sampleSize}{' '}
-                        {finding.sampleSize === 1 ? 'record' : 'records'} ({finding.evidenceLevel.toLowerCase()}).
+                        {finding.sampleSize === 1 ? 'record' : 'records'} (
+                        {finding.evidenceLevel.toLowerCase()}).
                       </p>
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p>
-                  No specific finding was strong enough to cite, which is why the answer is cautious.
-                  More logged days will change that.
+                  No specific finding was strong enough to cite, which is why the answer is
+                  cautious. More logged days will change that.
                 </p>
               )}
               <p className="mt-3 text-xs">

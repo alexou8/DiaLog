@@ -7,7 +7,10 @@ import type { GlucoseRecord, ParsedFile } from '@/lib/import/types';
 const NOW = new Date('2026-08-24T12:00:00Z');
 
 function loadFixture(): ParsedFile {
-  const text = readFileSync(path.join(process.cwd(), 'tests/fixtures/import/nightscout-entries.json'), 'utf8');
+  const text = readFileSync(
+    path.join(process.cwd(), 'tests/fixtures/import/nightscout-entries.json'),
+    'utf8',
+  );
   return { filename: 'entries.json', mimeType: 'application/json', text, json: JSON.parse(text) };
 }
 
@@ -17,7 +20,11 @@ describe('nightscoutConnector', () => {
   });
 
   it('does not detect an unrelated JSON array', () => {
-    const file: ParsedFile = { filename: 'x.json', mimeType: 'application/json', json: [{ foo: 'bar' }] };
+    const file: ParsedFile = {
+      filename: 'x.json',
+      mimeType: 'application/json',
+      json: [{ foo: 'bar' }],
+    };
     expect(nightscoutConnector.detect(file)).toBe(0);
   });
 
@@ -53,6 +60,8 @@ describe('nightscoutConnector', () => {
     };
     const result = await nightscoutConnector.parse(file, { now: NOW });
     expect(result.records).toHaveLength(1);
-    expect((result.records[0] as GlucoseRecord).takenAt.toISOString()).toBe('2026-01-10T08:00:00.000Z');
+    expect((result.records[0] as GlucoseRecord).takenAt.toISOString()).toBe(
+      '2026-01-10T08:00:00.000Z',
+    );
   });
 });

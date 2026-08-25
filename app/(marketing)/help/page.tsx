@@ -15,8 +15,8 @@ export default function HelpPage() {
         </li>
         <li>
           <strong>Import a file.</strong> Import → drag in the CSV, Excel, JSON or XML file your
-          meter&apos;s software or your phone&apos;s health app exports. DiaLog works out the format,
-          shows you what it found, and asks before saving anything.
+          meter&apos;s software or your phone&apos;s health app exports. DiaLog works out the
+          format, shows you what it found, and asks before saving anything.
         </li>
         <li>
           <strong>Describe your day.</strong> Type &ldquo;had a burger and fries around 7, walked 20
@@ -27,9 +27,9 @@ export default function HelpPage() {
 
       <h2>Why does it say &ldquo;not enough data yet&rdquo;?</h2>
       <p>
-        Because it is true. Each kind of comparison needs a minimum number of your records before the
-        result means anything. The message tells you how many you have and how many are needed, so you
-        know what to log next.
+        Because it is true. Each kind of comparison needs a minimum number of your records before
+        the result means anything. The message tells you how many you have and how many are needed,
+        so you know what to log next.
       </p>
 
       <h2>Changing units</h2>
@@ -47,15 +47,15 @@ export default function HelpPage() {
 
       <h2>Installing on your phone</h2>
       <p>
-        Open DiaLog in your phone&apos;s browser and choose &ldquo;Add to Home Screen&rdquo;. It then
-        opens like an app, full screen. For your privacy it does not keep your readings on the device,
-        so it needs a connection to show them.
+        Open DiaLog in your phone&apos;s browser and choose &ldquo;Add to Home Screen&rdquo;. It
+        then opens like an app, full screen. For your privacy it does not keep your readings on the
+        device, so it needs a connection to show them.
       </p>
 
       <h2>Something looks wrong</h2>
       <p>
-        Every record can be edited or deleted from History, and every imported record shows which file
-        it came from. If an import went wrong, you can remove the whole batch in one step.
+        Every record can be edited or deleted from History, and every imported record shows which
+        file it came from. If an import went wrong, you can remove the whole batch in one step.
       </p>
     </Prose>
   );

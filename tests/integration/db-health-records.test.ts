@@ -20,16 +20,41 @@ describe('record creation and retrieval round-trips', () => {
     const takenAt = new Date('2026-02-01T10:00:00Z');
 
     const glucose = await prisma.glucoseReading.create({
-      data: { userId: user.id, takenAt, valueMgdl: 110, context: 'FASTING', dedupeKey: 'rt-glucose' },
+      data: {
+        userId: user.id,
+        takenAt,
+        valueMgdl: 110,
+        context: 'FASTING',
+        dedupeKey: 'rt-glucose',
+      },
     });
     const meal = await prisma.meal.create({
-      data: { userId: user.id, takenAt, description: 'Oatmeal', mealType: 'BREAKFAST', carbsG: 40, dedupeKey: 'rt-meal' },
+      data: {
+        userId: user.id,
+        takenAt,
+        description: 'Oatmeal',
+        mealType: 'BREAKFAST',
+        carbsG: 40,
+        dedupeKey: 'rt-meal',
+      },
     });
     const exercise = await prisma.exerciseSession.create({
-      data: { userId: user.id, takenAt, activity: 'walk', durationMin: 20, dedupeKey: 'rt-exercise' },
+      data: {
+        userId: user.id,
+        takenAt,
+        activity: 'walk',
+        durationMin: 20,
+        dedupeKey: 'rt-exercise',
+      },
     });
     const sleep = await prisma.sleepSession.create({
-      data: { userId: user.id, takenAt, endedAt: new Date(takenAt.getTime() + 8 * 3600_000), durationMin: 480, dedupeKey: 'rt-sleep' },
+      data: {
+        userId: user.id,
+        takenAt,
+        endedAt: new Date(takenAt.getTime() + 8 * 3600_000),
+        durationMin: 480,
+        dedupeKey: 'rt-sleep',
+      },
     });
     const medication = await prisma.medicationEvent.create({
       data: { userId: user.id, takenAt, name: 'Metformin', dedupeKey: 'rt-med' },
@@ -44,14 +69,30 @@ describe('record creation and retrieval round-trips', () => {
       data: { userId: user.id, takenAt, mood: 4, dedupeKey: 'rt-mood' },
     });
 
-    expect(await prisma.glucoseReading.findUniqueOrThrow({ where: { id: glucose.id } })).toMatchObject({ valueMgdl: 110 });
-    expect(await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } })).toMatchObject({ description: 'Oatmeal' });
-    expect(await prisma.exerciseSession.findUniqueOrThrow({ where: { id: exercise.id } })).toMatchObject({ activity: 'walk' });
-    expect(await prisma.sleepSession.findUniqueOrThrow({ where: { id: sleep.id } })).toMatchObject({ durationMin: 480 });
-    expect(await prisma.medicationEvent.findUniqueOrThrow({ where: { id: medication.id } })).toMatchObject({ name: 'Metformin' });
-    expect(await prisma.weightMeasurement.findUniqueOrThrow({ where: { id: weight.id } })).toMatchObject({ weightKg: 70 });
-    expect(await prisma.bloodPressureMeasurement.findUniqueOrThrow({ where: { id: bp.id } })).toMatchObject({ systolic: 120 });
-    expect(await prisma.moodEntry.findUniqueOrThrow({ where: { id: mood.id } })).toMatchObject({ mood: 4 });
+    expect(
+      await prisma.glucoseReading.findUniqueOrThrow({ where: { id: glucose.id } }),
+    ).toMatchObject({ valueMgdl: 110 });
+    expect(await prisma.meal.findUniqueOrThrow({ where: { id: meal.id } })).toMatchObject({
+      description: 'Oatmeal',
+    });
+    expect(
+      await prisma.exerciseSession.findUniqueOrThrow({ where: { id: exercise.id } }),
+    ).toMatchObject({ activity: 'walk' });
+    expect(await prisma.sleepSession.findUniqueOrThrow({ where: { id: sleep.id } })).toMatchObject({
+      durationMin: 480,
+    });
+    expect(
+      await prisma.medicationEvent.findUniqueOrThrow({ where: { id: medication.id } }),
+    ).toMatchObject({ name: 'Metformin' });
+    expect(
+      await prisma.weightMeasurement.findUniqueOrThrow({ where: { id: weight.id } }),
+    ).toMatchObject({ weightKg: 70 });
+    expect(
+      await prisma.bloodPressureMeasurement.findUniqueOrThrow({ where: { id: bp.id } }),
+    ).toMatchObject({ systolic: 120 });
+    expect(await prisma.moodEntry.findUniqueOrThrow({ where: { id: mood.id } })).toMatchObject({
+      mood: 4,
+    });
 
     // Sanity: every declared RECORD_TYPES entry maps to a table we actually exercised
     // (bloodPressure has no deleteOwnedRecord coverage below beyond this smoke test).
@@ -130,7 +171,13 @@ describe('recordCounts', () => {
       ],
     });
     await prisma.meal.create({
-      data: { userId: user.id, takenAt: new Date(), description: 'x', mealType: 'SNACK', dedupeKey: 'c-meal' },
+      data: {
+        userId: user.id,
+        takenAt: new Date(),
+        description: 'x',
+        mealType: 'SNACK',
+        dedupeKey: 'c-meal',
+      },
     });
 
     const counts = await recordCounts(user.id);
@@ -150,32 +197,81 @@ describe('cascade deletion of a User', () => {
     const { user } = await createTestUser('cascade');
     const takenAt = new Date();
 
-    await prisma.glucoseReading.create({ data: { userId: user.id, takenAt, valueMgdl: 100, dedupeKey: 'casc-g' } });
-    await prisma.meal.create({ data: { userId: user.id, takenAt, description: 'x', mealType: 'OTHER', dedupeKey: 'casc-m' } });
-    await prisma.exerciseSession.create({ data: { userId: user.id, takenAt, activity: 'run', durationMin: 10, dedupeKey: 'casc-e' } });
-    await prisma.sleepSession.create({
-      data: { userId: user.id, takenAt, endedAt: new Date(takenAt.getTime() + 1000), durationMin: 10, dedupeKey: 'casc-s' },
+    await prisma.glucoseReading.create({
+      data: { userId: user.id, takenAt, valueMgdl: 100, dedupeKey: 'casc-g' },
     });
-    await prisma.medicationEvent.create({ data: { userId: user.id, takenAt, name: 'x', dedupeKey: 'casc-med' } });
-    await prisma.weightMeasurement.create({ data: { userId: user.id, takenAt, weightKg: 1, dedupeKey: 'casc-w' } });
-    await prisma.bloodPressureMeasurement.create({ data: { userId: user.id, takenAt, systolic: 1, diastolic: 1, dedupeKey: 'casc-bp' } });
-    await prisma.hydrationEvent.create({ data: { userId: user.id, takenAt, volumeMl: 1, dedupeKey: 'casc-h' } });
-    await prisma.symptomEntry.create({ data: { userId: user.id, takenAt, symptom: 'x', dedupeKey: 'casc-sym' } });
-    await prisma.moodEntry.create({ data: { userId: user.id, takenAt, mood: 1, dedupeKey: 'casc-mood' } });
-    await prisma.noteEntry.create({ data: { userId: user.id, takenAt, text: 'x', dedupeKey: 'casc-note' } });
+    await prisma.meal.create({
+      data: { userId: user.id, takenAt, description: 'x', mealType: 'OTHER', dedupeKey: 'casc-m' },
+    });
+    await prisma.exerciseSession.create({
+      data: { userId: user.id, takenAt, activity: 'run', durationMin: 10, dedupeKey: 'casc-e' },
+    });
+    await prisma.sleepSession.create({
+      data: {
+        userId: user.id,
+        takenAt,
+        endedAt: new Date(takenAt.getTime() + 1000),
+        durationMin: 10,
+        dedupeKey: 'casc-s',
+      },
+    });
+    await prisma.medicationEvent.create({
+      data: { userId: user.id, takenAt, name: 'x', dedupeKey: 'casc-med' },
+    });
+    await prisma.weightMeasurement.create({
+      data: { userId: user.id, takenAt, weightKg: 1, dedupeKey: 'casc-w' },
+    });
+    await prisma.bloodPressureMeasurement.create({
+      data: { userId: user.id, takenAt, systolic: 1, diastolic: 1, dedupeKey: 'casc-bp' },
+    });
+    await prisma.hydrationEvent.create({
+      data: { userId: user.id, takenAt, volumeMl: 1, dedupeKey: 'casc-h' },
+    });
+    await prisma.symptomEntry.create({
+      data: { userId: user.id, takenAt, symptom: 'x', dedupeKey: 'casc-sym' },
+    });
+    await prisma.moodEntry.create({
+      data: { userId: user.id, takenAt, mood: 1, dedupeKey: 'casc-mood' },
+    });
+    await prisma.noteEntry.create({
+      data: { userId: user.id, takenAt, text: 'x', dedupeKey: 'casc-note' },
+    });
     const device = await prisma.device.create({ data: { userId: user.id, label: 'meter' } });
     const batch = await prisma.importBatch.create({
-      data: { userId: user.id, connectorId: 'generic-csv', connectorName: 'Generic CSV', filename: 'f.csv', deviceId: device.id },
+      data: {
+        userId: user.id,
+        connectorId: 'generic-csv',
+        connectorName: 'Generic CSV',
+        filename: 'f.csv',
+        deviceId: device.id,
+      },
     });
-    await prisma.importIssue.create({ data: { batchId: batch.id, rowNumber: 1, code: 'INVALID_VALUE', message: 'x' } });
+    await prisma.importIssue.create({
+      data: { batchId: batch.id, rowNumber: 1, code: 'INVALID_VALUE', message: 'x' },
+    });
     await prisma.insight.create({
-      data: { userId: user.id, kind: 'x', title: 'x', summary: 'x', evidenceLevel: 'EARLY', evidence: {}, periodStart: takenAt, periodEnd: takenAt },
+      data: {
+        userId: user.id,
+        kind: 'x',
+        title: 'x',
+        summary: 'x',
+        evidenceLevel: 'EARLY',
+        evidence: {},
+        periodStart: takenAt,
+        periodEnd: takenAt,
+      },
     });
     const convo = await prisma.aIConversation.create({ data: { userId: user.id } });
-    await prisma.aIMessage.create({ data: { conversationId: convo.id, role: 'user', content: 'hi' } });
+    await prisma.aIMessage.create({
+      data: { conversationId: convo.id, role: 'user', content: 'hi' },
+    });
     await prisma.auditEvent.create({ data: { userId: user.id, action: 'sign-in' } });
     const resetToken = await prisma.passwordResetToken.create({
-      data: { userId: user.id, tokenHash: `hash-${user.id}`, expiresAt: new Date(Date.now() + 3600_000) },
+      data: {
+        userId: user.id,
+        tokenHash: `hash-${user.id}`,
+        expiresAt: new Date(Date.now() + 3600_000),
+      },
     });
 
     await prisma.user.delete({ where: { id: user.id } });

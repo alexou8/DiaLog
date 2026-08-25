@@ -18,7 +18,14 @@ describe('omronConnector', () => {
   });
 
   it('does not detect an unrelated CSV', () => {
-    const file: ParsedFile = { filename: 'x.csv', mimeType: 'text/csv', rows: [['a', 'b'], ['1', '2']] };
+    const file: ParsedFile = {
+      filename: 'x.csv',
+      mimeType: 'text/csv',
+      rows: [
+        ['a', 'b'],
+        ['1', '2'],
+      ],
+    };
     expect(omronConnector.detect(file)).toBe(0);
   });
 

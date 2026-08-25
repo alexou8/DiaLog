@@ -35,11 +35,16 @@ export function GlucoseForm({
   defaultTime: string;
   targetHint: string;
 }) {
-  const [state, action] = useActionState<RecordActionState | null, FormData>(addGlucoseAction, null);
+  const [state, action] = useActionState<RecordActionState | null, FormData>(
+    addGlucoseAction,
+    null,
+  );
 
   return (
     <form action={action} noValidate>
-      <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+      <FormStatus
+        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
+      />
       <input type="hidden" name="unit" value={unit} />
 
       <Field
@@ -87,9 +92,20 @@ export function GlucoseForm({
         options={[...CONTEXTS]}
       />
 
-      <Field label="A note, if you want one" hint="For example: “felt shaky”, or “after a long walk”." error={state?.errors?.note}>
+      <Field
+        label="A note, if you want one"
+        hint="For example: “felt shaky”, or “after a long walk”."
+        error={state?.errors?.note}
+      >
         {({ id, describedBy, invalid }) => (
-          <TextArea id={id} name="note" rows={2} maxLength={500} aria-describedby={describedBy} invalid={invalid} />
+          <TextArea
+            id={id}
+            name="note"
+            rows={2}
+            maxLength={500}
+            aria-describedby={describedBy}
+            invalid={invalid}
+          />
         )}
       </Field>
 

@@ -12,7 +12,11 @@ import {
 import { Button } from '@/components/ui';
 import { Field, FormStatus, TextInput } from '@/components/ui/form';
 
-function SubmitButton({ children, pendingLabel, variant = 'primary' }: {
+function SubmitButton({
+  children,
+  pendingLabel,
+  variant = 'primary',
+}: {
   children: React.ReactNode;
   pendingLabel: string;
   variant?: 'primary' | 'danger' | 'secondary';
@@ -42,7 +46,9 @@ export function ChangePasswordForm() {
       </p>
 
       <div className="mt-4">
-        <FormStatus status={state && state.message ? { ok: state.ok, message: state.message } : null} />
+        <FormStatus
+          status={state && state.message ? { ok: state.ok, message: state.message } : null}
+        />
       </div>
 
       <Field label="Current password" required error={state?.errors?.currentPassword}>
@@ -59,7 +65,12 @@ export function ChangePasswordForm() {
         )}
       </Field>
 
-      <Field label="New password" required hint="At least 10 characters. A short phrase works well." error={state?.errors?.newPassword}>
+      <Field
+        label="New password"
+        required
+        hint="At least 10 characters. A short phrase works well."
+        error={state?.errors?.newPassword}
+      >
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -95,7 +106,10 @@ export function ChangePasswordForm() {
 // ------------------------------------------------------------- sign out all
 
 export function SignOutEverywhereForm() {
-  const [state, action] = useActionState<ActionState | null, FormData>(signOutEverywhereAction, null);
+  const [state, action] = useActionState<ActionState | null, FormData>(
+    signOutEverywhereAction,
+    null,
+  );
 
   return (
     <form
@@ -107,7 +121,9 @@ export function SignOutEverywhereForm() {
         Immediately signs out every device and browser signed in to your account, except this one.
       </p>
       <div className="mt-4">
-        <FormStatus status={state && state.message ? { ok: state.ok, message: state.message } : null} />
+        <FormStatus
+          status={state && state.message ? { ok: state.ok, message: state.message } : null}
+        />
       </div>
       <SubmitButton pendingLabel="Signing out other devices…" variant="secondary">
         Sign out everywhere else
@@ -118,8 +134,17 @@ export function SignOutEverywhereForm() {
 
 // -------------------------------------------------------- destructive zone
 
-export function DeleteAllRecordsForm({ totalRecords, userEmail }: { totalRecords: number; userEmail: string }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(deleteAllRecordsAction, null);
+export function DeleteAllRecordsForm({
+  totalRecords,
+  userEmail,
+}: {
+  totalRecords: number;
+  userEmail: string;
+}) {
+  const [state, action] = useActionState<ActionState | null, FormData>(
+    deleteAllRecordsAction,
+    null,
+  );
 
   return (
     <form action={action} noValidate aria-labelledby="delete-records-heading">
@@ -128,16 +153,24 @@ export function DeleteAllRecordsForm({ totalRecords, userEmail }: { totalRecords
       </h4>
       <p className="mt-1 max-w-prose text-sm text-ink">
         Permanently deletes all {totalRecords.toLocaleString()} of your glucose readings, meals,
-        activity, sleep, medication, weight, blood pressure, mood and note entries. Your account, sign-in
-        and settings are kept. This cannot be undone — there is no way to recover deleted records.
+        activity, sleep, medication, weight, blood pressure, mood and note entries. Your account,
+        sign-in and settings are kept. This cannot be undone — there is no way to recover deleted
+        records.
       </p>
 
       <div className="mt-4">
-        <FormStatus status={state && state.message ? { ok: state.ok, message: state.message } : null} />
+        <FormStatus
+          status={state && state.message ? { ok: state.ok, message: state.message } : null}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Type your account email to confirm" required error={state?.errors?.confirmEmail} hint={userEmail}>
+        <Field
+          label="Type your account email to confirm"
+          required
+          error={state?.errors?.confirmEmail}
+          hint={userEmail}
+        >
           {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
@@ -188,11 +221,20 @@ export function DeleteAccountForm({ userEmail }: { userEmail: string }) {
       </p>
 
       <div className="mt-4">
-        <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+        <FormStatus
+          status={
+            state && !state.ok && state.message ? { ok: false, message: state.message } : null
+          }
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Type your account email to confirm" required error={state?.errors?.confirmEmail} hint={userEmail}>
+        <Field
+          label="Type your account email to confirm"
+          required
+          error={state?.errors?.confirmEmail}
+          hint={userEmail}
+        >
           {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}

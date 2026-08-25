@@ -8,7 +8,9 @@ export default function SignInPage() {
   return (
     <>
       <h1 className="text-2xl font-bold sm:text-3xl">Welcome back</h1>
-      <p className="mt-2 text-ink-muted">Sign in to see your readings and this week&apos;s observations.</p>
+      <p className="mt-2 text-ink-muted">
+        Sign in to see your readings and this week&apos;s observations.
+      </p>
       <SignInForm />
       <p className="mt-6 text-center">
         New to DiaLog?{' '}

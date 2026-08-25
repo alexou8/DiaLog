@@ -6,15 +6,15 @@ DiaLog is a personal glucose and metabolic health tracker: a Next.js web app for
 
 ## Screenshots
 
-| | |
-|---|---|
-| ![Landing page](docs/screenshots/landing.png) | ![Dashboard](docs/screenshots/dashboard.png) |
-| ![Dashboard, dark theme](docs/screenshots/dashboard-dark.png) | ![Glucose log](docs/screenshots/glucose.png) |
-| ![Add a reading](docs/screenshots/add-reading.png) | ![Insights](docs/screenshots/insights.png) |
-| ![Reports](docs/screenshots/reports.png) | ![History](docs/screenshots/history.png) |
-| ![Data import](docs/screenshots/import.png) | ![AI assistant](docs/screenshots/assistant.png) |
-| ![Settings](docs/screenshots/settings.png) | ![Mobile dashboard](docs/screenshots/mobile-dashboard.png) |
-| ![Mobile glucose log](docs/screenshots/mobile-glucose.png) | ![Mobile add a reading](docs/screenshots/mobile-add-reading.png) |
+|                                                               |                                                                  |
+| ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| ![Landing page](docs/screenshots/landing.png)                 | ![Dashboard](docs/screenshots/dashboard.png)                     |
+| ![Dashboard, dark theme](docs/screenshots/dashboard-dark.png) | ![Glucose log](docs/screenshots/glucose.png)                     |
+| ![Add a reading](docs/screenshots/add-reading.png)            | ![Insights](docs/screenshots/insights.png)                       |
+| ![Reports](docs/screenshots/reports.png)                      | ![History](docs/screenshots/history.png)                         |
+| ![Data import](docs/screenshots/import.png)                   | ![AI assistant](docs/screenshots/assistant.png)                  |
+| ![Settings](docs/screenshots/settings.png)                    | ![Mobile dashboard](docs/screenshots/mobile-dashboard.png)       |
+| ![Mobile glucose log](docs/screenshots/mobile-glucose.png)    | ![Mobile add a reading](docs/screenshots/mobile-add-reading.png) |
 
 ## Features
 
@@ -46,16 +46,16 @@ Only features that are actually implemented and working are listed here.
 
 ## Tech stack
 
-| Layer | Choice (pinned version) | Why |
-|---|---|---|
-| Framework | Next.js **15.5.4** (App Router), React **19.1.1** | Server Components let pages fetch and render user data directly without a separate API layer for most reads; Server Actions (`lib/actions/*`) give validated, CSRF-safe mutations without hand-rolling a REST/GraphQL API. |
-| Database | PostgreSQL via Prisma **6.16.2** (`@prisma/client`) | Health records are relational, per-user, and need real transactions (e.g. import commit, export) — Prisma gives typed queries and migrations against a real ACID database rather than a document store. |
-| Auth | Hand-rolled signed-cookie sessions (`jose` **6.1.0**, `bcryptjs` **3.0.2**) | No third-party identity provider sees health data or account existence; a stateless JWT cookie plus a `tokenVersion` column gives "sign out everywhere" without a session-store dependency. See [docs/SECURITY.md](docs/SECURITY.md). |
-| Charts | Hand-built inline SVG (`components/charts/*`), no charting library | Full control over the accessibility contract: every chart ships a real `<table>` alternative and never relies on colour alone — properties a generic charting library's default output does not guarantee. |
-| Styling | Tailwind CSS **4.1.13** (`@tailwindcss/postcss`) | CSS-first configuration (no `tailwind.config.js`) and native cascade layers keep the design-token/dark-mode/reduced-motion logic in `app/globals.css` simple and inspectable. |
-| Validation | Zod **3.25.76** | Every form, server action and API input is parsed through one schema library (`lib/validation.ts`, `lib/ai/schemas.ts`), so validation logic is centralized and typed. |
-| Import parsing | `exceljs` **4.4.0**, `fast-xml-parser` **5.2.5** | XLSX and XML are real vendor export formats (Apple Health, LibreView) that need dedicated parsers, not just a CSV reader. |
-| Testing | Vitest **3.2.4**, Playwright **1.55.0**, `@axe-core/playwright` **4.10.2** | Vitest for fast unit/integration tests against real logic; Playwright + axe-core for browser-level and automated accessibility checks. |
+| Layer          | Choice (pinned version)                                                     | Why                                                                                                                                                                                                                                   |
+| -------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework      | Next.js **15.5.4** (App Router), React **19.1.1**                           | Server Components let pages fetch and render user data directly without a separate API layer for most reads; Server Actions (`lib/actions/*`) give validated, CSRF-safe mutations without hand-rolling a REST/GraphQL API.            |
+| Database       | PostgreSQL via Prisma **6.16.2** (`@prisma/client`)                         | Health records are relational, per-user, and need real transactions (e.g. import commit, export) — Prisma gives typed queries and migrations against a real ACID database rather than a document store.                               |
+| Auth           | Hand-rolled signed-cookie sessions (`jose` **6.1.0**, `bcryptjs` **3.0.2**) | No third-party identity provider sees health data or account existence; a stateless JWT cookie plus a `tokenVersion` column gives "sign out everywhere" without a session-store dependency. See [docs/SECURITY.md](docs/SECURITY.md). |
+| Charts         | Hand-built inline SVG (`components/charts/*`), no charting library          | Full control over the accessibility contract: every chart ships a real `<table>` alternative and never relies on colour alone — properties a generic charting library's default output does not guarantee.                            |
+| Styling        | Tailwind CSS **4.1.13** (`@tailwindcss/postcss`)                            | CSS-first configuration (no `tailwind.config.js`) and native cascade layers keep the design-token/dark-mode/reduced-motion logic in `app/globals.css` simple and inspectable.                                                         |
+| Validation     | Zod **3.25.76**                                                             | Every form, server action and API input is parsed through one schema library (`lib/validation.ts`, `lib/ai/schemas.ts`), so validation logic is centralized and typed.                                                                |
+| Import parsing | `exceljs` **4.4.0**, `fast-xml-parser` **5.2.5**                            | XLSX and XML are real vendor export formats (Apple Health, LibreView) that need dedicated parsers, not just a CSV reader.                                                                                                             |
+| Testing        | Vitest **3.2.4**, Playwright **1.55.0**, `@axe-core/playwright` **4.10.2**  | Vitest for fast unit/integration tests against real logic; Playwright + axe-core for browser-level and automated accessibility checks.                                                                                                |
 
 ## Quick start
 
@@ -119,22 +119,22 @@ Visit `http://localhost:3000`.
 
 ## npm scripts
 
-| Script | What it does |
-|---|---|
-| `npm run dev` | Starts the Next.js dev server. |
-| `npm run build` | Runs `prisma generate` then `next build` (see [Deployment](#deployment-on-vercel) for why generate is chained in). |
-| `npm start` | Serves the production build. |
-| `npm run lint` | `next lint` (ESLint 9, flat config). |
-| `npm run typecheck` | `tsc --noEmit` — strict mode, `noUncheckedIndexedAccess` on. |
-| `npm run format` / `format:check` | Prettier write / check. |
-| `npm test` | `vitest run` — the DB-free unit suite only (`tests/unit/**`). Works with no Postgres instance. |
-| `npm run test:watch` | Same suite, watch mode. |
-| `npm run test:e2e` | `playwright test` — browser end-to-end tests. |
-| `npm run db:migrate` | `prisma migrate dev` — create/apply a migration in development. |
-| `npm run db:deploy` | `prisma migrate deploy` — apply pending migrations (production-safe, no shadow database). |
-| `npm run db:push` | `prisma db push` — sync schema without a migration file (prototyping only). |
-| `npm run db:seed` | `tsx prisma/seed.ts` — populate the demo account. |
-| `npm run db:studio` | `prisma studio` — browse the database. |
+| Script                            | What it does                                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `npm run dev`                     | Starts the Next.js dev server.                                                                                     |
+| `npm run build`                   | Runs `prisma generate` then `next build` (see [Deployment](#deployment-on-vercel) for why generate is chained in). |
+| `npm start`                       | Serves the production build.                                                                                       |
+| `npm run lint`                    | `next lint` (ESLint 9, flat config).                                                                               |
+| `npm run typecheck`               | `tsc --noEmit` — strict mode, `noUncheckedIndexedAccess` on.                                                       |
+| `npm run format` / `format:check` | Prettier write / check.                                                                                            |
+| `npm test`                        | `vitest run` — the DB-free unit suite only (`tests/unit/**`). Works with no Postgres instance.                     |
+| `npm run test:watch`              | Same suite, watch mode.                                                                                            |
+| `npm run test:e2e`                | `playwright test` — browser end-to-end tests.                                                                      |
+| `npm run db:migrate`              | `prisma migrate dev` — create/apply a migration in development.                                                    |
+| `npm run db:deploy`               | `prisma migrate deploy` — apply pending migrations (production-safe, no shadow database).                          |
+| `npm run db:push`                 | `prisma db push` — sync schema without a migration file (prototyping only).                                        |
+| `npm run db:seed`                 | `tsx prisma/seed.ts` — populate the demo account.                                                                  |
+| `npm run db:studio`               | `prisma studio` — browse the database.                                                                             |
 
 There is no `npm run test:integration` script in `package.json`; the real-database integration/security suite (`tests/integration/**`) is run directly:
 
@@ -148,27 +148,27 @@ npx vitest run --config vitest.integration.config.ts
 
 Source of truth: `.env.example`, cross-checked against every `process.env.*` reference in the codebase.
 
-| Variable | Required? | Default | What it does |
-|---|---|---|---|
-| `DATABASE_URL` | Yes | — | PostgreSQL connection string Prisma reads/writes through (use a pooled URL on Vercel). |
-| `DIRECT_DATABASE_URL` | Yes (for migrations) | — | Non-pooled connection Prisma's `directUrl` uses for `prisma migrate`; a pooler (PgBouncer/Vercel's pooled Postgres) cannot run migrations. |
-| `AUTH_SECRET` | Yes | — | ≥32-byte secret used to sign session-cookie JWTs (`lib/auth/session.ts`); the app throws at first use if missing or too short. |
-| `AI_PROVIDER` | No | `local` | One of `anthropic` \| `openai` \| `local`. Selects the AI provider (`lib/ai/provider.ts`). `local` never leaves the server and needs no key. |
-| `ANTHROPIC_API_KEY` | No | unset | API key for the Anthropic provider (`lib/ai/providers/anthropic.ts`). Without it, `anthropic` is requested but unavailable and the app falls back to `local`. |
-| `ANTHROPIC_MODEL` | No | `claude-sonnet-5` | Model id sent to the Anthropic Messages API. |
-| `OPENAI_API_KEY` | No | unset | API key for the OpenAI provider (`lib/ai/providers/openai.ts`). Same fallback behaviour as above. |
-| `OPENAI_MODEL` | No | `gpt-4o-mini` | Model id sent to the OpenAI API. |
-| `NEXT_PUBLIC_APP_URL` | No | `http://localhost:3000` | Used as `metadataBase` for absolute URLs in page metadata (`app/layout.tsx`). |
-| `NODE_ENV` | Set by the runtime | — | Also read directly: enables `'unsafe-eval'` in the dev CSP (`next.config.ts`), toggles the `secure` cookie flag (`lib/auth/session.ts`), toggles Prisma query logging (`lib/db/prisma.ts`), and gates service-worker registration to production (`components/ServiceWorkerRegistration.tsx`). You do not set this yourself in normal use. |
-| `TEST_DATABASE_URL` / `TEST_DIRECT_DATABASE_URL` | No (integration tests only) | `postgresql://postgres:dialog@127.0.0.1:5432/dialog_test?schema=public` | Points the integration/security Vitest suite at an isolated `dialog_test` database (`tests/integration/setup-env.ts`); the suite refuses to run against anything whose name doesn't match `dialog_test`. |
+| Variable                                         | Required?                   | Default                                                                 | What it does                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------ | --------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                   | Yes                         | —                                                                       | PostgreSQL connection string Prisma reads/writes through (use a pooled URL on Vercel).                                                                                                                                                                                                                                                    |
+| `DIRECT_DATABASE_URL`                            | Yes (for migrations)        | —                                                                       | Non-pooled connection Prisma's `directUrl` uses for `prisma migrate`; a pooler (PgBouncer/Vercel's pooled Postgres) cannot run migrations.                                                                                                                                                                                                |
+| `AUTH_SECRET`                                    | Yes                         | —                                                                       | ≥32-byte secret used to sign session-cookie JWTs (`lib/auth/session.ts`); the app throws at first use if missing or too short.                                                                                                                                                                                                            |
+| `AI_PROVIDER`                                    | No                          | `local`                                                                 | One of `anthropic` \| `openai` \| `local`. Selects the AI provider (`lib/ai/provider.ts`). `local` never leaves the server and needs no key.                                                                                                                                                                                              |
+| `ANTHROPIC_API_KEY`                              | No                          | unset                                                                   | API key for the Anthropic provider (`lib/ai/providers/anthropic.ts`). Without it, `anthropic` is requested but unavailable and the app falls back to `local`.                                                                                                                                                                             |
+| `ANTHROPIC_MODEL`                                | No                          | `claude-sonnet-5`                                                       | Model id sent to the Anthropic Messages API.                                                                                                                                                                                                                                                                                              |
+| `OPENAI_API_KEY`                                 | No                          | unset                                                                   | API key for the OpenAI provider (`lib/ai/providers/openai.ts`). Same fallback behaviour as above.                                                                                                                                                                                                                                         |
+| `OPENAI_MODEL`                                   | No                          | `gpt-4o-mini`                                                           | Model id sent to the OpenAI API.                                                                                                                                                                                                                                                                                                          |
+| `NEXT_PUBLIC_APP_URL`                            | No                          | `http://localhost:3000`                                                 | Used as `metadataBase` for absolute URLs in page metadata (`app/layout.tsx`).                                                                                                                                                                                                                                                             |
+| `NODE_ENV`                                       | Set by the runtime          | —                                                                       | Also read directly: enables `'unsafe-eval'` in the dev CSP (`next.config.ts`), toggles the `secure` cookie flag (`lib/auth/session.ts`), toggles Prisma query logging (`lib/db/prisma.ts`), and gates service-worker registration to production (`components/ServiceWorkerRegistration.tsx`). You do not set this yourself in normal use. |
+| `TEST_DATABASE_URL` / `TEST_DIRECT_DATABASE_URL` | No (integration tests only) | `postgresql://postgres:dialog@127.0.0.1:5432/dialog_test?schema=public` | Points the integration/security Vitest suite at an isolated `dialog_test` database (`tests/integration/setup-env.ts`); the suite refuses to run against anything whose name doesn't match `dialog_test`.                                                                                                                                  |
 
 ## Testing
 
-| Layer | Command | What it actually covers |
-|---|---|---|
-| Unit | `npm test` (`vitest run`, `tests/unit/**`, 29 test files) | Pure logic with no database or network: domain rules (units, thresholds, evidence grading, dedupe keys), the full analytics engine (stats, associations, ML sub-modules), every AI guardrail and schema, and every import connector against real fixture files in `tests/fixtures/import/`. No Postgres instance required. |
+| Layer       | Command                                                                         | What it actually covers                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | `npm test` (`vitest run`, `tests/unit/**`, 29 test files)                       | Pure logic with no database or network: domain rules (units, thresholds, evidence grading, dedupe keys), the full analytics engine (stats, associations, ML sub-modules), every AI guardrail and schema, and every import connector against real fixture files in `tests/fixtures/import/`. No Postgres instance required.                                                                                                                                          |
 | Integration | `npx vitest run --config vitest.integration.config.ts` (`tests/integration/**`) | Round-trips every `RECORD_TYPES` kind against a real, isolated `dialog_test` Postgres database, exercising `lib/db/health-records.ts` (creation, retrieval, deletion, per-user scoping). Runs strictly sequentially (`fileParallelism: false`, single fork) because test files share one physical database. `tests/integration/setup-env.ts` hard-refuses to run against anything not named `dialog_test`, so it cannot touch a real dev/prod database by accident. |
-| E2E | `npm run test:e2e` (`playwright test`) | Browser-level flows, including automated accessibility checks via `@axe-core/playwright`. |
+| E2E         | `npm run test:e2e` (`playwright test`, `tests/e2e/**`, 7 spec files)            | Real browser flows against a built app on port 3100: auth/onboarding, logging, dashboard/insights, import, the assistant, a keyboard-only task completion, mobile viewports, and automated accessibility checks (`@axe-core/playwright` against WCAG 2.2 AA tags) on every public and authenticated page — see [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).                                                                                                      |
 
 Nothing in this repository runs a full test suite against production data, and the unit suite (the one CI would run without provisioning a database) never touches Postgres at all.
 
@@ -201,7 +201,7 @@ DiaLog/
 │   │   ├── quick-log/
 │   │   ├── onboarding/
 │   │   └── settings/
-│   └── api/export/route.ts       # The only REST-style API route — signed-in user's own data export
+│   └── api/                      # REST-style routes: export/route.ts (data export) and health/route.ts (liveness/readiness probe)
 ├── components/
 │   ├── charts/                   # Hand-built accessible SVG charts (GlucoseTimeline, Sparkline, BarChart, RangeBar)
 │   ├── ui/                       # Shared primitives (Card, Badge, Stat, form controls, WhyThis evidence panel)
@@ -251,24 +251,24 @@ DiaLog targets WCAG 2.2 AA: no colour-only meaning, real `<table>` alternatives 
 
 ## What is genuinely implemented vs. future opportunities
 
-| Genuinely implemented today | Future opportunity (not built) |
-|---|---|
-| Manual logging for 10 record types with server-side validation | Live device/CGM sync (Dexcom and Nightscout both have real APIs — see docs/DEVICE_INTEGRATIONS.md) |
-| File import for CSV/XLSX/JSON/XML with 5 dedicated + 3 generic connectors | Bluetooth/USB direct meter connection (researched and explicitly rejected as unreliable — see docs/DEVICE_INTEGRATIONS.md) |
-| Evidence-graded statistical findings (summary, association, trend, anomaly, clustering, feature importance) | A served, continuously-retrained ML model (the `ml/` pipeline is offline research only, never deployed) |
-| AI assistant with a working no-network local provider as the default | Free-form clinical Q&A beyond the guardrailed, evidence-grounded scope (deliberately out of scope, not a gap) |
-| Anthropic/OpenAI providers, both implemented and unit-tested | Additional providers (Gemini, local LLM runtime, etc.) |
-| Medical-safety guardrails (dosing/diagnosis regex filters, grounding check, claim consistency check) | Human-reviewed clinical-safety audit of the guardrail pattern list |
-| Full JSON + per-type CSV data export, scoped to the signed-in user | Scheduled/automatic export or backup |
-| Own signed-cookie auth with sign-out-everywhere revocation | Multi-factor authentication, OAuth/SSO sign-in, passkeys |
-| Per-key in-memory rate limiting on sign-in/up, import, AI, and export | Shared/distributed rate limiting for multi-instance or multi-region deployment |
-| Hand-built accessible SVG charts with table alternatives | Third-party accessibility audit beyond automated axe-core checks |
-| English + French (Canada) navigation chrome | Full page-body translation; additional locales |
-| Installable PWA shell with an offline page | Push notifications, background sync, reminders |
-| 90-day demo dataset via `db:seed` | Any production seed/import of real historical data at account creation |
-| Content-addressed import dedupe | Cross-device conflict resolution (e.g. the same physical event logged manually and later imported still creates two records if their dedupe keys differ) |
-| Security headers + CSP on every response | Formal penetration test |
-| Audit log for security-relevant actions (never health values) | User-facing security/activity log UI |
+| Genuinely implemented today                                                                                 | Future opportunity (not built)                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manual logging for 10 record types with server-side validation                                              | Live device/CGM sync (Dexcom and Nightscout both have real APIs — see docs/DEVICE_INTEGRATIONS.md)                                                       |
+| File import for CSV/XLSX/JSON/XML with 5 dedicated + 3 generic connectors                                   | Bluetooth/USB direct meter connection (researched and explicitly rejected as unreliable — see docs/DEVICE_INTEGRATIONS.md)                               |
+| Evidence-graded statistical findings (summary, association, trend, anomaly, clustering, feature importance) | A served, continuously-retrained ML model (the `ml/` pipeline is offline research only, never deployed)                                                  |
+| AI assistant with a working no-network local provider as the default                                        | Free-form clinical Q&A beyond the guardrailed, evidence-grounded scope (deliberately out of scope, not a gap)                                            |
+| Anthropic/OpenAI providers, both implemented and unit-tested                                                | Additional providers (Gemini, local LLM runtime, etc.)                                                                                                   |
+| Medical-safety guardrails (dosing/diagnosis regex filters, grounding check, claim consistency check)        | Human-reviewed clinical-safety audit of the guardrail pattern list                                                                                       |
+| Full JSON + per-type CSV data export, scoped to the signed-in user                                          | Scheduled/automatic export or backup                                                                                                                     |
+| Own signed-cookie auth with sign-out-everywhere revocation                                                  | Multi-factor authentication, OAuth/SSO sign-in, passkeys                                                                                                 |
+| Per-key in-memory rate limiting on sign-in/up, import, AI, and export                                       | Shared/distributed rate limiting for multi-instance or multi-region deployment                                                                           |
+| Hand-built accessible SVG charts with table alternatives                                                    | Third-party accessibility audit beyond automated axe-core checks                                                                                         |
+| English + French (Canada) navigation chrome                                                                 | Full page-body translation; additional locales                                                                                                           |
+| Installable PWA shell with an offline page                                                                  | Push notifications, background sync, reminders                                                                                                           |
+| 90-day demo dataset via `db:seed`                                                                           | Any production seed/import of real historical data at account creation                                                                                   |
+| Content-addressed import dedupe                                                                             | Cross-device conflict resolution (e.g. the same physical event logged manually and later imported still creates two records if their dedupe keys differ) |
+| Security headers + CSP on every response                                                                    | Formal penetration test                                                                                                                                  |
+| Audit log for security-relevant actions (never health values)                                               | User-facing security/activity log UI                                                                                                                     |
 
 ## Limitations and medical disclaimer
 

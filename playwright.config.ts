@@ -36,9 +36,17 @@ export default defineConfig({
   },
   projects: [
     {
+      // Runs once, before every other project, to sign in / register the
+      // handful of accounts the rest of the suite reuses via storageState.
+      // See tests/e2e/setup/auth.setup.ts for why this exists.
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: /keyboard-and-mobile\.spec\.ts/,
+      testIgnore: [/keyboard-and-mobile\.spec\.ts/, /.*\.setup\.ts/],
+      dependencies: ['setup'],
     },
     {
       name: 'mobile-chromium',
@@ -48,6 +56,7 @@ export default defineConfig({
       // default viewport below is only a fallback.
       use: { ...devices['Pixel 7'] },
       testMatch: /keyboard-and-mobile\.spec\.ts/,
+      dependencies: ['setup'],
     },
   ],
   webServer: {

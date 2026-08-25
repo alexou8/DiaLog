@@ -10,7 +10,10 @@ export default async function NewMedicationPage() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <PageHeader title="Log a medication" description="Record that you took something, and when." />
+      <PageHeader
+        title="Log a medication"
+        description="Record that you took something, and when."
+      />
       <Card>
         <MedicationForm timezone={user.profile.timezone} />
       </Card>

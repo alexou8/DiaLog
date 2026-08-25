@@ -26,7 +26,10 @@ async function shot(page, path, name, { full = true } = {}) {
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 
 // --- Desktop
-const desktop = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 });
+const desktop = await browser.newContext({
+  viewport: { width: 1280, height: 900 },
+  deviceScaleFactor: 2,
+});
 const page = await desktop.newPage();
 
 await shot(page, '/', 'landing');
@@ -61,9 +64,10 @@ console.log('captured dashboard-dark');
 const mobile = await browser.newContext({ ...devices['iPhone 13'], deviceScaleFactor: 3 });
 const mpage = await mobile.newPage();
 await signIn(mpage);
-await shot(mpage, '/app', 'mobile-dashboard');
-await shot(mpage, '/app/glucose', 'mobile-glucose');
-await shot(mpage, '/app/glucose/new', 'mobile-add-reading');
+await shot(mpage, '/app', 'mobile-dashboard', { full: false });
+await shot(mpage, '/app/insights', 'mobile-insights', { full: false });
+await shot(mpage, '/app/glucose', 'mobile-glucose', { full: false });
+await shot(mpage, '/app/glucose/new', 'mobile-add-reading', { full: false });
 
 await browser.close();
 console.log('done');

@@ -11,7 +11,8 @@ const BRAND = [21, 94, 105];
 const INK = [255, 255, 255];
 
 function crc32(buf) {
-  let c, crc = 0xffffffff;
+  let c,
+    crc = 0xffffffff;
   for (let n = 0; n < buf.length; n++) {
     c = (crc ^ buf[n]) & 0xff;
     for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
@@ -50,7 +51,12 @@ function png(size, pixels) {
 
 /** Curve control points in unit space. */
 const CURVE = [
-  [0.16, 0.66], [0.3, 0.7], [0.42, 0.4], [0.55, 0.3], [0.68, 0.52], [0.84, 0.44],
+  [0.16, 0.66],
+  [0.3, 0.7],
+  [0.42, 0.4],
+  [0.55, 0.3],
+  [0.68, 0.52],
+  [0.84, 0.44],
 ];
 
 function distanceToCurve(px, py) {
@@ -58,7 +64,8 @@ function distanceToCurve(px, py) {
   for (let i = 0; i < CURVE.length - 1; i++) {
     const [x1, y1] = CURVE[i];
     const [x2, y2] = CURVE[i + 1];
-    const dx = x2 - x1, dy = y2 - y1;
+    const dx = x2 - x1,
+      dy = y2 - y1;
     const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
     best = Math.min(best, Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy)));
   }
@@ -75,13 +82,20 @@ function render(size, { maskable }) {
     for (let x = 0; x < size; x++) {
       const i = (y * size + x) * 4;
       // Rounded-square mask.
-      const cx = Math.min(x, size - 1 - x), cy = Math.min(y, size - 1 - y);
+      const cx = Math.min(x, size - 1 - x),
+        cy = Math.min(y, size - 1 - y);
       let inside = true;
       if (!maskable && cx < radius && cy < radius) {
         inside = Math.hypot(radius - cx, radius - cy) <= radius;
       }
-      if (!inside) { buf[i + 3] = 0; continue; }
-      buf[i] = BRAND[0]; buf[i + 1] = BRAND[1]; buf[i + 2] = BRAND[2]; buf[i + 3] = 255;
+      if (!inside) {
+        buf[i + 3] = 0;
+        continue;
+      }
+      buf[i] = BRAND[0];
+      buf[i + 1] = BRAND[1];
+      buf[i + 2] = BRAND[2];
+      buf[i + 3] = 255;
       const ux = (x / size - 0.5) / scale + 0.5;
       const uy = (y / size - 0.5) / scale + 0.5;
       const d = distanceToCurve(ux, uy);

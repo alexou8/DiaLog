@@ -38,20 +38,36 @@ export function MoodForm({ timezone }: { timezone: string }) {
 
   return (
     <form action={action} noValidate>
-      <FormStatus status={state && !state.ok && state.message ? { ok: false, message: state.message } : null} />
+      <FormStatus
+        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
+      />
 
       <RadioCards name="mood" legend="How are you feeling?" options={MOOD_OPTIONS} columns={1} />
       <RadioCards name="stress" legend="Stress level" options={STRESS_OPTIONS} columns={1} />
 
       <Field label="When" required error={state?.errors?.takenAt} htmlFor="takenAt">
         {({ id, describedBy, invalid }) => (
-          <TextInput id={id} name="takenAt" type="datetime-local" required defaultValue={now} aria-describedby={describedBy} invalid={invalid} />
+          <TextInput
+            id={id}
+            name="takenAt"
+            type="datetime-local"
+            required
+            defaultValue={now}
+            aria-describedby={describedBy}
+            invalid={invalid}
+          />
         )}
       </Field>
 
       <Field label="Note" error={state?.errors?.note} htmlFor="note">
         {({ id, describedBy, invalid }) => (
-          <TextInput id={id} name="note" maxLength={500} aria-describedby={describedBy} invalid={invalid} />
+          <TextInput
+            id={id}
+            name="note"
+            maxLength={500}
+            aria-describedby={describedBy}
+            invalid={invalid}
+          />
         )}
       </Field>
 

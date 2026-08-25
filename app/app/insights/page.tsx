@@ -3,7 +3,15 @@ import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { analyzeUser, defaultWindow, insightsFor } from '@/lib/services/analytics-service';
 import { EVIDENCE_LABELS, EVIDENCE_THRESHOLDS } from '@/lib/domain/evidence';
 import { formatGlucose, unitLabel } from '@/lib/domain/units';
-import { ButtonLink, Callout, Card, CardHeader, EmptyState, PageHeader, WhyThis } from '@/components/ui';
+import {
+  ButtonLink,
+  Callout,
+  Card,
+  CardHeader,
+  EmptyState,
+  PageHeader,
+  WhyThis,
+} from '@/components/ui';
 import { InsightCardView } from '@/components/InsightCardView';
 
 export const metadata: Metadata = { title: 'Insights' };
@@ -88,10 +96,10 @@ export default async function InsightsPage() {
             </ul>
             <WhyThis>
               <p>
-                DiaLog compares each reading with the middle value of your other readings at the same
-                time of day, using a measure of spread that is not thrown off by one extreme value.
-                A reading is flagged when it sits far outside that spread. The comparison is always
-                against your own history, never against a population average.
+                DiaLog compares each reading with the middle value of your other readings at the
+                same time of day, using a measure of spread that is not thrown off by one extreme
+                value. A reading is flagged when it sits far outside that spread. The comparison is
+                always against your own history, never against a population average.
               </p>
             </WhyThis>
           </Card>
@@ -114,8 +122,7 @@ export default async function InsightsPage() {
                     {pattern.size} {pattern.size === 1 ? 'day' : 'days'} in the last 30
                   </p>
                   <p className="mt-2 text-sm">
-                    Days like these:{' '}
-                    {pattern.dayKeys.slice(0, 3).join(', ')}
+                    Days like these: {pattern.dayKeys.slice(0, 3).join(', ')}
                     {pattern.dayKeys.length > 3 ? ` and ${pattern.dayKeys.length - 3} more` : ''}.
                   </p>
                 </li>
@@ -123,8 +130,8 @@ export default async function InsightsPage() {
             </ul>
             <WhyThis>
               <p>
-                This grouping is produced by a clustering algorithm looking only at your own days. It
-                describes what your days have in common — it does not say one kind of day causes
+                This grouping is produced by a clustering algorithm looking only at your own days.
+                It describes what your days have in common — it does not say one kind of day causes
                 another, and it cannot see anything you did not log.
               </p>
             </WhyThis>
@@ -148,8 +155,8 @@ export default async function InsightsPage() {
                 >
                   <span>{coefficient.label}</span>
                   <span className="text-sm tabular-nums text-ink-muted">
-                    goes with {coefficient.standardizedCoefficient >= 0 ? 'higher' : 'lower'} readings ·
-                    strength {Math.abs(coefficient.standardizedCoefficient).toFixed(2)}
+                    goes with {coefficient.standardizedCoefficient >= 0 ? 'higher' : 'lower'}{' '}
+                    readings · strength {Math.abs(coefficient.standardizedCoefficient).toFixed(2)}
                   </span>
                 </li>
               ))}
@@ -178,9 +185,9 @@ export default async function InsightsPage() {
             <div>
               <dt className="font-semibold">Records logged in this period</dt>
               <dd className="text-ink-muted">
-                {result.dataQuality.counts.glucose} readings, {result.dataQuality.counts.meals} meals,{' '}
-                {result.dataQuality.counts.exercise} activity sessions, {result.dataQuality.counts.sleep}{' '}
-                sleep records.
+                {result.dataQuality.counts.glucose} readings, {result.dataQuality.counts.meals}{' '}
+                meals, {result.dataQuality.counts.exercise} activity sessions,{' '}
+                {result.dataQuality.counts.sleep} sleep records.
               </dd>
             </div>
           </dl>
@@ -190,7 +197,10 @@ export default async function InsightsPage() {
               <h3 className="mt-5 font-semibold">Comparisons that were skipped</h3>
               <ul className="mt-2 space-y-2">
                 {result.dataQuality.skippedAnalyses.map((skipped) => (
-                  <li key={skipped.analysis} className="rounded-lg border border-line bg-surface-sunken p-3">
+                  <li
+                    key={skipped.analysis}
+                    className="rounded-lg border border-line bg-surface-sunken p-3"
+                  >
                     <p className="font-medium">{skipped.analysis}</p>
                     <p className="text-sm text-ink-muted">{skipped.reason}</p>
                   </li>
@@ -208,14 +218,14 @@ export default async function InsightsPage() {
               {Object.entries(EVIDENCE_THRESHOLDS).map(([name, thresholds]) => (
                 <li key={name}>
                   <strong className="capitalize">{name}</strong>: {thresholds.early}+ records for an
-                  early signal, {thresholds.emerging}+ for an emerging pattern, {thresholds.consistent}+
-                  for a consistent one.
+                  early signal, {thresholds.emerging}+ for an emerging pattern,{' '}
+                  {thresholds.consistent}+ for a consistent one.
                 </li>
               ))}
             </ul>
             <p className="mt-3">
-              {EVIDENCE_LABELS.INSUFFICIENT.description} These thresholds are set once, in one place,
-              and applied the same way to every observation.
+              {EVIDENCE_LABELS.INSUFFICIENT.description} These thresholds are set once, in one
+              place, and applied the same way to every observation.
             </p>
           </WhyThis>
         </Card>

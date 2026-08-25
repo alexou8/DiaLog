@@ -16,17 +16,26 @@ export default function PrivacyPage() {
 
       <h2>What is stored</h2>
       <ul>
-        <li>Your email address and a one-way hash of your password. The password itself is never stored.</li>
+        <li>
+          Your email address and a one-way hash of your password. The password itself is never
+          stored.
+        </li>
         <li>The health records you enter or import, with their timestamps and their source.</li>
-        <li>Your preferences: units, target range, timezone, language, display and assistant settings.</li>
-        <li>A security log of sign-ins, imports, exports and deletions. It contains no health values.</li>
+        <li>
+          Your preferences: units, target range, timezone, language, display and assistant settings.
+        </li>
+        <li>
+          A security log of sign-ins, imports, exports and deletions. It contains no health values.
+        </li>
       </ul>
 
       <h2>What is never stored or logged</h2>
       <ul>
         <li>Your password in a readable form.</li>
         <li>Health values in application logs or error reports.</li>
-        <li>Advertising or third-party analytics identifiers. DiaLog carries no tracking scripts.</li>
+        <li>
+          Advertising or third-party analytics identifiers. DiaLog carries no tracking scripts.
+        </li>
       </ul>
 
       <h2>The assistant and external AI providers</h2>
@@ -46,7 +55,9 @@ export default function PrivacyPage() {
       <ul>
         <li>Export everything you have stored, at any time, as JSON or CSV.</li>
         <li>Correct or delete any individual record.</li>
-        <li>Delete your account and all associated records. Deletion is permanent and confirmed first.</li>
+        <li>
+          Delete your account and all associated records. Deletion is permanent and confirmed first.
+        </li>
         <li>See where any imported record came from, and remove an entire import batch.</li>
       </ul>
 

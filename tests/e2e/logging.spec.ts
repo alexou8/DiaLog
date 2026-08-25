@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { signUpFreshUser } from './helpers';
+import { SHARED_STATE } from './setup/auth-state';
 
 test.describe('logging records', () => {
-  test('add a glucose reading and see it with value and status', async ({ page }) => {
-    await signUpFreshUser(page, { label: 'glucose' });
+  test.use({ storageState: SHARED_STATE });
 
+  test('add a glucose reading and see it with value and status', async ({ page }) => {
     await page.goto('/app/glucose/new');
     await page.getByLabel(/Your reading/).fill('142');
     await page.getByRole('radio', { name: 'After a meal', exact: false }).check();
@@ -18,8 +18,6 @@ test.describe('logging records', () => {
   });
 
   test('log a meal and see it in history with provenance', async ({ page }) => {
-    await signUpFreshUser(page, { label: 'meal' });
-
     await page.goto('/app/meals/new');
     await page.getByLabel('What did you eat?').fill('Grilled chicken and rice');
     await page.getByRole('button', { name: 'Save meal' }).click();
@@ -32,8 +30,6 @@ test.describe('logging records', () => {
   });
 
   test('log an exercise session and see it in history', async ({ page }) => {
-    await signUpFreshUser(page, { label: 'activity' });
-
     await page.goto('/app/activity/new');
     await page.getByLabel('Activity').fill('Walking');
     await page.getByLabel('Duration').fill('30');
@@ -47,8 +43,6 @@ test.describe('logging records', () => {
   });
 
   test('log sleep and see it in history', async ({ page }) => {
-    await signUpFreshUser(page, { label: 'sleep' });
-
     await page.goto('/app/health/sleep/new');
     // Wake time must be after bedtime for a plausible duration; defaults are
     // both "now", so push the wake time forward.
@@ -70,8 +64,6 @@ test.describe('logging records', () => {
   });
 
   test('delete a record via the two-step confirm', async ({ page }) => {
-    await signUpFreshUser(page, { label: 'delete' });
-
     await page.goto('/app/glucose/new');
     await page.getByLabel(/Your reading/).fill('101');
     await page.getByRole('button', { name: 'Save reading' }).click();

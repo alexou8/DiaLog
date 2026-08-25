@@ -18,8 +18,12 @@ export default function AccessibilityPage() {
       <h2>What that means in practice</h2>
       <ul>
         <li>Large default type, with a larger-text setting that scales the whole interface.</li>
-        <li>Every control reachable and operable by keyboard, with a focus ring that is never removed.</li>
-        <li>Semantic headings, landmarks and labels, so screen reader navigation works properly.</li>
+        <li>
+          Every control reachable and operable by keyboard, with a focus ring that is never removed.
+        </li>
+        <li>
+          Semantic headings, landmarks and labels, so screen reader navigation works properly.
+        </li>
         <li>
           Status is never conveyed by colour alone. A reading outside your range always carries a
           word (&ldquo;Above your target range&rdquo;) and a shape or icon as well as a colour.
@@ -29,7 +33,9 @@ export default function AccessibilityPage() {
           information exists only as a picture.
         </li>
         <li>Touch targets of at least 44 pixels, and forms kept short with sensible defaults.</li>
-        <li>Motion is minimal, and the reduced-motion setting is respected at both OS and app level.</li>
+        <li>
+          Motion is minimal, and the reduced-motion setting is respected at both OS and app level.
+        </li>
         <li>Errors are written in plain language and are announced to assistive technology.</li>
       </ul>
 

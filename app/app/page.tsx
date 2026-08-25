@@ -59,8 +59,17 @@ export default async function HomePage() {
   const todaysReadings = recentReadings.filter((r) => dayKeyInZone(r.takenAt, timezone) === today);
 
   const greeting = profile.displayName ? `Hello, ${profile.displayName}` : 'Hello';
-  const timeFmt = new Intl.DateTimeFormat(locale, { timeZone: timezone, hour: 'numeric', minute: '2-digit' });
-  const dayFmt = new Intl.DateTimeFormat(locale, { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' });
+  const timeFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  const dayFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   const summary = result.summary;
   const timelinePoints = (
@@ -101,7 +110,9 @@ export default async function HomePage() {
                   {formatGlucose(latest.valueMgdl, unit, locale)}
                 </span>
                 <span className="text-lg text-ink-muted">{unitLabel(unit)}</span>
-                <span className="text-base text-ink-muted">at {timeFmt.format(latest.takenAt)}</span>
+                <span className="text-base text-ink-muted">
+                  at {timeFmt.format(latest.takenAt)}
+                </span>
               </p>
               <p className="mt-3">
                 <Badge
@@ -113,8 +124,9 @@ export default async function HomePage() {
               </p>
               <p className="mt-3 text-sm text-ink-muted">
                 {classifyGlucose(latest.valueMgdl, range).description} Your target range is{' '}
-                {formatGlucose(range.lowMgdl, unit, locale)}–{formatGlucose(range.highMgdl, unit, locale)}{' '}
-                {unitLabel(unit)}, which you can change in Settings.
+                {formatGlucose(range.lowMgdl, unit, locale)}–
+                {formatGlucose(range.highMgdl, unit, locale)} {unitLabel(unit)}, which you can
+                change in Settings.
               </p>
               {classifyGlucose(latest.valueMgdl, range).safetyMessage ? (
                 <p className="mt-3 rounded-lg border border-line bg-surface p-3 text-sm">
@@ -199,8 +211,8 @@ export default async function HomePage() {
           {summary.count === 0 ? (
             <EmptyState title="Nothing to summarise yet" icon="📈">
               <p>
-                Once you have a few readings in this period, this is where the averages and the trend
-                will appear.
+                Once you have a few readings in this period, this is where the averages and the
+                trend will appear.
               </p>
             </EmptyState>
           ) : (
@@ -208,15 +220,25 @@ export default async function HomePage() {
               <div className="grid gap-3 sm:grid-cols-3">
                 <Stat
                   label="Average reading"
-                  value={summary.averageMgdl == null ? '—' : formatGlucose(summary.averageMgdl, unit, locale)}
+                  value={
+                    summary.averageMgdl == null
+                      ? '—'
+                      : formatGlucose(summary.averageMgdl, unit, locale)
+                  }
                   unit={unitLabel(unit)}
                   hint={`Across ${summary.count} readings`}
                 />
                 <Stat
                   label="Readings in your target range"
-                  value={summary.percentInRange == null ? '—' : `${Math.round(summary.percentInRange)}%`}
+                  value={
+                    summary.percentInRange == null ? '—' : `${Math.round(summary.percentInRange)}%`
+                  }
                   hint="Share of readings, not time"
-                  tone={summary.percentInRange != null && summary.percentInRange >= 70 ? 'positive' : 'neutral'}
+                  tone={
+                    summary.percentInRange != null && summary.percentInRange >= 70
+                      ? 'positive'
+                      : 'neutral'
+                  }
                 />
                 <Stat
                   label="Variability"
@@ -227,7 +249,8 @@ export default async function HomePage() {
 
               <WhyThis label="What do these numbers mean?">
                 <p>
-                  <strong>Average</strong> is the plain mean of every reading you logged in the period.
+                  <strong>Average</strong> is the plain mean of every reading you logged in the
+                  period.
                 </p>
                 <p className="mt-2">
                   <strong>Readings in your target range</strong> is the share of your individual
@@ -263,7 +286,10 @@ export default async function HomePage() {
           <h2 id="insights-heading" className="text-xl font-semibold sm:text-2xl">
             What your data shows
           </h2>
-          <Link href="/app/insights" className="dl-target font-semibold underline underline-offset-4">
+          <Link
+            href="/app/insights"
+            className="dl-target font-semibold underline underline-offset-4"
+          >
             See all observations
           </Link>
         </div>
@@ -333,7 +359,8 @@ function FirstRun({ name }: { name: string | null }) {
         <Card>
           <h2 className="text-lg font-semibold">Import a file</h2>
           <p className="mt-2 text-ink-muted">
-            Bring in the export from your meter software, a spreadsheet, or your phone&apos;s health app.
+            Bring in the export from your meter software, a spreadsheet, or your phone&apos;s health
+            app.
           </p>
           <ButtonLink href="/app/import" variant="secondary" className="mt-4">
             Import data
@@ -342,7 +369,8 @@ function FirstRun({ name }: { name: string | null }) {
         <Card>
           <h2 className="text-lg font-semibold">Describe your day</h2>
           <p className="mt-2 text-ink-muted">
-            Type what you ate and did in ordinary words, then check what DiaLog suggests before saving.
+            Type what you ate and did in ordinary words, then check what DiaLog suggests before
+            saving.
           </p>
           <ButtonLink href="/app/quick-log" variant="secondary" className="mt-4">
             Try quick logging

@@ -8,24 +8,25 @@ export default function TermsPage() {
     <Prose title="Terms of use" updated="August 2026">
       <h2>What DiaLog is</h2>
       <p>
-        DiaLog is a personal health-data organisation tool provided for informational and educational
-        purposes. It is not a medical device, has not been reviewed or approved by Health Canada, the
-        FDA or any other regulator, and makes no claim of clinical validity.
+        DiaLog is a personal health-data organisation tool provided for informational and
+        educational purposes. It is not a medical device, has not been reviewed or approved by
+        Health Canada, the FDA or any other regulator, and makes no claim of clinical validity.
       </p>
 
       <h2>Not medical advice</h2>
       <p>
         Nothing in DiaLog — including observations, summaries and anything the assistant writes — is
-        medical advice, diagnosis or treatment. Do not use DiaLog to make decisions about medication,
-        insulin, diet or treatment. Always consult a qualified healthcare professional. In an
-        emergency, contact your local emergency services.
+        medical advice, diagnosis or treatment. Do not use DiaLog to make decisions about
+        medication, insulin, diet or treatment. Always consult a qualified healthcare professional.
+        In an emergency, contact your local emergency services.
       </p>
 
       <h2>Accuracy</h2>
       <p>
-        DiaLog reports what your records contain. If a reading was entered incorrectly, imported from
-        a device with a wrong clock, or is missing entirely, the analysis will reflect that. Observations
-        are statistical associations found in your own data; association is not causation.
+        DiaLog reports what your records contain. If a reading was entered incorrectly, imported
+        from a device with a wrong clock, or is missing entirely, the analysis will reflect that.
+        Observations are statistical associations found in your own data; association is not
+        causation.
       </p>
 
       <h2>Your account</h2>

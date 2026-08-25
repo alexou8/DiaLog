@@ -51,21 +51,32 @@ describe('OpenAIProvider', () => {
   });
 
   it('throws AIProviderError with kind http_error on a non-200 response', async () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response('', { status: 429 })) as unknown as typeof fetch;
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response('', { status: 429 })) as unknown as typeof fetch;
     const provider = new OpenAIProvider();
-    await expect(provider.complete(baseReq)).rejects.toMatchObject({ kind: 'http_error', status: 429 });
+    await expect(provider.complete(baseReq)).rejects.toMatchObject({
+      kind: 'http_error',
+      status: 429,
+    });
   });
 
   it('throws AIProviderError with kind malformed_json when message content is not JSON', async () => {
     global.fetch = vi
       .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: 'not json' } }] }), { status: 200 }));
+      .mockResolvedValue(
+        new Response(JSON.stringify({ choices: [{ message: { content: 'not json' } }] }), {
+          status: 200,
+        }),
+      );
     const provider = new OpenAIProvider();
     await expect(provider.complete(baseReq)).rejects.toMatchObject({ kind: 'malformed_json' });
   });
 
   it('throws AIProviderError with kind malformed_json when there is no message content', async () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [] }), { status: 200 }));
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ choices: [] }), { status: 200 }));
     const provider = new OpenAIProvider();
     await expect(provider.complete(baseReq)).rejects.toMatchObject({ kind: 'malformed_json' });
   });
@@ -73,12 +84,18 @@ describe('OpenAIProvider', () => {
   it('never logs request or response bodies', async () => {
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    global.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ choices: [{ message: { content: JSON.stringify({ secretHealthValue: 'do-not-log-me' }) } }] }),
-        { status: 200 },
-      ),
-    ) as unknown as typeof fetch;
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [
+              { message: { content: JSON.stringify({ secretHealthValue: 'do-not-log-me' }) } },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch;
 
     const provider = new OpenAIProvider();
     await provider.complete(baseReq);

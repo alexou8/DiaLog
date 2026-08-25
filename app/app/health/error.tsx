@@ -2,10 +2,17 @@
 
 import { ErrorState } from '@/components/ui';
 
-export default function HealthError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function HealthError({
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   return (
     <ErrorState title="We could not load your health data">
-      <p>Please try again. If this keeps happening, your data is safe — this is just a display issue.</p>
+      <p>
+        Please try again. If this keeps happening, your data is safe — this is just a display issue.
+      </p>
       <button
         type="button"
         onClick={reset}

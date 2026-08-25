@@ -37,14 +37,26 @@ describe('parseTimestamp', () => {
   });
 
   it('parses MM/DD/YYYY hh:mm AM/PM when dateOrder is MDY', () => {
-    const r = parseTimestamp('01/20/2026 08:00 PM', { timezone: 'UTC', dateOrder: 'MDY', now: NOW });
+    const r = parseTimestamp('01/20/2026 08:00 PM', {
+      timezone: 'UTC',
+      dateOrder: 'MDY',
+      now: NOW,
+    });
     expect(r.date?.toISOString()).toBe('2026-01-20T20:00:00.000Z');
   });
 
   it('handles 12 AM / 12 PM edge cases', () => {
-    const midnight = parseTimestamp('01/20/2026 12:00 AM', { timezone: 'UTC', dateOrder: 'MDY', now: NOW });
+    const midnight = parseTimestamp('01/20/2026 12:00 AM', {
+      timezone: 'UTC',
+      dateOrder: 'MDY',
+      now: NOW,
+    });
     expect(midnight.date?.toISOString()).toBe('2026-01-20T00:00:00.000Z');
-    const noon = parseTimestamp('01/20/2026 12:00 PM', { timezone: 'UTC', dateOrder: 'MDY', now: NOW });
+    const noon = parseTimestamp('01/20/2026 12:00 PM', {
+      timezone: 'UTC',
+      dateOrder: 'MDY',
+      now: NOW,
+    });
     expect(noon.date?.toISOString()).toBe('2026-01-20T12:00:00.000Z');
   });
 

@@ -46,7 +46,10 @@ describe('validatePassword policy', () => {
 async function resolveUserForToken(token: string): Promise<{ userId: string } | null> {
   const session = await verifySession(token);
   if (!session) return null;
-  const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { id: true, tokenVersion: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, tokenVersion: true },
+  });
   if (!user) return null;
   if (user.tokenVersion !== session.tokenVersion) return null;
   return { userId: user.id };
@@ -63,7 +66,10 @@ describe('session tokens', () => {
   });
 
   it('a token signed for a user verifies and yields the right userId', async () => {
-    const token = await signSession({ userId: seeded.user.id, tokenVersion: seeded.user.tokenVersion });
+    const token = await signSession({
+      userId: seeded.user.id,
+      tokenVersion: seeded.user.tokenVersion,
+    });
     const resolved = await resolveUserForToken(token);
     expect(resolved?.userId).toBe(seeded.user.id);
   });
@@ -94,7 +100,10 @@ describe('session tokens', () => {
   });
 
   it('a tampered token fails verification', async () => {
-    const token = await signSession({ userId: seeded.user.id, tokenVersion: seeded.user.tokenVersion });
+    const token = await signSession({
+      userId: seeded.user.id,
+      tokenVersion: seeded.user.tokenVersion,
+    });
     const parts = token.split('.');
     // Flip a character in the payload segment to corrupt the signature.
     const payload = parts[1] ?? '';
@@ -104,22 +113,34 @@ describe('session tokens', () => {
   });
 
   it('bumping tokenVersion invalidates a previously valid session (sign out everywhere)', async () => {
-    const token = await signSession({ userId: seeded.user.id, tokenVersion: seeded.user.tokenVersion });
+    const token = await signSession({
+      userId: seeded.user.id,
+      tokenVersion: seeded.user.tokenVersion,
+    });
     expect((await resolveUserForToken(token))?.userId).toBe(seeded.user.id);
 
-    await prisma.user.update({ where: { id: seeded.user.id }, data: { tokenVersion: { increment: 1 } } });
+    await prisma.user.update({
+      where: { id: seeded.user.id },
+      data: { tokenVersion: { increment: 1 } },
+    });
 
     expect(await resolveUserForToken(token)).toBeNull();
     // A freshly signed token with the new version works again.
     const bumped = await prisma.user.findUniqueOrThrow({ where: { id: seeded.user.id } });
-    const newToken = await signSession({ userId: seeded.user.id, tokenVersion: bumped.tokenVersion });
+    const newToken = await signSession({
+      userId: seeded.user.id,
+      tokenVersion: bumped.tokenVersion,
+    });
     expect((await resolveUserForToken(newToken))?.userId).toBe(seeded.user.id);
   });
 
   it('rejects a well-formed token payload with a non-string subject or garbage tokenVersion type', async () => {
     // verifySession explicitly checks typeof payload.sub === 'string' etc; build a token that
     // has the right shape but wrong types to exercise that guard, not just JWT validity.
-    const weird: SessionPayload = { userId: seeded.user.id, tokenVersion: seeded.user.tokenVersion };
+    const weird: SessionPayload = {
+      userId: seeded.user.id,
+      tokenVersion: seeded.user.tokenVersion,
+    };
     const ok = await signSession(weird);
     expect(await verifySession(ok)).toEqual(weird);
   });

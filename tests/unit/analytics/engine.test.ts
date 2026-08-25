@@ -55,7 +55,11 @@ describe('runAnalytics', () => {
   });
 
   it('reports coverage days and gap statistics', () => {
-    const glucose = [glucoseAt('2026-01-01T08:00:00Z', 100), glucoseAt('2026-01-01T20:00:00Z', 110), glucoseAt('2026-01-02T08:00:00Z', 105)];
+    const glucose = [
+      glucoseAt('2026-01-01T08:00:00Z', 100),
+      glucoseAt('2026-01-01T20:00:00Z', 110),
+      glucoseAt('2026-01-02T08:00:00Z', 105),
+    ];
     const result = runAnalytics(baseInput({ glucose }));
     expect(result.dataQuality.coverageDays).toBe(2);
     expect(result.dataQuality.counts.glucose).toBe(3);
@@ -70,7 +74,9 @@ describe('runAnalytics', () => {
       const carbs = 20 + (day % 5) * 15;
       meals.push({ id: `m${day}`, takenAt: d, mealType: 'LUNCH', carbsG: carbs, description: '' });
       glucose.push(glucoseAt(new Date(d.getTime() + 90 * 60_000).toISOString(), 100 + carbs));
-      glucose.push(glucoseAt(new Date(Date.UTC(2026, 0, day, 7, 0, 0)).toISOString(), 95 + (day % 3)));
+      glucose.push(
+        glucoseAt(new Date(Date.UTC(2026, 0, day, 7, 0, 0)).toISOString(), 95 + (day % 3)),
+      );
     }
     const result = runAnalytics(baseInput({ glucose, meals }));
     expect(result.summary.count).toBe(glucose.length);
@@ -89,7 +95,9 @@ describe('buildInsights', () => {
       expect(card.evidenceLevel).toBeTruthy();
       expect(typeof card.title).toBe('string');
       expect(typeof card.summary).toBe('string');
-      expect(card.source === 'STATISTICAL' || card.source === 'ML' || card.source === 'REFERENCE').toBe(true);
+      expect(
+        card.source === 'STATISTICAL' || card.source === 'ML' || card.source === 'REFERENCE',
+      ).toBe(true);
     }
   });
 
@@ -98,11 +106,23 @@ describe('buildInsights', () => {
     const glucose: GlucosePoint[] = [];
     for (let i = 0; i < 15; i++) {
       const mealTime = new Date(Date.UTC(2026, 0, i + 1, 12, 0, 0));
-      meals.push({ id: `low-${i}`, takenAt: mealTime, mealType: 'LUNCH', carbsG: 10, description: '' });
+      meals.push({
+        id: `low-${i}`,
+        takenAt: mealTime,
+        mealType: 'LUNCH',
+        carbsG: 10,
+        description: '',
+      });
       glucose.push(glucoseAt(new Date(mealTime.getTime() + 90 * 60_000).toISOString(), 110));
 
       const highMealTime = new Date(Date.UTC(2026, 1, i + 1, 12, 0, 0));
-      meals.push({ id: `high-${i}`, takenAt: highMealTime, mealType: 'LUNCH', carbsG: 90, description: '' });
+      meals.push({
+        id: `high-${i}`,
+        takenAt: highMealTime,
+        mealType: 'LUNCH',
+        carbsG: 90,
+        description: '',
+      });
       glucose.push(glucoseAt(new Date(highMealTime.getTime() + 90 * 60_000).toISOString(), 200));
     }
     const result = runAnalytics(baseInput({ glucose, meals }));
@@ -118,10 +138,22 @@ describe('buildInsights', () => {
     const glucose: GlucosePoint[] = [];
     for (let i = 0; i < 15; i++) {
       const mealTime = new Date(Date.UTC(2026, 0, i + 1, 12, 0, 0));
-      meals.push({ id: `low-${i}`, takenAt: mealTime, mealType: 'LUNCH', carbsG: 10, description: '' });
+      meals.push({
+        id: `low-${i}`,
+        takenAt: mealTime,
+        mealType: 'LUNCH',
+        carbsG: 10,
+        description: '',
+      });
       glucose.push(glucoseAt(new Date(mealTime.getTime() + 90 * 60_000).toISOString(), 110));
       const highMealTime = new Date(Date.UTC(2026, 1, i + 1, 12, 0, 0));
-      meals.push({ id: `high-${i}`, takenAt: highMealTime, mealType: 'LUNCH', carbsG: 90, description: '' });
+      meals.push({
+        id: `high-${i}`,
+        takenAt: highMealTime,
+        mealType: 'LUNCH',
+        carbsG: 90,
+        description: '',
+      });
       glucose.push(glucoseAt(new Date(highMealTime.getTime() + 90 * 60_000).toISOString(), 200));
     }
     const result = runAnalytics(baseInput({ glucose, meals }));

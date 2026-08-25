@@ -10,18 +10,18 @@ export function DataExport({ totalRecords }: { totalRecords: number }) {
   return (
     <Card>
       <p className="max-w-prose text-ink-muted">
-        Your export contains every reading, meal, activity, sleep, medication, weight, blood pressure,
-        mood and note you have logged, plus your profile settings and the history of any files you
-        imported. It never includes your password. Each file is generated fresh when you download it
-        and is capped at {EXPORT_ROW_LIMIT.toLocaleString()} rows per record type — the file tells you
-        if a type was cut off.
+        Your export contains every reading, meal, activity, sleep, medication, weight, blood
+        pressure, mood and note you have logged, plus your profile settings and the history of any
+        files you imported. It never includes your password. Each file is generated fresh when you
+        download it and is capped at {EXPORT_ROW_LIMIT.toLocaleString()} rows per record type — the
+        file tells you if a type was cut off.
       </p>
 
       <div className="mt-5">
         <h3 className="text-base font-semibold">Everything, as one file</h3>
         <p className="mt-1 text-sm text-ink-muted">
-          A single JSON file with all of your data together, including both mg/dL and mmol/L for every
-          glucose reading so it is usable outside DiaLog too.
+          A single JSON file with all of your data together, including both mg/dL and mmol/L for
+          every glucose reading so it is usable outside DiaLog too.
         </p>
         <ButtonLink href="/api/export?format=json" className="mt-3" variant="secondary">
           <span aria-hidden="true">⬇</span> Download everything (JSON)

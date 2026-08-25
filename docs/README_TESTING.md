@@ -3,26 +3,31 @@
 ## Quick Start
 
 ### 1. Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 2. Generate Sample Data
+
 ```bash
 python examples/generate_sample_data.py
 ```
 
 ### 3. Train a Model
+
 ```bash
 python examples/train_model_example.py
 ```
 
 ### 4. Make Predictions
+
 ```bash
 python examples/make_predictions_example.py
 ```
 
 ### 5. Run Tests
+
 ```bash
 # Run all tests
 pytest
@@ -79,17 +84,23 @@ DiaLog/
 ## Testing Infrastructure
 
 ### Unit Tests
+
 Unit tests validate individual components in isolation:
+
 - **test_models.py**: Tests for model training, prediction, save/load
 - **test_outputs.py**: Tests for output management and file operations
 - **test_model_properties.py**: Property-based tests using Hypothesis
 
 ### Integration Tests
+
 Integration tests validate end-to-end workflows:
+
 - **test_model_output_pipeline.py**: Complete pipeline from data to predictions
 
 ### Test Fixtures
+
 Shared fixtures are defined in `tests/conftest.py`:
+
 - `random_seed`: Set reproducible random seed
 - `sample_glucose_data`: Generate sample glucose monitoring data
 - `sample_training_data`: Generate X, y training data
@@ -99,7 +110,9 @@ Shared fixtures are defined in `tests/conftest.py`:
 ## Sample Inputs and Outputs
 
 ### Sample Input (data/sample_glucose_data.csv)
+
 Generated glucose monitoring data with features:
+
 - `timestamp`: Date and time of measurement
 - `glucose_mg_dl`: Glucose level in mg/dL
 - `carbs_grams`: Carbohydrate intake in grams
@@ -111,20 +124,24 @@ Generated glucose monitoring data with features:
 ### Sample Outputs (outputs/)
 
 #### Predictions (CSV)
+
 - Filename format: `{model_name}_predictions_{timestamp}.csv`
 - Contains: actual values, predicted values, errors
 
 #### Metadata (JSON)
+
 - Filename format: `{model_name}_predictions_{timestamp}.json`
 - Contains: model version, features used, number of predictions
 
 #### Metrics (JSON)
+
 - Filename format: `{model_name}_metrics_{run_id}.json`
 - Contains: RMSE, MAE, R², timestamp, model name
 
 ## Model Interface
 
 All models inherit from `BaseModel` and implement:
+
 - `train(X, y)`: Train the model
 - `predict(X)`: Make predictions
 - `save(path)`: Save model to disk
@@ -134,6 +151,7 @@ All models inherit from `BaseModel` and implement:
 ## Configuration
 
 The `Config` class provides centralized configuration:
+
 ```python
 from src.utils.config import Config
 
@@ -144,6 +162,7 @@ print(config.DATA_DIR)     # Path to data directory
 ```
 
 Environment variables:
+
 - `MODEL_VERSION`: Model version (default: "v1")
 - `RANDOM_SEED`: Random seed (default: 42)
 - `N_ESTIMATORS`: Number of trees (default: 100)
@@ -152,6 +171,7 @@ Environment variables:
 ## Output Management
 
 The `OutputManager` class handles all output operations:
+
 ```python
 from src.utils.output_manager import OutputManager
 
@@ -173,6 +193,7 @@ latest = manager.get_latest_predictions(model_name="my_model")
 ## CI/CD Pipeline
 
 The project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that:
+
 - Runs tests on Python 3.9, 3.10, and 3.11
 - Executes unit and integration tests
 - Generates coverage reports
@@ -214,27 +235,35 @@ The project includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that
 ## Troubleshooting
 
 ### Tests fail with import errors
+
 Make sure you're running tests from the project root:
+
 ```bash
 cd /path/to/DiaLog
 pytest
 ```
 
 ### Missing sample data
+
 Generate sample data first:
+
 ```bash
 python examples/generate_sample_data.py
 ```
 
 ### Model not found errors in examples
+
 Train the model before making predictions:
+
 ```bash
 python examples/train_model_example.py
 python examples/make_predictions_example.py
 ```
 
 ### Coverage reports not generated
+
 Install pytest-cov:
+
 ```bash
 pip install pytest-cov
 ```
@@ -242,6 +271,7 @@ pip install pytest-cov
 ## Contributing
 
 When adding new features:
+
 1. Add corresponding unit tests
 2. Update integration tests if workflow changes
 3. Update documentation

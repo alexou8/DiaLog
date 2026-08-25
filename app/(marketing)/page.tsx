@@ -115,8 +115,9 @@ export default function LandingPage() {
             </h2>
             <p className="mt-4 text-ink-muted">
               Large type, generous spacing, big buttons and short forms. Full keyboard and screen
-              reader support, and every chart comes with the same information as text and as a table.
-              Status is never shown by colour alone — there is always a label and an icon too.
+              reader support, and every chart comes with the same information as text and as a
+              table. Status is never shown by colour alone — there is always a label and an icon
+              too.
             </p>
             <p className="mt-4">
               <Link href="/accessibility" className="font-semibold underline underline-offset-4">

@@ -10,7 +10,11 @@ export const metadata: Metadata = { title: 'Activity' };
 export const dynamic = 'force-dynamic';
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const INTENSITY_LABELS: Record<string, string> = { LIGHT: 'Light', MODERATE: 'Moderate', VIGOROUS: 'Vigorous' };
+const INTENSITY_LABELS: Record<string, string> = {
+  LIGHT: 'Light',
+  MODERATE: 'Moderate',
+  VIGOROUS: 'Vigorous',
+};
 
 export default async function ActivityPage() {
   const user = await requireOnboardedUser();
@@ -43,14 +47,26 @@ export default async function ActivityPage() {
           icon="🚶"
           action={<ButtonLink href="/app/activity/new">Log your first session</ButtonLink>}
         >
-          <p>A walk, a swim, housework — anything that gets you moving counts. Just the activity and how long is enough to start.</p>
+          <p>
+            A walk, a swim, housework — anything that gets you moving counts. Just the activity and
+            how long is enough to start.
+          </p>
         </EmptyState>
       </div>
     );
   }
 
-  const dayFmt = new Intl.DateTimeFormat(locale, { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' });
-  const timeFmt = new Intl.DateTimeFormat(locale, { timeZone: timezone, hour: 'numeric', minute: '2-digit' });
+  const dayFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  const timeFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 
   const groups = new Map<string, typeof sessions>();
   for (const s of sessions) {
@@ -69,7 +85,10 @@ export default async function ActivityPage() {
     const idx = weekdayInZone(s.takenAt, timezone);
     if (idx >= 0) minutesByWeekday[idx] = (minutesByWeekday[idx] ?? 0) + s.durationMin;
   }
-  const bars: Bar[] = WEEKDAY_LABELS.map((label, i) => ({ label, value: minutesByWeekday[i] ?? 0 }));
+  const bars: Bar[] = WEEKDAY_LABELS.map((label, i) => ({
+    label,
+    value: minutesByWeekday[i] ?? 0,
+  }));
 
   return (
     <div className="space-y-8">
@@ -87,7 +106,12 @@ export default async function ActivityPage() {
         <Card>
           <CardHeader id="activity-week-heading" title="This week" level={2} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Stat label="Total minutes this week" value={totalMinutesThisWeek} unit="min" hint={`${thisWeek.length} ${thisWeek.length === 1 ? 'session' : 'sessions'}`} />
+            <Stat
+              label="Total minutes this week"
+              value={totalMinutesThisWeek}
+              unit="min"
+              hint={`${thisWeek.length} ${thisWeek.length === 1 ? 'session' : 'sessions'}`}
+            />
           </div>
           <div className="mt-6">
             <BarChart
@@ -114,11 +138,15 @@ export default async function ActivityPage() {
               </h3>
               <ul>
                 {daySessions.map((s) => (
-                  <li key={s.id} className="flex flex-wrap items-start justify-between gap-3 border-b border-line py-3 last:border-0">
+                  <li
+                    key={s.id}
+                    className="flex flex-wrap items-start justify-between gap-3 border-b border-line py-3 last:border-0"
+                  >
                     <div className="min-w-0">
                       <p className="text-base font-semibold">{s.activity}</p>
                       <p className="text-sm text-ink-muted">
-                        {s.durationMin} min · {INTENSITY_LABELS[s.intensity] ?? s.intensity} · {timeFmt.format(s.takenAt)}
+                        {s.durationMin} min · {INTENSITY_LABELS[s.intensity] ?? s.intensity} ·{' '}
+                        {timeFmt.format(s.takenAt)}
                         {s.distanceKm != null ? ` · ${s.distanceKm} km` : ''}
                         {s.steps != null ? ` · ${s.steps} steps` : ''}
                       </p>

@@ -52,7 +52,8 @@ export function InsightCardView({ insight }: { insight: InsightCard }) {
           <div>
             <dt className="font-semibold text-ink">How much data this is based on</dt>
             <dd>
-              {insight.sampleSize} {insight.sampleSize === 1 ? 'record' : 'records'}. {evidence.description}
+              {insight.sampleSize} {insight.sampleSize === 1 ? 'record' : 'records'}.{' '}
+              {evidence.description}
             </dd>
           </div>
           <div>

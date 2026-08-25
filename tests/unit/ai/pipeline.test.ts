@@ -1,7 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { answerQuestion, parseMealText, summarizePeriod, parseNoteText, assertNoRawRecords } from '@/lib/ai/pipeline';
+import {
+  answerQuestion,
+  parseMealText,
+  summarizePeriod,
+  parseNoteText,
+  assertNoRawRecords,
+} from '@/lib/ai/pipeline';
 import { LocalProvider } from '@/lib/ai/providers/local';
-import { AIProviderError, type AIProvider, type CompletionRequest, type CompletionResult } from '@/lib/ai/provider';
+import {
+  AIProviderError,
+  type AIProvider,
+  type CompletionRequest,
+  type CompletionResult,
+} from '@/lib/ai/provider';
 import { makeBundle, makeFinding, makeInsufficientBundle } from './fixtures';
 
 class ThrowingProvider implements AIProvider {
@@ -49,7 +60,10 @@ class GoodProvider implements AIProvider {
     const schema = req.responseSchema as { properties?: Record<string, unknown> };
     const props = schema.properties ? Object.keys(schema.properties) : [];
     if (props.includes('meals')) {
-      return { json: { meals: [], exercise: [], unparsed: ['unrecognized text'] }, providerId: this.id };
+      return {
+        json: { meals: [], exercise: [], unparsed: ['unrecognized text'] },
+        providerId: this.id,
+      };
     }
     if (props.includes('candidates')) {
       return { json: { candidates: [], unparsed: ['unrecognized note'] }, providerId: this.id };
@@ -82,7 +96,9 @@ describe('assertNoRawRecords', () => {
 
   it('throws when a finding metrics field contains an array', () => {
     const bundle = makeBundle({
-      findings: [makeFinding({ metrics: { avgRiseMgdl: 42, rawPoints: [1, 2, 3] as unknown as number } })],
+      findings: [
+        makeFinding({ metrics: { avgRiseMgdl: 42, rawPoints: [1, 2, 3] as unknown as number } }),
+      ],
     });
     expect(() => assertNoRawRecords(bundle)).toThrow(/raw records/i);
   });
@@ -106,7 +122,9 @@ describe('answerQuestion', () => {
     });
     expect(result.providerId).toBe('local');
     expect(result.usedFallback).toBe(false);
-    expect(result.answer.citedFindingIds.every((id) => bundle.findings.some((f) => f.id === id))).toBe(true);
+    expect(
+      result.answer.citedFindingIds.every((id) => bundle.findings.some((f) => f.id === id)),
+    ).toBe(true);
   });
 
   it('falls back to the local provider when the primary provider throws', async () => {
@@ -149,7 +167,12 @@ describe('answerQuestion', () => {
     // @ts-expect-error deliberately violating the type to test the runtime guard
     bundle.summary.rawReadings = [{ mgdl: 100 }];
     await expect(
-      answerQuestion({ question: 'x', bundle, detailLevel: 'standard', provider: new GoodProvider() }),
+      answerQuestion({
+        question: 'x',
+        bundle,
+        detailLevel: 'standard',
+        provider: new GoodProvider(),
+      }),
     ).rejects.toThrow(/raw records/i);
   });
 });
@@ -162,7 +185,10 @@ describe('parseMealText', () => {
   });
 
   it('falls back to local on a throwing provider', async () => {
-    const result = await parseMealText({ text: 'ate a sandwich', provider: new ThrowingProvider() });
+    const result = await parseMealText({
+      text: 'ate a sandwich',
+      provider: new ThrowingProvider(),
+    });
     expect(result.usedFallback).toBe(true);
     expect(result.providerId).toBe('local');
   });
@@ -177,21 +203,32 @@ describe('parseMealText', () => {
 describe('summarizePeriod', () => {
   it('runs against the local provider end to end', async () => {
     const bundle = makeBundle();
-    const result = await summarizePeriod({ bundle, detailLevel: 'standard', provider: new LocalProvider() });
+    const result = await summarizePeriod({
+      bundle,
+      detailLevel: 'standard',
+      provider: new LocalProvider(),
+    });
     expect(result.providerId).toBe('local');
     expect(result.narrative.headline).toBeTruthy();
   });
 
   it('falls back to local on a throwing provider', async () => {
     const bundle = makeBundle();
-    const result = await summarizePeriod({ bundle, detailLevel: 'standard', provider: new ThrowingProvider() });
+    const result = await summarizePeriod({
+      bundle,
+      detailLevel: 'standard',
+      provider: new ThrowingProvider(),
+    });
     expect(result.usedFallback).toBe(true);
   });
 });
 
 describe('parseNoteText', () => {
   it('runs against the local provider and returns the text unparsed', async () => {
-    const result = await parseNoteText({ text: 'felt dizzy after lunch', provider: new LocalProvider() });
+    const result = await parseNoteText({
+      text: 'felt dizzy after lunch',
+      provider: new LocalProvider(),
+    });
     expect(result.structure.candidates).toEqual([]);
     expect(result.structure.unparsed).toEqual(['felt dizzy after lunch']);
   });

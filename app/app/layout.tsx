@@ -24,7 +24,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="dl-safe-top sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link href="/app" className="dl-target flex items-center gap-2 text-lg font-bold">
-            <Image src="/icons/icon-192.png" alt="" width={30} height={30} className="rounded-lg" priority />
+            <Image
+              src="/icons/icon-192.png"
+              alt=""
+              width={30}
+              height={30}
+              className="rounded-lg"
+              priority
+            />
             DiaLog
           </Link>
           <div className="flex items-center gap-2">
@@ -44,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
 
       <div className="mx-auto flex max-w-6xl gap-8 px-4 pb-28 pt-6 sm:px-6 lg:pb-12">
-        <aside className="w-56 shrink-0">
+        <aside className="hidden w-56 shrink-0 lg:block">
           <SideNav dict={dict} />
         </aside>
         <main id="main" className="min-w-0 flex-1">

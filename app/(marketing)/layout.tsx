@@ -20,7 +20,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <header className="dl-safe-top border-b border-line bg-surface">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-3">
           <Link href="/" className="dl-target flex items-center gap-2 text-lg font-bold">
-            <Image src="/icons/icon-192.png" alt="" width={32} height={32} className="rounded-lg" priority />
+            <Image
+              src="/icons/icon-192.png"
+              alt=""
+              width={32}
+              height={32}
+              className="rounded-lg"
+              priority
+            />
             DiaLog
           </Link>
           <nav aria-label="Account">
@@ -59,8 +66,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             <MedicalDisclaimer />
           </div>
           <p className="mt-4 text-sm text-ink-muted">
-            DiaLog is an open-source personal project. It is not affiliated with, or endorsed by, any
-            device manufacturer.
+            DiaLog is an open-source personal project. It is not affiliated with, or endorsed by,
+            any device manufacturer.
           </p>
         </div>
       </footer>

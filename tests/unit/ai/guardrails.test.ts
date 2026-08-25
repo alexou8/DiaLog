@@ -47,8 +47,14 @@ describe('validateAssistantAnswer', () => {
 
 describe('checkMedicalSafety', () => {
   const unsafeCases: { label: string; text: string }[] = [
-    { label: 'dosing-instruction (increase insulin)', text: 'You should increase your insulin dose tomorrow.' },
-    { label: 'dosing-instruction (decrease units)', text: 'Consider decreasing your units of medication.' },
+    {
+      label: 'dosing-instruction (increase insulin)',
+      text: 'You should increase your insulin dose tomorrow.',
+    },
+    {
+      label: 'dosing-instruction (decrease units)',
+      text: 'Consider decreasing your units of medication.',
+    },
     { label: 'take-units', text: 'Take 10 units before dinner.' },
     { label: 'diagnosis', text: 'Based on this, you have diabetes.' },
     { label: 'diagnose-verb', text: 'This data helps diagnose your condition.' },
@@ -112,7 +118,11 @@ describe('enforceGrounding', () => {
 
   it('does not downgrade when notEnoughData is already true', () => {
     const bundle = makeBundle();
-    const answer = baseAnswer({ citedFindingIds: ['unknown'], notEnoughData: true, confidence: 'insufficient' });
+    const answer = baseAnswer({
+      citedFindingIds: ['unknown'],
+      notEnoughData: true,
+      confidence: 'insufficient',
+    });
     const result = enforceGrounding(answer, bundle);
     expect(result.value.confidence).toBe('insufficient');
     expect(result.value.detail).not.toContain(LIMITED_EVIDENCE_CAVEAT);
@@ -130,7 +140,11 @@ describe('enforceGrounding', () => {
 describe('enforceClaimConsistency', () => {
   it('forces notEnoughData true when all findings are INSUFFICIENT', () => {
     const bundle = makeInsufficientBundle();
-    const answer = baseAnswer({ notEnoughData: false, confidence: 'high', citedFindingIds: ['finding-insuff'] });
+    const answer = baseAnswer({
+      notEnoughData: false,
+      confidence: 'high',
+      citedFindingIds: ['finding-insuff'],
+    });
     const result = enforceClaimConsistency(answer, bundle);
     expect(result.value.notEnoughData).toBe(true);
     expect(result.value.confidence).toBe('insufficient');

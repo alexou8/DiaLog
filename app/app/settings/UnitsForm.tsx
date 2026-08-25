@@ -25,10 +25,15 @@ function Submit() {
 }
 
 export function UnitsForm({ profile }: { profile: Profile }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(updatePreferencesAction, null);
+  const [state, action] = useActionState<ActionState | null, FormData>(
+    updatePreferencesAction,
+    null,
+  );
   const [unit, setUnit] = useState<Unit>(profile.glucoseUnit);
   const [low, setLow] = useState(() => formatForUnit(profile.targetLowMgdl, profile.glucoseUnit));
-  const [high, setHigh] = useState(() => formatForUnit(profile.targetHighMgdl, profile.glucoseUnit));
+  const [high, setHigh] = useState(() =>
+    formatForUnit(profile.targetHighMgdl, profile.glucoseUnit),
+  );
 
   function handleUnitChange(event: React.ChangeEvent<HTMLDivElement>) {
     const target = event.target as HTMLInputElement;
@@ -45,8 +50,14 @@ export function UnitsForm({ profile }: { profile: Profile }) {
   const step = unitPrecision(unit) === 0 ? '1' : '0.1';
 
   return (
-    <form action={action} noValidate className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6">
-      <FormStatus status={state && state.message ? { ok: state.ok, message: state.message } : null} />
+    <form
+      action={action}
+      noValidate
+      className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6"
+    >
+      <FormStatus
+        status={state && state.message ? { ok: state.ok, message: state.message } : null}
+      />
 
       <div onChange={handleUnitChange}>
         <RadioCards
@@ -65,8 +76,9 @@ export function UnitsForm({ profile }: { profile: Profile }) {
         <legend className="mb-1.5 text-base font-semibold">Your personal target range</legend>
         <p className="mb-3 text-sm text-ink-muted">
           This is the range you and your healthcare professional consider reasonable for you — not a
-          clinical threshold, and not medical advice. DiaLog uses it only to describe your own readings
-          (for example, &ldquo;in your target range&rdquo;); it never changes what is stored.
+          clinical threshold, and not medical advice. DiaLog uses it only to describe your own
+          readings (for example, &ldquo;in your target range&rdquo;); it never changes what is
+          stored.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={`Low end (${unitLabel(unit)})`} required error={state?.errors?.targetLow}>

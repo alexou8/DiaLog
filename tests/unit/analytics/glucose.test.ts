@@ -12,13 +12,24 @@ import { DEFAULT_TARGET_RANGE } from '@/lib/domain/thresholds';
 
 const TZ = 'America/Toronto';
 
-function point(id: string, iso: string, valueMgdl: number, context: GlucosePoint['context'] = 'RANDOM'): GlucosePoint {
+function point(
+  id: string,
+  iso: string,
+  valueMgdl: number,
+  context: GlucosePoint['context'] = 'RANDOM',
+): GlucosePoint {
   return { id, takenAt: new Date(iso), valueMgdl, context };
 }
 
 describe('summarizeGlucose', () => {
   it('handles an empty reading list without throwing', () => {
-    const summary = summarizeGlucose([], DEFAULT_TARGET_RANGE, TZ, new Date('2026-01-01T00:00:00Z'), new Date('2026-01-08T00:00:00Z'));
+    const summary = summarizeGlucose(
+      [],
+      DEFAULT_TARGET_RANGE,
+      TZ,
+      new Date('2026-01-01T00:00:00Z'),
+      new Date('2026-01-08T00:00:00Z'),
+    );
     expect(summary.count).toBe(0);
     expect(summary.averageMgdl).toBeNull();
     expect(summary.percentInRange).toBeNull();
@@ -27,7 +38,13 @@ describe('summarizeGlucose', () => {
 
   it('handles a single reading', () => {
     const pts = [point('a', '2026-01-01T12:00:00Z', 120)];
-    const summary = summarizeGlucose(pts, DEFAULT_TARGET_RANGE, TZ, new Date('2026-01-01T00:00:00Z'), new Date('2026-01-02T00:00:00Z'));
+    const summary = summarizeGlucose(
+      pts,
+      DEFAULT_TARGET_RANGE,
+      TZ,
+      new Date('2026-01-01T00:00:00Z'),
+      new Date('2026-01-02T00:00:00Z'),
+    );
     expect(summary.count).toBe(1);
     expect(summary.averageMgdl).toBe(120);
     expect(summary.sdMgdl).toBeNull(); // n<2
@@ -41,7 +58,13 @@ describe('summarizeGlucose', () => {
       point('c', '2026-01-01T08:00:00Z', 200), // above (default high=180)
       point('d', '2026-01-01T09:00:00Z', 150), // in range
     ];
-    const summary = summarizeGlucose(pts, DEFAULT_TARGET_RANGE, TZ, new Date('2026-01-01T00:00:00Z'), new Date('2026-01-02T00:00:00Z'));
+    const summary = summarizeGlucose(
+      pts,
+      DEFAULT_TARGET_RANGE,
+      TZ,
+      new Date('2026-01-01T00:00:00Z'),
+      new Date('2026-01-02T00:00:00Z'),
+    );
     expect(summary.percentBelowRange).toBe(25);
     expect(summary.percentInRange).toBe(50);
     expect(summary.percentAboveRange).toBe(25);
@@ -50,7 +73,11 @@ describe('summarizeGlucose', () => {
 
 describe('histogram', () => {
   it('buckets values into fixed-width bins with an overflow bucket', () => {
-    const pts = [point('a', '2026-01-01T00:00:00Z', 45), point('b', '2026-01-01T00:00:00Z', 65), point('c', '2026-01-01T00:00:00Z', 405)];
+    const pts = [
+      point('a', '2026-01-01T00:00:00Z', 45),
+      point('b', '2026-01-01T00:00:00Z', 65),
+      point('c', '2026-01-01T00:00:00Z', 405),
+    ];
     const buckets = histogram(pts, 20, 40, 400);
     const first = buckets.find((b) => b.from === 40);
     expect(first?.count).toBe(1);

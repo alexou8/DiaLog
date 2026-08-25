@@ -40,7 +40,11 @@ describe('AnthropicProvider', () => {
       new Response(
         JSON.stringify({
           content: [
-            { type: 'tool_use', name: 'emit_structured_output', input: { shortAnswer: 'hi', ok: true } },
+            {
+              type: 'tool_use',
+              name: 'emit_structured_output',
+              input: { shortAnswer: 'hi', ok: true },
+            },
           ],
         }),
         { status: 200 },
@@ -61,7 +65,9 @@ describe('AnthropicProvider', () => {
   });
 
   it('throws AIProviderError with kind http_error on a non-200 response', async () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response('', { status: 500 })) as unknown as typeof fetch;
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response('', { status: 500 })) as unknown as typeof fetch;
     const provider = new AnthropicProvider();
     await expect(provider.complete(baseReq)).rejects.toMatchObject({
       name: 'AIProviderError',
@@ -71,7 +77,9 @@ describe('AnthropicProvider', () => {
   });
 
   it('throws AIProviderError with kind malformed_json when body is not valid JSON', async () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response('not json', { status: 200 })) as unknown as typeof fetch;
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response('not json', { status: 200 })) as unknown as typeof fetch;
     const provider = new AnthropicProvider();
     await expect(provider.complete(baseReq)).rejects.toMatchObject({
       kind: 'malformed_json',
@@ -81,7 +89,11 @@ describe('AnthropicProvider', () => {
   it('throws AIProviderError with kind malformed_json when no matching tool_use block is present', async () => {
     global.fetch = vi
       .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ content: [{ type: 'text', text: 'oops' }] }), { status: 200 }));
+      .mockResolvedValue(
+        new Response(JSON.stringify({ content: [{ type: 'text', text: 'oops' }] }), {
+          status: 200,
+        }),
+      );
     const provider = new AnthropicProvider();
     await expect(provider.complete(baseReq)).rejects.toMatchObject({
       kind: 'malformed_json',
@@ -117,13 +129,22 @@ describe('AnthropicProvider', () => {
   it('never logs request or response bodies', async () => {
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    global.fetch = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ content: [{ type: 'tool_use', name: 'emit_structured_output', input: { secretHealthValue: 'do-not-log-me' } }] }), {
-          status: 200,
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          content: [
+            {
+              type: 'tool_use',
+              name: 'emit_structured_output',
+              input: { secretHealthValue: 'do-not-log-me' },
+            },
+          ],
         }),
-      ) as unknown as typeof fetch;
+        {
+          status: 200,
+        },
+      ),
+    ) as unknown as typeof fetch;
 
     const provider = new AnthropicProvider();
     await provider.complete(baseReq);

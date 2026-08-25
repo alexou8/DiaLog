@@ -4,7 +4,15 @@ import { analyzeUser, defaultWindow, insightsFor } from '@/lib/services/analytic
 import { prisma } from '@/lib/db/prisma';
 import { EVIDENCE_LABELS } from '@/lib/domain/evidence';
 import { formatGlucose, unitLabel } from '@/lib/domain/units';
-import { ButtonLink, Callout, Card, CardHeader, EmptyState, MedicalDisclaimer, PageHeader } from '@/components/ui';
+import {
+  ButtonLink,
+  Callout,
+  Card,
+  CardHeader,
+  EmptyState,
+  MedicalDisclaimer,
+  PageHeader,
+} from '@/components/ui';
 
 export const metadata: Metadata = { title: 'Reports' };
 export const dynamic = 'force-dynamic';
@@ -58,7 +66,10 @@ export default async function ReportsPage({
         title={days === 7 ? 'Your week' : 'Your month'}
         description={`${dateFmt.format(window.from)} to ${dateFmt.format(window.to)}. Written to be understandable without medical training, and to be useful to bring to an appointment.`}
         action={
-          <ButtonLink href={days === 7 ? '/app/reports?period=month' : '/app/reports?period=week'} variant="secondary">
+          <ButtonLink
+            href={days === 7 ? '/app/reports?period=month' : '/app/reports?period=week'}
+            variant="secondary"
+          >
             {days === 7 ? 'Show the month' : 'Show the week'}
           </ButtonLink>
         }
@@ -81,18 +92,26 @@ export default async function ReportsPage({
                 <div>
                   <dt className="text-sm font-medium text-ink-muted">Average reading</dt>
                   <dd className="text-xl font-bold tabular-nums">
-                    {summary.averageMgdl == null ? '—' : formatGlucose(summary.averageMgdl, unit, profile.locale)}{' '}
+                    {summary.averageMgdl == null
+                      ? '—'
+                      : formatGlucose(summary.averageMgdl, unit, profile.locale)}{' '}
                     <span className="text-base font-normal">{unitLabel(unit)}</span>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-ink-muted">Readings inside your target range</dt>
+                  <dt className="text-sm font-medium text-ink-muted">
+                    Readings inside your target range
+                  </dt>
                   <dd className="text-xl font-bold tabular-nums">
-                    {summary.percentInRange == null ? '—' : `${Math.round(summary.percentInRange)}%`}
+                    {summary.percentInRange == null
+                      ? '—'
+                      : `${Math.round(summary.percentInRange)}%`}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-ink-muted">How much your readings varied</dt>
+                  <dt className="text-sm font-medium text-ink-muted">
+                    How much your readings varied
+                  </dt>
                   <dd className="text-xl font-bold tabular-nums">
                     {summary.cv == null ? '—' : `${Math.round(summary.cv * 100)}%`}
                   </dd>
@@ -123,15 +142,20 @@ export default async function ReportsPage({
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-ink-muted">Activity</dt>
-                  <dd className="text-xl font-bold tabular-nums">{activity._sum.durationMin ?? 0} min</dd>
+                  <dd className="text-xl font-bold tabular-nums">
+                    {activity._sum.durationMin ?? 0} min
+                  </dd>
                   <p className="text-sm text-ink-muted">
-                    Across {activity._count._all} logged {activity._count._all === 1 ? 'session' : 'sessions'}.
+                    Across {activity._count._all} logged{' '}
+                    {activity._count._all === 1 ? 'session' : 'sessions'}.
                   </p>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-ink-muted">Sleep</dt>
                   <dd className="text-xl font-bold tabular-nums">
-                    {sleep._avg.durationMin == null ? '—' : `${(sleep._avg.durationMin / 60).toFixed(1)} h`}
+                    {sleep._avg.durationMin == null
+                      ? '—'
+                      : `${(sleep._avg.durationMin / 60).toFixed(1)} h`}
                   </dd>
                   <p className="text-sm text-ink-muted">
                     {sleep._count._all === 0
@@ -152,9 +176,9 @@ export default async function ReportsPage({
               />
               {strongest.length === 0 ? (
                 <p className="text-ink-muted">
-                  Nothing reached the point where DiaLog would call it a pattern this period. That is a
-                  finding in itself — it usually means either a steady stretch, or not enough logged
-                  days to compare.
+                  Nothing reached the point where DiaLog would call it a pattern this period. That
+                  is a finding in itself — it usually means either a steady stretch, or not enough
+                  logged days to compare.
                 </p>
               ) : (
                 <ul className="space-y-4">
@@ -163,7 +187,8 @@ export default async function ReportsPage({
                       <h3 className="font-semibold">{insight.title}</h3>
                       <p className="text-ink-muted">{insight.summary}</p>
                       <p className="mt-1 text-sm text-ink-muted">
-                        {EVIDENCE_LABELS[insight.evidenceLevel].label} · based on {insight.sampleSize} records
+                        {EVIDENCE_LABELS[insight.evidenceLevel].label} · based on{' '}
+                        {insight.sampleSize} records
                       </p>
                     </li>
                   ))}
@@ -217,7 +242,10 @@ function describeTrend(classification: string): string {
 
 /** Questions are derived from what the data does and does not support. */
 function buildClinicianQuestions(
-  result: { summary: { percentInRange: number | null; cv: number | null }; dataQuality: { skippedAnalyses: unknown[] } },
+  result: {
+    summary: { percentInRange: number | null; cv: number | null };
+    dataQuality: { skippedAnalyses: unknown[] };
+  },
   insightCount: number,
 ): string[] {
   const questions: string[] = [];
@@ -239,8 +267,12 @@ function buildClinicianQuestions(
     );
   }
   if (insightCount > 0) {
-    questions.push('Here are the patterns my tracking picked up. Do any of them match what you would expect?');
+    questions.push(
+      'Here are the patterns my tracking picked up. Do any of them match what you would expect?',
+    );
   }
-  questions.push('Is there anything you would like me to start recording that I am not recording now?');
+  questions.push(
+    'Is there anything you would like me to start recording that I am not recording now?',
+  );
   return questions;
 }

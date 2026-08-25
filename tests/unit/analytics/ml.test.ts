@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { detectAnomalies } from '@/lib/analytics/ml/anomaly';
-import { buildDayFeatureVectors, clusterDayPatterns, kmeans, mulberry32 } from '@/lib/analytics/ml/cluster';
+import {
+  buildDayFeatureVectors,
+  clusterDayPatterns,
+  kmeans,
+  mulberry32,
+} from '@/lib/analytics/ml/cluster';
 import { detectTrend } from '@/lib/analytics/ml/trend';
 import { computeFeatureImportance } from '@/lib/analytics/ml/importance';
 import type { AnalyticsInput, ExercisePoint, GlucosePoint, MealPoint } from '@/lib/analytics/types';
@@ -30,7 +35,9 @@ function glucoseAt(iso: string, valueMgdl: number): GlucosePoint {
 
 describe('detectAnomalies', () => {
   it('returns no flags with too little baseline data', () => {
-    const glucose = Array.from({ length: 5 }, (_, i) => glucoseAt(`2026-01-0${i + 1}T12:00:00Z`, 100));
+    const glucose = Array.from({ length: 5 }, (_, i) =>
+      glucoseAt(`2026-01-0${i + 1}T12:00:00Z`, 100),
+    );
     expect(detectAnomalies(glucose, { timezone: TZ })).toEqual([]);
   });
 
@@ -38,7 +45,9 @@ describe('detectAnomalies', () => {
     const glucose: GlucosePoint[] = [];
     for (let day = 1; day <= 20; day++) {
       // Afternoon bucket (12:00-17:59 local == UTC here), tight around 110.
-      glucose.push(glucoseAt(new Date(Date.UTC(2026, 0, day, 13, 0, 0)).toISOString(), 108 + (day % 3)));
+      glucose.push(
+        glucoseAt(new Date(Date.UTC(2026, 0, day, 13, 0, 0)).toISOString(), 108 + (day % 3)),
+      );
     }
     // One wildly different afternoon reading.
     glucose.push(glucoseAt(new Date(Date.UTC(2026, 0, 21, 13, 0, 0)).toISOString(), 320));
@@ -72,8 +81,18 @@ describe('kmeans', () => {
     ];
     // Use fixed points (not random) for true determinism.
     const fixedPoints: number[][] = [
-      [0, 0], [0.1, 0], [0, 0.1], [0.1, 0.1], [0.05, 0.05], [0, 0.05],
-      [10, 10], [10.1, 10], [10, 10.1], [10.1, 10.1], [10.05, 10.05], [10, 10.05],
+      [0, 0],
+      [0.1, 0],
+      [0, 0.1],
+      [0.1, 0.1],
+      [0.05, 0.05],
+      [0, 0.05],
+      [10, 10],
+      [10.1, 10],
+      [10, 10.1],
+      [10.1, 10.1],
+      [10.05, 10.05],
+      [10, 10.05],
     ];
     const runA = kmeans(fixedPoints, 2, { seed: 42 });
     const runB = kmeans(fixedPoints, 2, { seed: 42 });
@@ -93,12 +112,19 @@ describe('kmeans', () => {
 
 describe('buildDayFeatureVectors / clusterDayPatterns', () => {
   it('returns null when there are too few distinct days', () => {
-    const glucose = [glucoseAt('2026-01-01T12:00:00Z', 100), glucoseAt('2026-01-02T12:00:00Z', 100)];
+    const glucose = [
+      glucoseAt('2026-01-01T12:00:00Z', 100),
+      glucoseAt('2026-01-02T12:00:00Z', 100),
+    ];
     expect(clusterDayPatterns(baseInput({ glucose }), 3)).toBeNull();
   });
 
   it('builds one vector per local day with a glucose reading', () => {
-    const glucose = [glucoseAt('2026-01-01T12:00:00Z', 100), glucoseAt('2026-01-01T18:00:00Z', 120), glucoseAt('2026-01-02T12:00:00Z', 90)];
+    const glucose = [
+      glucoseAt('2026-01-01T12:00:00Z', 100),
+      glucoseAt('2026-01-01T18:00:00Z', 120),
+      glucoseAt('2026-01-02T12:00:00Z', 90),
+    ];
     const vectors = buildDayFeatureVectors(baseInput({ glucose }));
     expect(vectors).toHaveLength(2);
     expect(vectors[0]?.meanGlucoseMgdl).toBeCloseTo(110);
@@ -112,9 +138,22 @@ describe('buildDayFeatureVectors / clusterDayPatterns', () => {
       const highGlucoseDay = day % 2 === 0;
       const d = new Date(Date.UTC(2026, 0, day, 12, 0, 0));
       glucose.push(glucoseAt(d.toISOString(), highGlucoseDay ? 190 : 100));
-      meals.push({ id: `m${day}`, takenAt: d, mealType: 'LUNCH', carbsG: highGlucoseDay ? 90 : 20, description: '' });
+      meals.push({
+        id: `m${day}`,
+        takenAt: d,
+        mealType: 'LUNCH',
+        carbsG: highGlucoseDay ? 90 : 20,
+        description: '',
+      });
       if (!highGlucoseDay) {
-        exercise.push({ id: `e${day}`, takenAt: d, endedAt: null, durationMin: 45, activity: 'run', intensity: 'MODERATE' });
+        exercise.push({
+          id: `e${day}`,
+          takenAt: d,
+          endedAt: null,
+          durationMin: 45,
+          activity: 'run',
+          intensity: 'MODERATE',
+        });
       }
     }
     const input = baseInput({ glucose, meals, exercise });
@@ -136,7 +175,9 @@ describe('detectTrend', () => {
   it('detects a clearly rising trend', () => {
     const glucose: GlucosePoint[] = [];
     for (let day = 1; day <= 25; day++) {
-      glucose.push(glucoseAt(new Date(Date.UTC(2026, 0, day, 12, 0, 0)).toISOString(), 100 + day * 3));
+      glucose.push(
+        glucoseAt(new Date(Date.UTC(2026, 0, day, 12, 0, 0)).toISOString(), 100 + day * 3),
+      );
     }
     const result = detectTrend(baseInput({ glucose }));
     expect(result.classification).toBe('rising');
@@ -146,7 +187,9 @@ describe('detectTrend', () => {
   it('detects a clearly improving (falling) trend', () => {
     const glucose: GlucosePoint[] = [];
     for (let day = 1; day <= 25; day++) {
-      glucose.push(glucoseAt(new Date(Date.UTC(2026, 0, day, 12, 0, 0)).toISOString(), 200 - day * 3));
+      glucose.push(
+        glucoseAt(new Date(Date.UTC(2026, 0, day, 12, 0, 0)).toISOString(), 200 - day * 3),
+      );
     }
     const result = detectTrend(baseInput({ glucose }));
     expect(result.classification).toBe('improving');
@@ -166,7 +209,15 @@ describe('detectTrend', () => {
 describe('computeFeatureImportance', () => {
   it('refuses (returns null) below the model evidence threshold', () => {
     const glucose = [glucoseAt('2026-01-01T13:30:00Z', 150)];
-    const meals: MealPoint[] = [{ id: 'm1', takenAt: new Date('2026-01-01T12:00:00Z'), mealType: 'LUNCH', carbsG: 40, description: '' }];
+    const meals: MealPoint[] = [
+      {
+        id: 'm1',
+        takenAt: new Date('2026-01-01T12:00:00Z'),
+        mealType: 'LUNCH',
+        carbsG: 40,
+        description: '',
+      },
+    ];
     expect(computeFeatureImportance(baseInput({ glucose, meals }))).toBeNull();
   });
 
@@ -176,7 +227,13 @@ describe('computeFeatureImportance', () => {
     for (let i = 0; i < 60; i++) {
       const mealTime = new Date(Date.UTC(2026, 0, 1 + Math.floor(i / 3), 8 + (i % 3) * 5, 0, 0));
       const carbs = 15 + (i % 6) * 15; // varies 15..90
-      meals.push({ id: `m${i}`, takenAt: mealTime, mealType: 'LUNCH', carbsG: carbs, description: '' });
+      meals.push({
+        id: `m${i}`,
+        takenAt: mealTime,
+        mealType: 'LUNCH',
+        carbsG: carbs,
+        description: '',
+      });
       // Response is a clean linear function of carbs plus tiny noise, so carbs should dominate.
       const response = 100 + carbs * 1.2 + ((i % 5) - 2);
       glucose.push(glucoseAt(new Date(mealTime.getTime() + 90 * 60_000).toISOString(), response));

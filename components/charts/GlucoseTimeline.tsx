@@ -53,7 +53,10 @@ export function GlucoseTimeline({
   const y = linearScale([minV, maxV], [H - PAD.bottom, PAD.top]);
 
   const path = sorted
-    .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.takenAt.getTime()).toFixed(1)},${y(fromMgdl(p.valueMgdl, unit)).toFixed(1)}`)
+    .map(
+      (p, i) =>
+        `${i === 0 ? 'M' : 'L'}${x(p.takenAt.getTime()).toFixed(1)},${y(fromMgdl(p.valueMgdl, unit)).toFixed(1)}`,
+    )
     .join(' ');
 
   const timeFmt = new Intl.DateTimeFormat(locale, { timeZone, month: 'short', day: 'numeric' });
@@ -65,7 +68,9 @@ export function GlucoseTimeline({
     minute: '2-digit',
   });
 
-  const inRange = sorted.filter((p) => classifyGlucose(p.valueMgdl, range).id === 'in-range').length;
+  const inRange = sorted.filter(
+    (p) => classifyGlucose(p.valueMgdl, range).id === 'in-range',
+  ).length;
   const summary =
     sorted.length === 0
       ? 'No readings in this period.'
@@ -118,7 +123,13 @@ export function GlucoseTimeline({
               stroke="var(--color-line)"
               strokeWidth={1}
             />
-            <text x={PAD.left - 8} y={y(t) + 4} fontSize="12" textAnchor="end" fill="var(--color-ink-muted)">
+            <text
+              x={PAD.left - 8}
+              y={y(t) + 4}
+              fontSize="12"
+              textAnchor="end"
+              fill="var(--color-ink-muted)"
+            >
               {t.toFixed(unit === 'MMOLL' ? 1 : 0)}
             </text>
           </g>
@@ -149,7 +160,13 @@ export function GlucoseTimeline({
         ))}
 
         {sorted.length > 1 ? (
-          <path d={path} fill="none" stroke="var(--color-brand)" strokeWidth={2} strokeLinejoin="round" />
+          <path
+            d={path}
+            fill="none"
+            stroke="var(--color-brand)"
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
         ) : null}
 
         {sorted.map((p, i) => {
@@ -165,7 +182,12 @@ export function GlucoseTimeline({
             );
           }
           const isHigh = band.id === 'above-range' || band.id === 'very-high';
-          const colour = band.tone === 'critical' ? 'var(--color-critical)' : isHigh ? 'var(--color-notice)' : 'var(--color-caution)';
+          const colour =
+            band.tone === 'critical'
+              ? 'var(--color-critical)'
+              : isHigh
+                ? 'var(--color-notice)'
+                : 'var(--color-caution)';
           const shape = isHigh
             ? `${cx},${cy - 6} ${cx - 5.5},${cy + 4} ${cx + 5.5},${cy + 4}`
             : `${cx},${cy + 6} ${cx - 5.5},${cy - 4} ${cx + 5.5},${cy - 4}`;
@@ -185,18 +207,20 @@ export function GlucoseTimeline({
           stroke="var(--color-line-strong)"
         />
         {sorted.length > 0
-          ? [sorted[0]!, sorted[Math.floor(sorted.length / 2)]!, sorted[sorted.length - 1]!].map((p, i) => (
-              <text
-                key={i}
-                x={x(p.takenAt.getTime())}
-                y={H - PAD.bottom + 18}
-                fontSize="12"
-                textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}
-                fill="var(--color-ink-muted)"
-              >
-                {timeFmt.format(p.takenAt)}
-              </text>
-            ))
+          ? [sorted[0]!, sorted[Math.floor(sorted.length / 2)]!, sorted[sorted.length - 1]!].map(
+              (p, i) => (
+                <text
+                  key={i}
+                  x={x(p.takenAt.getTime())}
+                  y={H - PAD.bottom + 18}
+                  fontSize="12"
+                  textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}
+                  fill="var(--color-ink-muted)"
+                >
+                  {timeFmt.format(p.takenAt)}
+                </text>
+              ),
+            )
           : null}
       </svg>
     </ChartFrame>

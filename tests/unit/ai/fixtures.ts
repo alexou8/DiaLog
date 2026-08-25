@@ -39,9 +39,7 @@ export function makeBundle(overrides: Partial<EvidenceBundle> = {}): EvidenceBun
 
 export function makeInsufficientBundle(): EvidenceBundle {
   return makeBundle({
-    findings: [
-      makeFinding({ id: 'finding-insuff', evidenceLevel: 'INSUFFICIENT', sampleSize: 2 }),
-    ],
+    findings: [makeFinding({ id: 'finding-insuff', evidenceLevel: 'INSUFFICIENT', sampleSize: 2 })],
     dataQuality: {
       recordCounts: { glucose: 4, meals: 1, exercise: 0 },
       coverageDays: 3,

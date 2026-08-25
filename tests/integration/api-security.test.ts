@@ -84,7 +84,9 @@ describe('validation.ts rejects or safely coerces hostile input', () => {
   });
 
   it('strips prototype-pollution keys instead of merging them, and does not pollute Object.prototype', () => {
-    const hostile = JSON.parse('{"email":"safe@example.com","password":"a-long-enough-password-1","__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}}}') as unknown;
+    const hostile = JSON.parse(
+      '{"email":"safe@example.com","password":"a-long-enough-password-1","__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}}}',
+    ) as unknown;
     const result = signUpSchema.safeParse(hostile);
     expect(result.success).toBe(true);
     if (result.success) {
@@ -113,7 +115,9 @@ describe('SQL injection resistance via Prisma parameterisation', () => {
     expect(reloaded.text).toBe(SQL_PAYLOAD); // stored and returned as literal text, unmangled
 
     // A second hostile payload targeting a different clause shape, via the query filter itself.
-    const found = await prisma.noteEntry.findMany({ where: { userId: user.id, text: SQL_PAYLOAD } });
+    const found = await prisma.noteEntry.findMany({
+      where: { userId: user.id, text: SQL_PAYLOAD },
+    });
     expect(found).toHaveLength(1);
   });
 });
@@ -144,12 +148,24 @@ describe('import path handles hostile filenames and disguised content safely', (
     createdUserIds.push(user.id);
 
     // ELF magic bytes followed by junk — not valid text-ish tabular data.
-    const elfMagic = Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
-    const junk = Buffer.concat([elfMagic, Buffer.from('\x00\x01\x02\x03binarygarbage\xff\xfe', 'binary')]);
+    const elfMagic = Buffer.from([
+      0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00,
+    ]);
+    const junk = Buffer.concat([
+      elfMagic,
+      Buffer.from('\x00\x01\x02\x03binarygarbage\xff\xfe', 'binary'),
+    ]);
     const buf = toArrayBuffer(junk);
 
     await expect(
-      prepareImport({ userId: user.id, filename: 'totally-a-spreadsheet.csv', mimeType: 'text/csv', bytes: buf, timezone: 'UTC' }),
+      prepareImport({
+        userId: user.id,
+        filename: 'totally-a-spreadsheet.csv',
+        mimeType: 'text/csv',
+        bytes: buf,
+        timezone: 'UTC',
+      }),
     ).rejects.toBeInstanceOf(ImportError);
 
     expect(await prisma.importBatch.count({ where: { userId: user.id } })).toBe(0);
@@ -164,7 +180,13 @@ describe('import path handles hostile filenames and disguised content safely', (
     const hugeFilename = `${'a'.repeat(5000)}.csv`;
 
     await expect(
-      prepareImport({ userId: user.id, filename: hugeFilename, mimeType: 'text/csv', bytes: buf, timezone: 'UTC' }),
+      prepareImport({
+        userId: user.id,
+        filename: hugeFilename,
+        mimeType: 'text/csv',
+        bytes: buf,
+        timezone: 'UTC',
+      }),
     ).resolves.toBeDefined();
   });
 });

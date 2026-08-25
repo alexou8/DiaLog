@@ -34,7 +34,10 @@ describe('redactForProvider', () => {
     const bundle = makeBundle({
       findings: [
         makeFinding({
-          caveats: ['Small sample size', 'User wrote "I felt terrible after this meal" in their log'],
+          caveats: [
+            'Small sample size',
+            'User wrote "I felt terrible after this meal" in their log',
+          ],
         }),
       ],
     });

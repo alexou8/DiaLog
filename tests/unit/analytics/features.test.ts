@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { computeGlucoseFeatures } from '@/lib/analytics/features';
-import type { ExercisePoint, GlucosePoint, MealPoint, MedicationPoint, SleepPoint } from '@/lib/analytics/types';
+import type {
+  ExercisePoint,
+  GlucosePoint,
+  MealPoint,
+  MedicationPoint,
+  SleepPoint,
+} from '@/lib/analytics/types';
 
 const TZ = 'UTC';
 
@@ -14,7 +20,14 @@ function med(id: string, iso: string): MedicationPoint {
   return { id, takenAt: new Date(iso), name: 'metformin' };
 }
 function exercise(id: string, iso: string, durationMin: number, endedIso?: string): ExercisePoint {
-  return { id, takenAt: new Date(iso), endedAt: endedIso ? new Date(endedIso) : null, durationMin, activity: 'walk', intensity: 'LIGHT' };
+  return {
+    id,
+    takenAt: new Date(iso),
+    endedAt: endedIso ? new Date(endedIso) : null,
+    durationMin,
+    activity: 'walk',
+    intensity: 'LIGHT',
+  };
 }
 function sleep(id: string, startIso: string, endIso: string, durationMin: number): SleepPoint {
   return { id, takenAt: new Date(startIso), endedAt: new Date(endIso), durationMin, quality: null };
@@ -51,7 +64,11 @@ describe('computeGlucoseFeatures', () => {
 
   it('picks the most recent of several prior meals (merge-join correctness)', () => {
     const g = [glucose('g1', '2026-01-01T14:00:00Z')];
-    const meals = [meal('m1', '2026-01-01T09:00:00Z', 20), meal('m2', '2026-01-01T13:30:00Z', 55), meal('m3', '2026-01-01T15:00:00Z', 99)];
+    const meals = [
+      meal('m1', '2026-01-01T09:00:00Z', 20),
+      meal('m2', '2026-01-01T13:30:00Z', 55),
+      meal('m3', '2026-01-01T15:00:00Z', 99),
+    ];
     const [row] = computeGlucoseFeatures(g, meals, [], [], [], { timezone: TZ });
     expect(row?.lastMealCarbsG).toBe(55); // m3 is after the reading, must be ignored
   });

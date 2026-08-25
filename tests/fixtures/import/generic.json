@@ -1,5 +1,11 @@
 [
-  {"type":"glucose","takenAt":"2026-01-10T08:00:00Z","value":120,"unit":"mg/dL","context":"fasting"},
-  {"type":"meal","takenAt":"2026-01-10T08:30:00Z","description":"Oatmeal","carbsG":45},
-  {"type":"medication","takenAt":"2026-01-10T08:10:00Z","name":"Metformin","dose":"500mg"}
+  {
+    "type": "glucose",
+    "takenAt": "2026-01-10T08:00:00Z",
+    "value": 120,
+    "unit": "mg/dL",
+    "context": "fasting"
+  },
+  { "type": "meal", "takenAt": "2026-01-10T08:30:00Z", "description": "Oatmeal", "carbsG": 45 },
+  { "type": "medication", "takenAt": "2026-01-10T08:10:00Z", "name": "Metformin", "dose": "500mg" }
 ]

@@ -32,7 +32,7 @@ This document describes how a request actually moves through DiaLog, layer by la
  └───────────────────────────────────────────────────────────────────┘
 ```
 
-- **Routes** (`app/**`) are Server Components by default; they call `lib/auth/current-user.ts`'s `requireUser`/`requireOnboardedUser` for the session guard, then call a service function directly — there is no internal HTTP hop between a page and its data. The only real REST-style endpoint is `app/api/export/route.ts`.
+- **Routes** (`app/**`) are Server Components by default; they call `lib/auth/current-user.ts`'s `requireUser`/`requireOnboardedUser` for the session guard, then call a service function directly — there is no internal HTTP hop between a page and its data. The only REST-style endpoints are `app/api/export/route.ts` (data export) and `app/api/health/route.ts` (a liveness/readiness probe that checks the process and a `SELECT 1` against the database, exposing no user data — see docs/DEPLOYMENT.md).
 - **Server Actions** (`lib/actions/*.ts`, each file starts with `'use server'`) handle every mutation (sign-up, sign-in, record CRUD, import commit, preference updates, assistant questions). They are the sole write path from the browser; forms `action={someAction}` post directly to them without a hand-written API route.
 - **Services** (`lib/services/*.ts`) are the seam between the app layer and the analytics/AI/import subsystems. `analytics-service.ts` is the privacy boundary in code: `analyzeUser()` loads raw records and hands them to `runAnalytics()`, and `toEvidenceBundle()` is the only function allowed to build the `EvidenceBundle` the AI layer sees.
 - **Domain/analytics/import/ai** are independent, mostly pure TypeScript modules with their own unit tests, each documented further below and in [AI_ARCHITECTURE.md](AI_ARCHITECTURE.md) and [DEVICE_INTEGRATIONS.md](DEVICE_INTEGRATIONS.md).
@@ -95,31 +95,31 @@ All storage is UTC (every `DateTime` column). A user's `Profile.timezone` (IANA 
 
 ## Where each concern lives
 
-| Concern | Location |
-|---|---|
-| Session issuance/verification | `lib/auth/session.ts` |
-| Password hashing/policy | `lib/auth/password.ts` |
-| Rate limiting | `lib/auth/rate-limit.ts` |
-| Security audit log | `lib/auth/audit.ts` |
-| Per-user data access | `lib/db/health-records.ts`, `lib/db/prisma.ts` |
-| Unit conversion/formatting | `lib/domain/units.ts` |
-| Clinical band classification | `lib/domain/thresholds.ts` |
-| Evidence grading thresholds | `lib/domain/evidence.ts` |
-| Dedupe key computation | `lib/domain/dedupe.ts` |
-| Timezone math | `lib/domain/time.ts` |
-| Statistical analysis | `lib/analytics/engine.ts`, `glucose.ts`, `associations.ts`, `stats.ts`, `ml/*` |
-| Insight card assembly | `lib/analytics/insights.ts` |
-| AI provider abstraction | `lib/ai/provider.ts`, `lib/ai/providers/*` |
-| AI orchestration | `lib/ai/pipeline.ts` |
-| AI safety enforcement | `lib/ai/guardrails.ts` |
-| AI structured output contracts | `lib/ai/schemas.ts` |
-| AI data minimisation | `lib/ai/redact.ts` |
-| File parsing | `lib/import/parse.ts` |
-| Per-vendor import connectors | `lib/import/connectors/*` |
-| Import dedupe | `lib/import/dedupe.ts` |
-| App↔analytics/AI/import seam | `lib/services/*` |
-| Server Actions (mutations) | `lib/actions/*` |
-| Routes/pages | `app/**` |
-| Charts | `components/charts/*` |
-| Security headers/CSP | `next.config.ts` |
-| Edge auth guard | `middleware.ts` |
+| Concern                        | Location                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| Session issuance/verification  | `lib/auth/session.ts`                                                          |
+| Password hashing/policy        | `lib/auth/password.ts`                                                         |
+| Rate limiting                  | `lib/auth/rate-limit.ts`                                                       |
+| Security audit log             | `lib/auth/audit.ts`                                                            |
+| Per-user data access           | `lib/db/health-records.ts`, `lib/db/prisma.ts`                                 |
+| Unit conversion/formatting     | `lib/domain/units.ts`                                                          |
+| Clinical band classification   | `lib/domain/thresholds.ts`                                                     |
+| Evidence grading thresholds    | `lib/domain/evidence.ts`                                                       |
+| Dedupe key computation         | `lib/domain/dedupe.ts`                                                         |
+| Timezone math                  | `lib/domain/time.ts`                                                           |
+| Statistical analysis           | `lib/analytics/engine.ts`, `glucose.ts`, `associations.ts`, `stats.ts`, `ml/*` |
+| Insight card assembly          | `lib/analytics/insights.ts`                                                    |
+| AI provider abstraction        | `lib/ai/provider.ts`, `lib/ai/providers/*`                                     |
+| AI orchestration               | `lib/ai/pipeline.ts`                                                           |
+| AI safety enforcement          | `lib/ai/guardrails.ts`                                                         |
+| AI structured output contracts | `lib/ai/schemas.ts`                                                            |
+| AI data minimisation           | `lib/ai/redact.ts`                                                             |
+| File parsing                   | `lib/import/parse.ts`                                                          |
+| Per-vendor import connectors   | `lib/import/connectors/*`                                                      |
+| Import dedupe                  | `lib/import/dedupe.ts`                                                         |
+| App↔analytics/AI/import seam  | `lib/services/*`                                                               |
+| Server Actions (mutations)     | `lib/actions/*`                                                                |
+| Routes/pages                   | `app/**`                                                                       |
+| Charts                         | `components/charts/*`                                                          |
+| Security headers/CSP           | `next.config.ts`                                                               |
+| Edge auth guard                | `middleware.ts`                                                                |

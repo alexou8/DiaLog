@@ -38,7 +38,7 @@ function gaussian(mean: number, sd: number): number {
   return mean + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
-function key(type: string, at: Date, value: number | null | undefined, extra = ""): string {
+function key(type: string, at: Date, value: number | null | undefined, extra = ''): string {
   const minute = Math.floor(at.getTime() / 60_000);
   const rounded = value == null ? '' : Math.round(value * 100) / 100;
   return createHash('sha256')

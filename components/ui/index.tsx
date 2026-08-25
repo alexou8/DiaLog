@@ -75,7 +75,8 @@ const BUTTON_BASE =
 
 const BUTTON_VARIANTS = {
   primary: 'bg-brand text-white hover:bg-brand-strong dark:text-[oklch(19%_0.012_250)]',
-  secondary: 'border-2 border-line-strong bg-surface text-ink hover:border-brand hover:text-brand-ink',
+  secondary:
+    'border-2 border-line-strong bg-surface text-ink hover:border-brand hover:text-brand-ink',
   ghost: 'text-brand-ink hover:bg-brand-soft',
   danger: 'border-2 border-critical text-critical hover:bg-critical-soft',
 } as const;
@@ -90,7 +91,11 @@ export function Button({
   ...rest
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
   return (
-    <button type={type} className={clsx(BUTTON_BASE, BUTTON_VARIANTS[variant], className)} {...rest}>
+    <button
+      type={type}
+      className={clsx(BUTTON_BASE, BUTTON_VARIANTS[variant], className)}
+      {...rest}
+    >
       {children}
     </button>
   );
@@ -249,7 +254,13 @@ export function PageHeader({
  * "Why am I seeing this?" disclosure. Native <details> so it works without
  * JavaScript and is announced correctly by screen readers.
  */
-export function WhyThis({ children, label = 'Why am I seeing this?' }: { children: ReactNode; label?: string }) {
+export function WhyThis({
+  children,
+  label = 'Why am I seeing this?',
+}: {
+  children: ReactNode;
+  label?: string;
+}) {
   return (
     <details className="mt-3 rounded-lg border border-line bg-surface-sunken">
       <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-brand-ink marker:content-none">

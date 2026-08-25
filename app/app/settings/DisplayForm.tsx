@@ -19,11 +19,20 @@ function Submit() {
 }
 
 export function DisplayForm({ profile }: { profile: Profile }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(updatePreferencesAction, null);
+  const [state, action] = useActionState<ActionState | null, FormData>(
+    updatePreferencesAction,
+    null,
+  );
 
   return (
-    <form action={action} noValidate className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6">
-      <FormStatus status={state && state.message ? { ok: state.ok, message: state.message } : null} />
+    <form
+      action={action}
+      noValidate
+      className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6"
+    >
+      <FormStatus
+        status={state && state.message ? { ok: state.ok, message: state.message } : null}
+      />
 
       <Checkbox
         name="largeText"
@@ -55,8 +64,16 @@ export function DisplayForm({ profile }: { profile: Profile }) {
       <input type="hidden" name="glucoseUnit" value={profile.glucoseUnit} />
       <input type="hidden" name="locale" value={profile.locale} />
       <input type="hidden" name="timezone" value={profile.timezone} />
-      <input type="hidden" name="targetLow" value={fromMgdl(profile.targetLowMgdl, profile.glucoseUnit)} />
-      <input type="hidden" name="targetHigh" value={fromMgdl(profile.targetHighMgdl, profile.glucoseUnit)} />
+      <input
+        type="hidden"
+        name="targetLow"
+        value={fromMgdl(profile.targetLowMgdl, profile.glucoseUnit)}
+      />
+      <input
+        type="hidden"
+        name="targetHigh"
+        value={fromMgdl(profile.targetHighMgdl, profile.glucoseUnit)}
+      />
       <HiddenBool name="aiEnabled" value={profile.aiEnabled} />
       <HiddenBool name="externalAiConsent" value={profile.externalAiConsentAt != null} />
 

@@ -12,7 +12,8 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       // Next.js injects inline bootstrap scripts; styles are Tailwind-generated + inline chart vars.
-      "script-src 'self' 'unsafe-inline'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''),
+      "script-src 'self' 'unsafe-inline'" +
+        (process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''),
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",

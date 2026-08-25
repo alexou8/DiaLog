@@ -46,8 +46,8 @@ export default function AboutPage() {
         A pattern found in eight readings is a coincidence with good marketing. DiaLog grades every
         observation as <em>not enough data</em>, <em>early signal</em>, <em>emerging pattern</em> or{' '}
         <em>consistent pattern</em>, based on thresholds set per type of analysis, and it shows you
-        which one applies. Being told &ldquo;there isn&apos;t enough data to answer that yet&rdquo; is
-        a feature, not a failure.
+        which one applies. Being told &ldquo;there isn&apos;t enough data to answer that yet&rdquo;
+        is a feature, not a failure.
       </p>
 
       <h2>What it is not</h2>

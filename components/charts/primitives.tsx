@@ -28,7 +28,8 @@ export function ticks(min: number, max: number, count = 4): number[] {
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= raw) ?? magnitude * 10;
   const out: number[] = [];
-  for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) out.push(Number(v.toFixed(6)));
+  for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step)
+    out.push(Number(v.toFixed(6)));
   return out;
 }
 
@@ -69,7 +70,11 @@ export function ChartFrame({
             <thead className="sticky top-0 bg-surface-sunken">
               <tr>
                 {table.head.map((h) => (
-                  <th key={h} scope="col" className="border-b border-line px-3 py-2 text-left font-semibold">
+                  <th
+                    key={h}
+                    scope="col"
+                    className="border-b border-line px-3 py-2 text-left font-semibold"
+                  >
                     {h}
                   </th>
                 ))}

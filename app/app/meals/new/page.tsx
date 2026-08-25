@@ -10,7 +10,10 @@ export default async function NewMealPage() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <PageHeader title="Log a meal" description="A quick description and the time are all you need." />
+      <PageHeader
+        title="Log a meal"
+        description="A quick description and the time are all you need."
+      />
       <Card>
         <MealForm timezone={user.profile.timezone} />
       </Card>
