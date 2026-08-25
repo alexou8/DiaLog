@@ -5,18 +5,31 @@ import { IMPORT_STATE } from './setup/auth-state';
 const SAMPLE_LOGS = path.join(process.cwd(), 'ml/data/sample_logs.csv');
 const MALFORMED = path.join(process.cwd(), 'tests/e2e/fixtures/malformed.csv');
 
+/** ml/data/sample_logs.csv contains 5 glucose rows (plus meals and medications). */
+const GLUCOSE_ROWS_IN_SAMPLE = 5;
+
 test.describe('import', () => {
   test.use({ storageState: IMPORT_STATE });
-  // Both tests share one dedicated account, but the malformed-file test never
-  // commits any record (every row is rejected), so it cannot disturb the
-  // first test's "nothing saved yet"/count assertions even running in
-  // parallel — kept unserialized so a failure in one never blocks the other
-  // from being verified.
 
   test('review stage shows counts and saves nothing until confirmed; re-import reports duplicates', async ({
     page,
   }) => {
+    // This test writes records, so it is not naturally repeatable: a retry
+    // would start against an account holding the previous attempt's rows.
+    // Undoing every existing batch first makes each attempt start from the
+    // same state, and exercises the undo path on the way. It lives here rather
+    // than in a beforeEach because the sibling test shares this account and
+    // must not have its state cleared mid-run.
     await page.goto('/app/import');
+    const undoDisclosures = page.getByRole('group', { name: 'Undo this import' });
+    for (let remaining = await undoDisclosures.count(); remaining > 0; remaining -= 1) {
+      const disclosure = undoDisclosures.first();
+      await disclosure.getByText('Undo this import').click();
+      await disclosure.getByRole('button', { name: 'Yes, remove these records' }).click();
+      await expect(page.getByText('Your imports')).toBeVisible();
+    }
+    await expect(page.getByText('No imports yet')).toBeVisible();
+
     await page.getByLabel(/Choose a file/).setInputFiles(SAMPLE_LOGS);
     await page.getByRole('button', { name: 'Check this file' }).click();
 
@@ -62,12 +75,9 @@ test.describe('import', () => {
       String(expectedCount),
     );
 
-    const recordCountBefore = await countGlucoseRows(page);
-    // Nothing new to import, so the commit form should not appear; even if it
-    // did, the record count in the app must stay the same.
-    await page.goto('/app/glucose');
-    const recordCountAfter = await countGlucoseRows(page);
-    expect(recordCountAfter).toBe(recordCountBefore);
+    // Re-importing changed nothing: the stored record count is exactly what
+    // the first import wrote.
+    expect(await countGlucoseRows(page)).toBe(GLUCOSE_ROWS_IN_SAMPLE);
   });
 
   test('uploading a malformed file shows a clear, non-crashing error', async ({ page }) => {
@@ -92,5 +102,7 @@ test.describe('import', () => {
 
 async function countGlucoseRows(page: import('@playwright/test').Page): Promise<number> {
   await page.goto('/app/history?type=glucose');
-  return page.locator('main ul > li').count();
+  // Scoped to the record list: `main ul > li` would also match the record-type
+  // tab bar, which is itself a list.
+  return page.locator('main ul > li').filter({ has: page.getByRole('group') }).count();
 }
