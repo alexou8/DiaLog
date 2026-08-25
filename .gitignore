@@ -225,3 +225,4 @@ ml/.coverage
 ml/**/__pycache__/
 ml/.pytest_cache/
 docs/screenshots/.gitkeep
+debug_assistant.mjs
