@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword, validatePassword, verifyPassword } from '@/lib/auth/password';
 import { signSession, verifySession, type SessionPayload } from '@/lib/auth/session';
 import { pruneRateLimits, rateLimit, RATE_LIMITS } from '@/lib/auth/rate-limit';

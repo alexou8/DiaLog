@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
+import { countRecordRows } from './records';
 import { IMPORT_STATE } from './setup/auth-state';
 
 const MALFORMED = path.join(process.cwd(), 'tests/e2e/fixtures/malformed.csv');
@@ -46,7 +47,7 @@ test.describe('import', () => {
     // empty starting state makes it unrepeatable. Every assertion below is
     // about the *change* the import causes.
     const sampleLog = uniqueSampleLog();
-    const before = await countGlucoseRows(page);
+    const before = await countRecordRows(page, '/app/history?type=glucose');
 
     await page.goto('/app/import');
     await page.getByLabel(/Choose a file/).setInputFiles(sampleLog);
@@ -62,7 +63,7 @@ test.describe('import', () => {
     expect(offered).toBe(TOTAL_ROWS_IN_SAMPLE);
 
     // The review stage must not have written anything.
-    expect(await countGlucoseRows(page)).toBe(before);
+    expect(await countRecordRows(page, '/app/history?type=glucose')).toBe(before);
 
     // Redo the analysis (the file input does not survive navigation) and
     // confirm it this time.
@@ -79,7 +80,7 @@ test.describe('import', () => {
     await expect(page.getByText('Your readings are now in DiaLog')).toBeVisible();
 
     // Exactly the file's glucose rows were added, and they carry their origin.
-    const afterFirstImport = await countGlucoseRows(page); // navigates to history
+    const afterFirstImport = await countRecordRows(page, '/app/history?type=glucose'); // navigates to history
     expect(afterFirstImport).toBe(before + GLUCOSE_ROWS_IN_SAMPLE);
     await expect(page.getByText(/Imported from sample_logs\.csv via /i).first()).toBeVisible();
 
@@ -95,7 +96,7 @@ test.describe('import', () => {
     await expect(page.getByRole('button', { name: /^Import \d+ record/ })).toHaveCount(0);
     await expect(page.getByText('Nothing new to add')).toBeVisible();
 
-    expect(await countGlucoseRows(page)).toBe(afterFirstImport);
+    expect(await countRecordRows(page, '/app/history?type=glucose')).toBe(afterFirstImport);
   });
 
   test('uploading a malformed file shows a clear, non-crashing error', async ({ page }) => {
@@ -117,13 +118,3 @@ test.describe('import', () => {
     await expect(page.getByRole('heading', { name: 'Import your data' })).toBeVisible();
   });
 });
-
-async function countGlucoseRows(page: import('@playwright/test').Page): Promise<number> {
-  await page.goto('/app/history?type=glucose');
-  // Scoped to the record list: `main ul > li` would also match the record-type
-  // tab bar, which is itself a list.
-  return page
-    .locator('main ul > li')
-    .filter({ has: page.getByRole('group') })
-    .count();
-}

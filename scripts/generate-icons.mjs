@@ -75,7 +75,6 @@ function distanceToCurve(px, py) {
 function render(size, { maskable }) {
   const buf = Buffer.alloc(size * size * 4);
   const radius = maskable ? size : size * 0.22;
-  const inset = maskable ? 0 : 0;
   const stroke = 0.052;
   const scale = maskable ? 0.78 : 1; // keep the mark inside the maskable safe zone
   for (let y = 0; y < size; y++) {

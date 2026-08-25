@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { DEMO_EMAIL, DEMO_PASSWORD, TEST_PASSWORD, signIn, signOut, uniqueEmail } from './helpers';
+import { DEMO_EMAIL, TEST_PASSWORD, signIn, signOut, uniqueEmail } from './helpers';
 
 test.describe('sign up and onboarding', () => {
   test('sign up, onboard, land on dashboard, sign out, sign back in, see own data', async ({

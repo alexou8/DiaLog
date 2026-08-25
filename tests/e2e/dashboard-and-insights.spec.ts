@@ -30,8 +30,8 @@ test.describe('dashboard and insights (demo account)', () => {
       .filter({ has: page.getByRole('columnheader', { name: 'When' }) });
     await expect(table).toBeVisible();
     await expect(table.locator('tbody tr').first()).toBeVisible();
-    const rowCount = await table.locator('tbody tr').count();
-    expect(rowCount).toBeGreaterThan(0);
+    // `not.toHaveCount(0)` auto-waits, unlike a raw locator.count().
+    await expect(table.locator('tbody tr')).not.toHaveCount(0);
   });
 
   test('insights page shows observations with evidence badges and an expandable "why" panel', async ({

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AnthropicProvider } from '@/lib/ai/providers/anthropic';
-import { AIProviderError } from '@/lib/ai/provider';
 
 const ORIGINAL_FETCH = global.fetch;
 const ORIGINAL_KEY = process.env.ANTHROPIC_API_KEY;

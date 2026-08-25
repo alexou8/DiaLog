@@ -75,11 +75,8 @@ describe('mulberry32', () => {
 
 describe('kmeans', () => {
   it('separates two well-clustered groups deterministically across repeated runs', () => {
-    const points: number[][] = [
-      ...Array.from({ length: 6 }, () => [0 + Math.random() * 0.01, 0]),
-      ...Array.from({ length: 6 }, () => [10 + Math.random() * 0.01, 10]),
-    ];
-    // Use fixed points (not random) for true determinism.
+    // Fixed points, not random ones, so the clustering assertion is genuinely
+    // deterministic.
     const fixedPoints: number[][] = [
       [0, 0],
       [0.1, 0],

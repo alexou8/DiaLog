@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { countRecordRows, recordRows } from './records';
 import { SHARED_STATE } from './setup/auth-state';
 import {
   shiftLocalDateTime,
@@ -90,10 +91,8 @@ test.describe('logging records', () => {
     // ('101') matched any row merely containing those digits — so an attempt
     // that failed part-way left a matching record behind and the next run
     // found two.
-    const rows = page.locator('main ul > li').filter({ has: page.getByRole('group') });
-
-    await page.goto('/app/history?type=glucose');
-    const before = await rows.count();
+    const rows = recordRows(page);
+    const before = await countRecordRows(page, '/app/history?type=glucose');
 
     await page.goto('/app/glucose/new');
     // A value unique to this attempt. Dedupe keys are content hashes over
