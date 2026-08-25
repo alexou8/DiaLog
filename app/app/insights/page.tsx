@@ -17,7 +17,9 @@ export default async function InsightsPage() {
   const insights = insightsFor(result);
 
   const unusual = result.anomalies;
-  const patterns = result.dayPatterns;
+  // A one- or two-day group is not a recurring pattern; the insight builder
+  // applies the same floor.
+  const visiblePatterns = (result.dayPatterns ?? []).filter((pattern) => pattern.size >= 3);
   const importance = result.featureImportance;
 
   return (
@@ -96,7 +98,7 @@ export default async function InsightsPage() {
         </section>
       ) : null}
 
-      {patterns && patterns.length > 0 ? (
+      {visiblePatterns.length > 0 ? (
         <section aria-labelledby="day-patterns">
           <Card>
             <CardHeader
@@ -105,7 +107,7 @@ export default async function InsightsPage() {
               description="Your days grouped by how they look across glucose, food, movement and sleep."
             />
             <ul className="grid gap-4 sm:grid-cols-2">
-              {patterns.map((pattern, index) => (
+              {visiblePatterns.map((pattern, index) => (
                 <li key={index} className="rounded-xl border border-line bg-surface-sunken p-4">
                   <h3 className="font-semibold">{pattern.label}</h3>
                   <p className="mt-1 text-sm text-ink-muted">
