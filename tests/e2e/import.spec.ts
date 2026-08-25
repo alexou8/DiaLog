@@ -26,9 +26,12 @@ test.describe('import', () => {
     await expect(readyToImportButton).toBeVisible();
     await expect(page.getByText('Nothing has been saved yet.')).toBeVisible();
 
-    // Nothing saved yet: the glucose page must still be empty.
-    await page.goto('/app/glucose');
-    await expect(page.getByText('No readings in this period')).toBeVisible();
+    // Nothing saved yet. History is checked rather than the glucose page,
+    // because the glucose page shows a rolling 30-day window and this sample
+    // file is dated well outside it — an empty glucose page would prove
+    // nothing either way.
+    await page.goto('/app/history?type=glucose');
+    await expect(page.getByText('No glucose records yet')).toBeVisible();
 
     // Go back, redo the analysis (file input is not preserved across navigation),
     // and confirm the import this time.
@@ -44,10 +47,11 @@ test.describe('import', () => {
 
     await page.getByRole('button', { name: /^Import \d+ record/ }).click();
     await expect(page.getByText('Import complete')).toBeVisible();
-    await expect(page.getByText('Saved')).toBeVisible();
+    await expect(page.getByText('Your readings are now in DiaLog')).toBeVisible();
 
-    await page.goto('/app/glucose');
-    await expect(page.getByText('No readings in this period')).toHaveCount(0);
+    await page.goto('/app/history?type=glucose');
+    await expect(page.getByText('No glucose records yet')).toHaveCount(0);
+    await expect(page.getByText(/Imported from sample_logs\.csv/i).first()).toBeVisible();
 
     // Upload the same file again: everything should now be reported as duplicate.
     await page.goto('/app/import');

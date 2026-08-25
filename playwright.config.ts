@@ -1,4 +1,27 @@
+import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * Resolve a Chromium binary to launch.
+ *
+ * On CI (and any normal machine) `npx playwright install chromium` puts the
+ * matching build where Playwright expects it, so the right answer is to say
+ * nothing and let Playwright resolve it. Some preconfigured containers ship a
+ * Chromium whose build number does not match the one the installed
+ * `playwright` package expects, and there `PLAYWRIGHT_BROWSERS_PATH` alone is
+ * not enough — so an explicit path is used, but only when it actually exists.
+ *
+ * Set `PLAYWRIGHT_CHROMIUM_PATH` to override.
+ */
+function resolveChromium(): string | undefined {
+  const configured = process.env.PLAYWRIGHT_CHROMIUM_PATH;
+  if (configured && existsSync(configured)) return configured;
+  const preinstalled = '/opt/pw-browsers/chromium';
+  if (existsSync(preinstalled)) return preinstalled;
+  return undefined;
+}
+
+const chromiumPath = resolveChromium();
 
 /**
  * Playwright configuration for DiaLog's end-to-end and accessibility suite.
@@ -26,13 +49,7 @@ export default defineConfig({
     video: 'off',
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
-    // The `playwright` package resolves a specific bundled Chromium build
-    // (1187) that does not match the browser actually installed in this
-    // container (1194), so PLAYWRIGHT_BROWSERS_PATH alone is not enough —
-    // point directly at the installed binary.
-    launchOptions: {
-      executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-    },
+    launchOptions: chromiumPath ? { executablePath: chromiumPath } : {},
   },
   projects: [
     {
