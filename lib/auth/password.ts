@@ -31,18 +31,29 @@ const COMMON = new Set([
   'sunshine1',
 ]);
 
-export function validatePassword(plain: string): { ok: true } | { ok: false; message: string } {
-  if (plain.length < 10) {
-    return { ok: false, message: 'Please use at least 10 characters. A short phrase works well.' };
-  }
-  if (plain.length > 200) {
-    return { ok: false, message: 'That password is too long. Please use 200 characters or fewer.' };
-  }
-  if (COMMON.has(plain.toLowerCase())) {
-    return {
-      ok: false,
-      message: 'That password is too common. Please choose something less guessable.',
-    };
-  }
+export type PasswordPolicyCode = 'too_short' | 'too_long' | 'too_common';
+
+/**
+ * Why a password was rejected, as a stable code plus the message shown to the
+ * user. The code exists because the settings flow reports failures across a
+ * redirect (see app/api/auth/password/route.ts) and a query string is no place
+ * for a sentence: the handler sends the code, and the page turns it back into
+ * this same message. Both halves therefore stay defined here.
+ */
+export const PASSWORD_POLICY_MESSAGES: Record<PasswordPolicyCode, string> = {
+  too_short: 'Please use at least 10 characters. A short phrase works well.',
+  too_long: 'That password is too long. Please use 200 characters or fewer.',
+  too_common: 'That password is too common. Please choose something less guessable.',
+};
+
+export function validatePassword(
+  plain: string,
+): { ok: true } | { ok: false; code: PasswordPolicyCode; message: string } {
+  const fail = (code: PasswordPolicyCode) =>
+    ({ ok: false, code, message: PASSWORD_POLICY_MESSAGES[code] }) as const;
+
+  if (plain.length < 10) return fail('too_short');
+  if (plain.length > 200) return fail('too_long');
+  if (COMMON.has(plain.toLowerCase())) return fail('too_common');
   return { ok: true };
 }
