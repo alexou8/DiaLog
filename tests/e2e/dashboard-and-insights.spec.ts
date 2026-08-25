@@ -15,7 +15,7 @@ test.describe('dashboard and insights (demo account)', () => {
     await expect(page.getByText('Your most recent reading')).toBeVisible();
     await expect(page.getByText('Your last 30 days')).toBeVisible();
     await expect(page.getByText(/Average reading/)).toBeVisible();
-    await expect(page.getByText(/Readings in your target range/)).toBeVisible();
+    await expect(page.getByText(/Readings in your target range/).first()).toBeVisible();
     await expect(page.getByText(/Variability/)).toBeVisible();
 
     const chart = page.getByRole('img', { name: /Glucose readings over time/ });

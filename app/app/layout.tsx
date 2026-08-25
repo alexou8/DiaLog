@@ -54,7 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <aside className="hidden w-56 shrink-0 lg:block">
           <SideNav dict={dict} />
         </aside>
-        <main id="main" className="min-w-0 flex-1">
+        <main id="main" tabIndex={-1} className="min-w-0 flex-1">
           {children}
         </main>
       </div>

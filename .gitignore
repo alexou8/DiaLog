@@ -219,3 +219,9 @@ test-results/
 coverage/
 *.tsbuildinfo
 next-env.d.ts
+ml/.venv/
+ml/htmlcov/
+ml/.coverage
+ml/**/__pycache__/
+ml/.pytest_cache/
+docs/screenshots/.gitkeep

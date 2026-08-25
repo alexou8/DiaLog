@@ -58,11 +58,10 @@ test.describe('keyboard-only journey', () => {
     const valueInput = page.getByLabel(/Your reading/);
     await expect(valueInput).toBeFocused(); // autoFocus on the value field
     await page.keyboard.type('133');
-    await page.keyboard.press('Tab'); // -> When was it taken (leave default)
-    await page.keyboard.press('Tab'); // -> first context radio (Fasting)
-    await page.keyboard.press('ArrowRight'); // -> Before a meal
-    await page.keyboard.press('Tab'); // -> note field
-    await page.keyboard.press('Tab'); // -> submit button
+    // Keep tabbing to the submit button rather than counting a fixed number of
+    // presses: a radio group's default-checked option (not necessarily the
+    // first one) is where Tab lands, so the exact stop count isn't fixed.
+    await tabToAccessibleName(page, 'Save reading');
     const active = await page.evaluate(() => document.activeElement?.textContent?.trim());
     expect(active).toBe('Save reading');
     await page.keyboard.press('Enter');
@@ -90,8 +89,14 @@ test.describe('mobile layout', () => {
       test(`bottom nav visible, sidebar hidden, no horizontal overflow, 44px targets (${viewport.name})`, async ({
         page,
       }) => {
+        // Belt-and-braces: pin the viewport explicitly in addition to the
+        // project/describe-level `viewport` option, so a slow/loaded run
+        // can't observe a stale size from a not-yet-applied context option.
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
         for (const url of MOBILE_PAGES) {
           await page.goto(url);
+          await page.waitForLoadState('networkidle');
 
           const bottomNav = page.locator('nav[aria-label="Main navigation"]').last();
           const sideNav = page.locator('nav[aria-label="Main navigation"]').first();

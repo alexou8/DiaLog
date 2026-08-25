@@ -11,7 +11,7 @@ test.describe('assistant', () => {
       await page.goto('/app/assistant');
 
       await page.getByLabel('Your question').fill('What patterns have you noticed recently?');
-      await page.getByRole('button', { name: 'Ask' }).click();
+      await page.getByRole('button', { name: 'Ask', exact: true }).click();
 
       await expect(page.getByText('You asked')).toBeVisible();
       await expect(page.getByText('What patterns have you noticed recently?')).toBeVisible();
@@ -33,7 +33,7 @@ test.describe('assistant', () => {
       await page.goto('/app/assistant');
 
       await page.getByLabel('Your question').fill('Why were my readings higher this week?');
-      await page.getByRole('button', { name: 'Ask' }).click();
+      await page.getByRole('button', { name: 'Ask', exact: true }).click();
 
       await expect(page.getByText('You asked')).toBeVisible();
       await expect(page.getByText('Not enough evidence')).toBeVisible();
