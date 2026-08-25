@@ -99,8 +99,23 @@ export async function signInAction(
 
   const user = await prisma.user.findUnique({
     where: { email: parsed.data.email },
-    include: { profile: { select: { onboardingCompletedAt: true } } },
+    include: {
+      profile: { select: { onboardingCompletedAt: true } },
+      identities: { select: { provider: true } },
+    },
   });
+
+  // Signed up through Google and never set a password: say so plainly instead
+  // of insisting the password is wrong, which would look like a lost account.
+  if (user && user.passwordHash === null) {
+    const provider = user.identities.some((i) => i.provider === 'google') ? 'Google' : null;
+    return {
+      ok: false,
+      message: provider
+        ? `This account signs in with ${provider}. Use the “Sign in with ${provider}” button below, then set a password from Settings if you would like one.`
+        : 'This account does not have a password set. Please use the sign-in method you registered with.',
+    };
+  }
 
   // Always run a comparison so that a missing account and a wrong password take
   // a similar amount of time.

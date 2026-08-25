@@ -9,6 +9,10 @@ import { RegionForm } from './RegionForm';
 import { DisplayForm } from './DisplayForm';
 import { AssistantForm } from './AssistantForm';
 import { DataExport } from './DataExport';
+import { ConnectedAccounts } from './ConnectedAccounts';
+import { prisma } from '@/lib/db/prisma';
+import { isGoogleEnabled } from '@/lib/auth/oauth/google';
+import { oauthMessage } from '@/lib/auth/oauth/link';
 import {
   ChangePasswordForm,
   SignOutEverywhereForm,
@@ -19,13 +23,59 @@ import {
 export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
 
-export default async function SettingsPage() {
+/**
+ * Confirmations that arrive as a query parameter rather than as returned action
+ * state, because the action that produced them ends in a redirect — see
+ * changePasswordAction in lib/actions/preferences.ts.
+ */
+const NOTICES = {
+  linked: {
+    google: 'Your Google account is now connected. You can sign in with it next time.',
+    google_already: 'That Google account was already connected to your DiaLog account.',
+  },
+  unlinked: {
+    google: 'Google has been disconnected. Sign in with your email and password from now on.',
+    absent: 'Your account is not connected to Google.',
+    blocked:
+      'Google is currently the only way to sign in to this account. Set a password above first, then you can disconnect Google.',
+  },
+} satisfies Record<string, Record<string, string>>;
+
+/** Looks up one notice, tolerating a hand-edited query string. */
+function notice(group: Record<string, string>, key: string | undefined): string | null {
+  return key ? (group[key] ?? null) : null;
+}
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    error?: string;
+    linked?: string;
+    unlinked?: string;
+  }>;
+}) {
+  const params = await searchParams;
   const user = await requireOnboardedUser();
+  const hasPassword = user.passwordHash !== null;
   const { profile } = user;
   const counts = await recordCounts(user.id);
   const totalRecords = Object.values(counts).reduce((a, b) => a + b, 0);
 
   const provider = getProvider();
+
+  const googleIdentity = isGoogleEnabled()
+    ? await prisma.authIdentity.findUnique({
+        where: { userId_provider: { userId: user.id, provider: 'google' } },
+        select: { email: true },
+      })
+    : null;
+
+  const unlinkNotice = notice(NOTICES.unlinked, params.unlinked);
+  const linkNotice = notice(NOTICES.linked, params.linked) ?? unlinkNotice;
+  // Only a completed disconnect is good news; the other two explain a refusal.
+  const linkNoticeIsGood = params.unlinked ? params.unlinked === 'google' : true;
+  const linkError = oauthMessage(params.error);
 
   return (
     <div className="space-y-10 pb-16">
@@ -88,7 +138,20 @@ export default async function SettingsPage() {
         </h2>
 
         <div className="space-y-4">
-          <ChangePasswordForm />
+          <ChangePasswordForm hasPassword={hasPassword} />
+          {isGoogleEnabled() ? (
+            <ConnectedAccounts
+              googleEmail={googleIdentity?.email ?? null}
+              hasPassword={hasPassword}
+              notice={
+                linkError
+                  ? { ok: false, message: linkError }
+                  : linkNotice
+                    ? { ok: linkNoticeIsGood, message: linkNotice }
+                    : null
+              }
+            />
+          ) : null}
           <SignOutEverywhereForm />
         </div>
 
@@ -102,9 +165,13 @@ export default async function SettingsPage() {
             confirm, the data is gone.
           </p>
           <div className="mt-5 space-y-6">
-            <DeleteAllRecordsForm totalRecords={totalRecords} userEmail={user.email} />
+            <DeleteAllRecordsForm
+              totalRecords={totalRecords}
+              userEmail={user.email}
+              hasPassword={hasPassword}
+            />
             <hr className="border-critical/30" />
-            <DeleteAccountForm userEmail={user.email} />
+            <DeleteAccountForm userEmail={user.email} hasPassword={hasPassword} />
           </div>
         </div>
       </section>

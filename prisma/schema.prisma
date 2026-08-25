@@ -28,7 +28,9 @@ datasource db {
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
-  passwordHash String
+  // Null for accounts that only ever signed in through an identity provider
+  // (Google). Such users can set a password later from Settings.
+  passwordHash String?
   // Bumped on password change / "sign out everywhere"; embedded in the session
   // token so old cookies stop validating.
   tokenVersion Int       @default(0)
@@ -54,6 +56,30 @@ model User {
   conversations       AIConversation[]
   auditEvents         AuditEvent[]
   passwordResetTokens PasswordResetToken[]
+  identities          AuthIdentity[]
+}
+
+/// A federated sign-in method linked to a DiaLog account.
+///
+/// One row per (provider, account). The provider's stable subject id — not the
+/// email — is the identity, because email addresses can be reassigned. `email`
+/// is only kept for display ("Connected as ...") and is refreshed on sign-in.
+model AuthIdentity {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  email             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastLoginAt       DateTime?
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // A provider account can back at most one DiaLog account...
+  @@unique([provider, providerAccountId])
+  // ...and a DiaLog account has at most one identity per provider.
+  @@unique([userId, provider])
+  @@index([userId])
 }
 
 model PasswordResetToken {

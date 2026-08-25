@@ -119,17 +119,22 @@ export async function changePasswordAction(
   const newPassword = String(formData.get('newPassword') ?? '');
   const confirmPassword = String(formData.get('confirmPassword') ?? '');
 
-  if (!currentPassword) {
-    return { ok: false, errors: { currentPassword: 'Please enter your current password.' } };
-  }
+  // A Google-only account has no password to prove; the session cookie is the
+  // proof. This is the "set a password" path, and it is what lets someone who
+  // signed up with Google stop depending on Google.
+  if (user.passwordHash !== null) {
+    if (!currentPassword) {
+      return { ok: false, errors: { currentPassword: 'Please enter your current password.' } };
+    }
 
-  const valid = await verifyPassword(currentPassword, user.passwordHash);
-  if (!valid) {
-    await audit({ userId: user.id, action: 'auth.password_change_failed' });
-    return {
-      ok: false,
-      errors: { currentPassword: 'That is not your current password. Please try again.' },
-    };
+    const valid = await verifyPassword(currentPassword, user.passwordHash);
+    if (!valid) {
+      await audit({ userId: user.id, action: 'auth.password_change_failed' });
+      return {
+        ok: false,
+        errors: { currentPassword: 'That is not your current password. Please try again.' },
+      };
+    }
   }
 
   const policy = validatePassword(newPassword);
@@ -140,24 +145,41 @@ export async function changePasswordAction(
   }
 
   const passwordHash = await hashPassword(newPassword);
+  const settingFirstPassword = user.passwordHash === null;
 
-  // Bump tokenVersion so every other signed-in device is logged out, then
-  // immediately mint a fresh cookie for this device so the person making the
-  // change is not logged out of the browser they are using right now.
+  // Changing a password invalidates every other session: bump tokenVersion, and
+  // immediately mint a fresh cookie so the person making the change is not
+  // logged out of the browser they are using right now.
+  //
+  // Setting a *first* password does not. Nothing was compromised, and there are
+  // no password sessions to sign out — the account has only ever been reachable
+  // through Google. Leaving tokenVersion alone also keeps the current session
+  // valid for the render that follows this action, which a bump does not: see
+  // the note on this in docs/SECURITY.md.
   const updated = await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash, tokenVersion: { increment: 1 } },
+    data: settingFirstPassword
+      ? { passwordHash }
+      : { passwordHash, tokenVersion: { increment: 1 } },
     select: { tokenVersion: true },
   });
 
-  await audit({ userId: user.id, action: 'auth.password_change' });
-  await setSessionCookie(
-    await signSession({ userId: user.id, tokenVersion: updated.tokenVersion }),
-  );
+  await audit({
+    userId: user.id,
+    action: settingFirstPassword ? 'auth.password_set' : 'auth.password_change',
+  });
+
+  if (!settingFirstPassword) {
+    await setSessionCookie(
+      await signSession({ userId: user.id, tokenVersion: updated.tokenVersion }),
+    );
+  }
 
   return {
     ok: true,
-    message: 'Your password has been changed. You have been signed out of any other devices.',
+    message: settingFirstPassword
+      ? 'Your password has been set. You can now sign in with your email and password as well as with Google.'
+      : 'Your password has been changed. You have been signed out of any other devices.',
   };
 }
 
@@ -187,12 +209,14 @@ export async function signOutEverywhereAction(
 // --------------------------------------------------------------- deletion
 
 /** Shared confirmation check for the two destructive actions below. */
+// A 'use server' module may only export async functions, so this stays local.
+const DELETE_PHRASE = 'DELETE';
+
 async function checkDestructiveConfirmation(
-  user: { id: string; email: string; passwordHash: string },
+  user: { id: string; email: string; passwordHash: string | null },
   formData: FormData,
 ): Promise<ActionState | null> {
   const confirmEmail = String(formData.get('confirmEmail') ?? '').trim();
-  const password = String(formData.get('password') ?? '');
 
   if (confirmEmail.toLowerCase() !== user.email.toLowerCase()) {
     return {
@@ -200,6 +224,22 @@ async function checkDestructiveConfirmation(
       errors: { confirmEmail: 'Please type your account email address exactly to confirm.' },
     };
   }
+
+  // Google-only accounts have no password to re-enter. Rather than send someone
+  // off to set one before they can delete their own data, ask for a typed
+  // phrase — the deliberate-action check the password was there to provide.
+  if (user.passwordHash === null) {
+    const phrase = String(formData.get('confirmPhrase') ?? '').trim();
+    if (phrase !== DELETE_PHRASE) {
+      return {
+        ok: false,
+        errors: { confirmPhrase: `Please type ${DELETE_PHRASE} exactly to confirm.` },
+      };
+    }
+    return null;
+  }
+
+  const password = String(formData.get('password') ?? '');
   if (!password) {
     return { ok: false, errors: { password: 'Please enter your password to confirm.' } };
   }
