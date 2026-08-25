@@ -119,17 +119,22 @@ export async function changePasswordAction(
   const newPassword = String(formData.get('newPassword') ?? '');
   const confirmPassword = String(formData.get('confirmPassword') ?? '');
 
-  if (!currentPassword) {
-    return { ok: false, errors: { currentPassword: 'Please enter your current password.' } };
-  }
+  // A Google-only account has no password to prove; the session cookie is the
+  // proof. This is the "set a password" path, and it is what lets someone who
+  // signed up with Google stop depending on Google.
+  if (user.passwordHash !== null) {
+    if (!currentPassword) {
+      return { ok: false, errors: { currentPassword: 'Please enter your current password.' } };
+    }
 
-  const valid = await verifyPassword(currentPassword, user.passwordHash);
-  if (!valid) {
-    await audit({ userId: user.id, action: 'auth.password_change_failed' });
-    return {
-      ok: false,
-      errors: { currentPassword: 'That is not your current password. Please try again.' },
-    };
+    const valid = await verifyPassword(currentPassword, user.passwordHash);
+    if (!valid) {
+      await audit({ userId: user.id, action: 'auth.password_change_failed' });
+      return {
+        ok: false,
+        errors: { currentPassword: 'That is not your current password. Please try again.' },
+      };
+    }
   }
 
   const policy = validatePassword(newPassword);
@@ -150,14 +155,20 @@ export async function changePasswordAction(
     select: { tokenVersion: true },
   });
 
-  await audit({ userId: user.id, action: 'auth.password_change' });
+  await audit({
+    userId: user.id,
+    action: user.passwordHash === null ? 'auth.password_set' : 'auth.password_change',
+  });
   await setSessionCookie(
     await signSession({ userId: user.id, tokenVersion: updated.tokenVersion }),
   );
 
   return {
     ok: true,
-    message: 'Your password has been changed. You have been signed out of any other devices.',
+    message:
+      user.passwordHash === null
+        ? 'Your password has been set. You can now sign in with your email and password as well as with Google.'
+        : 'Your password has been changed. You have been signed out of any other devices.',
   };
 }
 
@@ -187,12 +198,14 @@ export async function signOutEverywhereAction(
 // --------------------------------------------------------------- deletion
 
 /** Shared confirmation check for the two destructive actions below. */
+// A 'use server' module may only export async functions, so this stays local.
+const DELETE_PHRASE = 'DELETE';
+
 async function checkDestructiveConfirmation(
-  user: { id: string; email: string; passwordHash: string },
+  user: { id: string; email: string; passwordHash: string | null },
   formData: FormData,
 ): Promise<ActionState | null> {
   const confirmEmail = String(formData.get('confirmEmail') ?? '').trim();
-  const password = String(formData.get('password') ?? '');
 
   if (confirmEmail.toLowerCase() !== user.email.toLowerCase()) {
     return {
@@ -200,6 +213,22 @@ async function checkDestructiveConfirmation(
       errors: { confirmEmail: 'Please type your account email address exactly to confirm.' },
     };
   }
+
+  // Google-only accounts have no password to re-enter. Rather than send someone
+  // off to set one before they can delete their own data, ask for a typed
+  // phrase — the deliberate-action check the password was there to provide.
+  if (user.passwordHash === null) {
+    const phrase = String(formData.get('confirmPhrase') ?? '').trim();
+    if (phrase !== DELETE_PHRASE) {
+      return {
+        ok: false,
+        errors: { confirmPhrase: `Please type ${DELETE_PHRASE} exactly to confirm.` },
+      };
+    }
+    return null;
+  }
+
+  const password = String(formData.get('password') ?? '');
   if (!password) {
     return { ok: false, errors: { password: 'Please enter your password to confirm.' } };
   }
@@ -293,4 +322,45 @@ export async function deleteAccountAction(
 
   await clearSessionCookie();
   redirect('/?deleted=1');
+}
+
+// ------------------------------------------------------- connected accounts
+
+/**
+ * Disconnect Google. Refused when it is the only way in, because removing it
+ * would lock the person out of their own health records with no recovery path
+ * — they are told to set a password first.
+ */
+export async function unlinkGoogleAction(
+  _prev: ActionState | null,
+  _formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+  const limited = guard(user.id, 'unlinkgoogle');
+  if (limited) return limited;
+
+  const identity = await prisma.authIdentity.findUnique({
+    where: { userId_provider: { userId: user.id, provider: 'google' } },
+    select: { id: true },
+  });
+  if (!identity) {
+    return { ok: false, message: 'Your account is not connected to Google.' };
+  }
+
+  if (user.passwordHash === null) {
+    return {
+      ok: false,
+      message:
+        'Google is currently the only way to sign in to this account. Set a password above first, then you can disconnect Google.',
+    };
+  }
+
+  await prisma.authIdentity.delete({ where: { id: identity.id } });
+  await audit({ userId: user.id, action: 'auth.google_unlinked' });
+  revalidatePath('/app/settings');
+
+  return {
+    ok: true,
+    message: 'Google has been disconnected. Sign in with your email and password from now on.',
+  };
 }

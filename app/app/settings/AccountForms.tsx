@@ -31,7 +31,7 @@ function SubmitButton({
 
 // ---------------------------------------------------------------- password
 
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ hasPassword = true }: { hasPassword?: boolean }) {
   const [state, action] = useActionState<ActionState | null, FormData>(changePasswordAction, null);
 
   return (
@@ -40,9 +40,13 @@ export function ChangePasswordForm() {
       noValidate
       className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6"
     >
-      <h3 className="text-lg font-semibold">Change your password</h3>
+      <h3 className="text-lg font-semibold">
+        {hasPassword ? 'Change your password' : 'Set a password'}
+      </h3>
       <p className="mt-1 text-sm text-ink-muted">
-        Changing your password signs every other device out. This device stays signed in.
+        {hasPassword
+          ? 'Changing your password signs every other device out. This device stays signed in.'
+          : 'You currently sign in with Google. Setting a password gives you a second way in, so you are not locked out if you lose access to that Google account.'}
       </p>
 
       <div className="mt-4">
@@ -51,19 +55,21 @@ export function ChangePasswordForm() {
         />
       </div>
 
-      <Field label="Current password" required error={state?.errors?.currentPassword}>
-        {({ id, describedBy, invalid }) => (
-          <TextInput
-            id={id}
-            name="currentPassword"
-            type="password"
-            required
-            autoComplete="current-password"
-            aria-describedby={describedBy}
-            invalid={invalid}
-          />
-        )}
-      </Field>
+      {hasPassword ? (
+        <Field label="Current password" required error={state?.errors?.currentPassword}>
+          {({ id, describedBy, invalid }) => (
+            <TextInput
+              id={id}
+              name="currentPassword"
+              type="password"
+              required
+              autoComplete="current-password"
+              aria-describedby={describedBy}
+              invalid={invalid}
+            />
+          )}
+        </Field>
+      ) : null}
 
       <Field
         label="New password"
@@ -84,7 +90,11 @@ export function ChangePasswordForm() {
         )}
       </Field>
 
-      <Field label="Confirm new password" required error={state?.errors?.confirmPassword}>
+      <Field
+        label={hasPassword ? 'Confirm new password' : 'Confirm password'}
+        required
+        error={state?.errors?.confirmPassword}
+      >
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -98,7 +108,9 @@ export function ChangePasswordForm() {
         )}
       </Field>
 
-      <SubmitButton pendingLabel="Changing…">Change password</SubmitButton>
+      <SubmitButton pendingLabel={hasPassword ? 'Changing…' : 'Setting…'}>
+        {hasPassword ? 'Change password' : 'Set password'}
+      </SubmitButton>
     </form>
   );
 }
@@ -132,14 +144,61 @@ export function SignOutEverywhereForm() {
   );
 }
 
+/**
+ * The deliberate-action check on a destructive form. Accounts that sign in with
+ * Google alone have no password to re-enter, so they type a fixed phrase
+ * instead — see `checkDestructiveConfirmation` in lib/actions/preferences.ts.
+ */
+function ConfirmSecret({
+  hasPassword,
+  errors,
+}: {
+  hasPassword: boolean;
+  errors?: Record<string, string>;
+}) {
+  if (!hasPassword) {
+    return (
+      <Field label="Type DELETE to confirm" required error={errors?.confirmPhrase}>
+        {({ id, describedBy, invalid }) => (
+          <TextInput
+            id={id}
+            name="confirmPhrase"
+            required
+            autoComplete="off"
+            aria-describedby={describedBy}
+            invalid={invalid}
+          />
+        )}
+      </Field>
+    );
+  }
+  return (
+    <Field label="Your password" required error={errors?.password}>
+      {({ id, describedBy, invalid }) => (
+        <TextInput
+          id={id}
+          name="password"
+          type="password"
+          required
+          autoComplete="current-password"
+          aria-describedby={describedBy}
+          invalid={invalid}
+        />
+      )}
+    </Field>
+  );
+}
+
 // -------------------------------------------------------- destructive zone
 
 export function DeleteAllRecordsForm({
   totalRecords,
   userEmail,
+  hasPassword = true,
 }: {
   totalRecords: number;
   userEmail: string;
+  hasPassword?: boolean;
 }) {
   const [state, action] = useActionState<ActionState | null, FormData>(
     deleteAllRecordsAction,
@@ -183,19 +242,7 @@ export function DeleteAllRecordsForm({
             />
           )}
         </Field>
-        <Field label="Your password" required error={state?.errors?.password}>
-          {({ id, describedBy, invalid }) => (
-            <TextInput
-              id={id}
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              aria-describedby={describedBy}
-              invalid={invalid}
-            />
-          )}
-        </Field>
+        <ConfirmSecret hasPassword={hasPassword} errors={state?.errors} />
       </div>
 
       <SubmitButton pendingLabel="Deleting all records…" variant="danger">
@@ -205,7 +252,13 @@ export function DeleteAllRecordsForm({
   );
 }
 
-export function DeleteAccountForm({ userEmail }: { userEmail: string }) {
+export function DeleteAccountForm({
+  userEmail,
+  hasPassword = true,
+}: {
+  userEmail: string;
+  hasPassword?: boolean;
+}) {
   const [state, action] = useActionState<ActionState | null, FormData>(deleteAccountAction, null);
 
   return (
@@ -247,19 +300,7 @@ export function DeleteAccountForm({ userEmail }: { userEmail: string }) {
             />
           )}
         </Field>
-        <Field label="Your password" required error={state?.errors?.password}>
-          {({ id, describedBy, invalid }) => (
-            <TextInput
-              id={id}
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              aria-describedby={describedBy}
-              invalid={invalid}
-            />
-          )}
-        </Field>
+        <ConfirmSecret hasPassword={hasPassword} errors={state?.errors} />
       </div>
 
       <SubmitButton pendingLabel="Deleting your account…" variant="danger">

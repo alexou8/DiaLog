@@ -15,11 +15,11 @@ function Submit() {
   );
 }
 
-export function SignInForm() {
+export function SignInForm({ defaultEmail }: { defaultEmail?: string }) {
   const [state, action] = useActionState<ActionState | null, FormData>(signInAction, null);
 
   return (
-    <form action={action} className="mt-8" noValidate>
+    <form action={action} className="mt-6" noValidate>
       <FormStatus
         status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
       />
@@ -31,6 +31,7 @@ export function SignInForm() {
             name="email"
             type="email"
             required
+            defaultValue={defaultEmail}
             autoComplete="email"
             inputMode="email"
             aria-describedby={describedBy}

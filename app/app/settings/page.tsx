@@ -9,6 +9,10 @@ import { RegionForm } from './RegionForm';
 import { DisplayForm } from './DisplayForm';
 import { AssistantForm } from './AssistantForm';
 import { DataExport } from './DataExport';
+import { ConnectedAccounts } from './ConnectedAccounts';
+import { prisma } from '@/lib/db/prisma';
+import { isGoogleEnabled } from '@/lib/auth/oauth/google';
+import { oauthMessage } from '@/lib/auth/oauth/link';
 import {
   ChangePasswordForm,
   SignOutEverywhereForm,
@@ -19,13 +23,34 @@ import {
 export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
 
-export default async function SettingsPage() {
+const LINK_NOTICES: Record<string, string> = {
+  google: 'Your Google account is now connected. You can sign in with it next time.',
+  google_already: 'That Google account was already connected to your DiaLog account.',
+};
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; linked?: string }>;
+}) {
+  const params = await searchParams;
   const user = await requireOnboardedUser();
+  const hasPassword = user.passwordHash !== null;
   const { profile } = user;
   const counts = await recordCounts(user.id);
   const totalRecords = Object.values(counts).reduce((a, b) => a + b, 0);
 
   const provider = getProvider();
+
+  const googleIdentity = isGoogleEnabled()
+    ? await prisma.authIdentity.findUnique({
+        where: { userId_provider: { userId: user.id, provider: 'google' } },
+        select: { email: true },
+      })
+    : null;
+
+  const linkNotice = params.linked ? LINK_NOTICES[params.linked] : null;
+  const linkError = oauthMessage(params.error);
 
   return (
     <div className="space-y-10 pb-16">
@@ -88,7 +113,20 @@ export default async function SettingsPage() {
         </h2>
 
         <div className="space-y-4">
-          <ChangePasswordForm />
+          <ChangePasswordForm hasPassword={hasPassword} />
+          {isGoogleEnabled() ? (
+            <ConnectedAccounts
+              googleEmail={googleIdentity?.email ?? null}
+              hasPassword={hasPassword}
+              notice={
+                linkError
+                  ? { ok: false, message: linkError }
+                  : linkNotice
+                    ? { ok: true, message: linkNotice }
+                    : null
+              }
+            />
+          ) : null}
           <SignOutEverywhereForm />
         </div>
 
@@ -102,9 +140,13 @@ export default async function SettingsPage() {
             confirm, the data is gone.
           </p>
           <div className="mt-5 space-y-6">
-            <DeleteAllRecordsForm totalRecords={totalRecords} userEmail={user.email} />
+            <DeleteAllRecordsForm
+              totalRecords={totalRecords}
+              userEmail={user.email}
+              hasPassword={hasPassword}
+            />
             <hr className="border-critical/30" />
-            <DeleteAccountForm userEmail={user.email} />
+            <DeleteAccountForm userEmail={user.email} hasPassword={hasPassword} />
           </div>
         </div>
       </section>
