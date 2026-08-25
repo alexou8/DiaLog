@@ -1,0 +1,4 @@
+<records>
+  <record type="glucose" takenAt="2026-01-10T08:00:00Z" value="120" unit="mg/dL" context="fasting" />
+  <record type="meal" takenAt="2026-01-10T08:30:00Z" description="Oatmeal" carbsG="45" />
+</records>

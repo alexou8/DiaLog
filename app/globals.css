@@ -1,0 +1,185 @@
+@import 'tailwindcss';
+
+/*
+  DiaLog design system.
+
+  Principles: calm, legible, non-clinical. Large default type (17px) with a
+  user-selectable larger scale, generous spacing, a small palette, and no
+  decorative gradients or glassmorphism. Every status colour is paired with an
+  icon and a text label elsewhere in the UI — colour never carries meaning
+  alone. All foreground/background pairs below meet WCAG 2.2 AA contrast at
+  their intended sizes in both themes.
+*/
+
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Neutrals — warm, paper-like rather than clinical white. */
+  --color-canvas: oklch(98.4% 0.005 95);
+  --color-surface: oklch(100% 0 0);
+  --color-surface-sunken: oklch(96.4% 0.006 95);
+  --color-line: oklch(89% 0.008 95);
+  --color-line-strong: oklch(78% 0.01 95);
+  --color-ink: oklch(24% 0.015 250);
+  --color-ink-muted: oklch(45% 0.015 250);
+
+  /* Brand — deep teal. Trustworthy, not "hospital blue". */
+  --color-brand: oklch(48% 0.09 197);
+  --color-brand-strong: oklch(40% 0.09 197);
+  --color-brand-soft: oklch(95% 0.02 197);
+  --color-brand-ink: oklch(30% 0.07 197);
+
+  /* Status tones. Chosen to stay distinguishable under the common forms of
+     colour vision deficiency; always accompanied by icon + label. */
+  --color-positive: oklch(46% 0.1 155);
+  --color-positive-soft: oklch(95.5% 0.03 155);
+  --color-notice: oklch(52% 0.12 65);
+  --color-notice-soft: oklch(96% 0.04 75);
+  --color-caution: oklch(50% 0.12 40);
+  --color-caution-soft: oklch(96% 0.03 40);
+  --color-critical: oklch(46% 0.16 20);
+  --color-critical-soft: oklch(96% 0.03 20);
+  --color-info: oklch(45% 0.1 260);
+  --color-info-soft: oklch(96% 0.025 260);
+
+  --radius-card: 0.875rem;
+  --text-base: 1.0625rem;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    /* Base type scale; bumped by the user's "larger text" preference. */
+    --dl-font-scale: 1;
+  }
+
+  :root[data-text='large'] {
+    --dl-font-scale: 1.15;
+  }
+
+  :root[data-text='x-large'] {
+    --dl-font-scale: 1.3;
+  }
+
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+    --color-canvas: oklch(19% 0.012 250);
+    --color-surface: oklch(23.5% 0.014 250);
+    --color-surface-sunken: oklch(17% 0.012 250);
+    --color-line: oklch(32% 0.014 250);
+    --color-line-strong: oklch(45% 0.016 250);
+    --color-ink: oklch(96% 0.005 250);
+    --color-ink-muted: oklch(76% 0.012 250);
+    --color-brand: oklch(74% 0.09 197);
+    --color-brand-strong: oklch(82% 0.09 197);
+    --color-brand-soft: oklch(30% 0.05 197);
+    --color-brand-ink: oklch(88% 0.06 197);
+    --color-positive: oklch(78% 0.13 155);
+    --color-positive-soft: oklch(28% 0.05 155);
+    --color-notice: oklch(80% 0.13 75);
+    --color-notice-soft: oklch(30% 0.05 70);
+    --color-caution: oklch(76% 0.13 45);
+    --color-caution-soft: oklch(29% 0.06 40);
+    --color-critical: oklch(75% 0.15 22);
+    --color-critical-soft: oklch(29% 0.07 20);
+    --color-info: oklch(78% 0.1 260);
+    --color-info-soft: oklch(28% 0.05 260);
+  }
+
+  html {
+    font-size: calc(100% * var(--dl-font-scale));
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Comfortable line length and rhythm for long-sighted readers. */
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* A single, always-visible focus treatment. Never removed. */
+  :focus-visible {
+    outline: 3px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Respect the OS-level reduced-motion setting and the in-app preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  :root[data-motion='reduced'] *,
+  :root[data-motion='reduced'] *::before,
+  :root[data-motion='reduced'] *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  /* Touch targets: 44px minimum on interactive controls. */
+  button,
+  [role='button'],
+  a.dl-target,
+  input[type='submit'] {
+    min-height: 2.75rem;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+    line-height: 1.25;
+  }
+}
+
+@layer components {
+  .dl-skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    padding: 0.75rem 1rem;
+    background: var(--color-surface);
+    color: var(--color-ink);
+    border: 2px solid var(--color-brand);
+    border-radius: 0 0 0.5rem 0;
+  }
+
+  .dl-skip-link:focus {
+    left: 0;
+  }
+
+  /* Screen-reader-only content that becomes visible on focus. */
+  .sr-only:not(:focus):not(:active) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* Safe-area insets so the installed PWA clears notches and home indicators. */
+.dl-safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+.dl-safe-top {
+  padding-top: env(safe-area-inset-top);
+}

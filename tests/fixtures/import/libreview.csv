@@ -1,0 +1,8 @@
+FreeStyle LibreView Report,,,,,,,,
+Generated on,2026-08-20,,,,,,,
+Patient Name,Jane Doe,,,,,,,
+Device Timestamp,Record Type,Historic Glucose mg/dL,Scan Glucose mg/dL,Non-numeric Rapid-Acting Insulin,Rapid-Acting Insulin (units),Non-numeric Food,Carbohydrates (grams),Notes
+20-01-2026 08:00,0,110,,,,,,
+20-01-2026 08:05,1,,115,,,,,fasting check
+20-01-2026 12:00,3,,,,,,45,lunch carbs
+20-01-2026 18:00,2,,,,4,,,

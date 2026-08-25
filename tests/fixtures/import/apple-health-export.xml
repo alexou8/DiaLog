@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HealthData locale="en_US">
+  <Record type="HKQuantityTypeIdentifierBloodGlucose" sourceName="Health" unit="mg/dL" startDate="2026-01-10 08:00:00 -0500" endDate="2026-01-10 08:00:00 -0500" value="110" />
+  <Record type="HKQuantityTypeIdentifierDietaryCarbohydrates" sourceName="Health" unit="g" startDate="2026-01-10 08:30:00 -0500" endDate="2026-01-10 08:30:00 -0500" value="45" />
+  <Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Health" unit="lb" startDate="2026-01-10 07:00:00 -0500" endDate="2026-01-10 07:00:00 -0500" value="180" />
+  <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Health" startDate="2026-01-09 23:00:00 -0500" endDate="2026-01-10 06:30:00 -0500" value="HKCategoryValueSleepAnalysisAsleep" />
+  <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Health" unit="count" startDate="2026-01-10 09:00:00 -0500" endDate="2026-01-10 09:00:00 -0500" value="500" />
+  <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="30" durationUnit="min" totalDistance="5" totalDistanceUnit="km" startDate="2026-01-10 07:00:00 -0500" endDate="2026-01-10 07:30:00 -0500" />
+</HealthData>

@@ -1,0 +1,7 @@
+.next
+node_modules
+ml
+prisma/migrations
+package-lock.json
+tests/fixtures/
+docs/screenshots/
