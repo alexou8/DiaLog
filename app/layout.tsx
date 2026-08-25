@@ -9,7 +9,8 @@ import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistratio
 function resolveAppUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (explicit) return explicit;
-  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
+  const vercel =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
   if (vercel) return `https://${vercel}`;
   return 'http://localhost:3000';
 }
