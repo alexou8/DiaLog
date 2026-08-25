@@ -9,6 +9,7 @@ test.describe('assistant', () => {
       page,
     }) => {
       await page.goto('/app/assistant');
+      await page.waitForLoadState('networkidle');
 
       // A custom question, not one of the pre-set suggestion pills, so the
       // echoed question text below doesn't collide with a suggestion button
@@ -35,6 +36,7 @@ test.describe('assistant', () => {
 
     test('says there is not enough data rather than inventing an answer', async ({ page }) => {
       await page.goto('/app/assistant');
+      await page.waitForLoadState('networkidle');
 
       await page.getByLabel('Your question').fill('Why were my readings higher this week?');
       await page.getByRole('button', { name: 'Ask', exact: true }).click();

@@ -72,13 +72,34 @@ async function assertHtmlLang(page: Page, label: string) {
 
 /** The skip link is off-screen until focused, and moves focus into <main>. */
 async function assertSkipLink(page: Page, label: string) {
-  // Some pages (e.g. the glucose entry form) autoFocus a field on load, which
-  // would otherwise make the first Tab move away from that field instead of
-  // landing on the skip link. Start from a known "nothing focused" state.
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await page.keyboard.press('Tab');
   const skipLink = page.locator('.dl-skip-link');
-  await expect(skipLink, `${label}: first Tab should reach the skip link`).toBeFocused();
+
+  // The skip link must be the first focusable element in the document, so a
+  // keyboard user starting from the very top of the page reaches it on the
+  // first Tab. Checked via DOM order rather than a literal simulated Tab
+  // press: some pages (e.g. the glucose entry form) legitimately autoFocus a
+  // field on load, and per the HTML focus-navigation spec that field — not
+  // the top of the document — becomes the "sequential focus navigation
+  // starting point" for Tab from then on, which would make a literal Tab
+  // press an unreliable way to test DOM order specifically.
+  const firstFocusableIsSkipLink = await page.evaluate(() => {
+    const candidates = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]',
+      ),
+    ).filter((el) => el.tabIndex !== -1);
+    return candidates[0]?.classList.contains('dl-skip-link') ?? false;
+  });
+  expect(
+    firstFocusableIsSkipLink,
+    `${label}: the skip link should be the first focusable element in the document`,
+  ).toBe(true);
+
+  // Focus it directly (equivalent to what Shift+Tab from anywhere past it, or
+  // Tab from a page with nothing pre-focused, would do) and confirm it comes
+  // on-screen while focused.
+  await skipLink.focus();
+  await expect(skipLink, `${label}: the skip link should be focusable`).toBeFocused();
 
   const box = await skipLink.boundingBox();
   expect(box, `${label}: focused skip link should have a visible position`).not.toBeNull();

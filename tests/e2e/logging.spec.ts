@@ -77,7 +77,9 @@ test.describe('logging records', () => {
     // <summary> exposes an ARIA role of "DisclosureTriangle" in Chromium, not
     // "button", so it is targeted by its visible text rather than by role.
     await row.locator('summary').filter({ hasText: 'Delete' }).click();
-    await expect(page.getByText('Delete this record? This cannot be undone.')).toBeVisible();
+    // Scoped to this row: every row carries its own (usually-hidden) confirm
+    // text, so matching page-wide could resolve to more than one row's copy.
+    await expect(row.getByText('Delete this record? This cannot be undone.')).toBeVisible();
     await expect(row).toBeVisible();
 
     await page.getByRole('button', { name: 'Yes, delete' }).click();
