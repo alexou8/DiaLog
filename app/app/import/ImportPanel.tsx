@@ -55,7 +55,11 @@ export function ImportPanel() {
 
   const state = commit?.stage === 'committed' ? commit : analysis;
   const summary = state?.summary;
-  const readyToImport = analysis?.stage === 'reviewed' && commit?.stage !== 'committed';
+  const reviewed = analysis?.stage === 'reviewed' && commit?.stage !== 'committed';
+  // Offering "Import 0 records" when every row is already stored is a button
+  // that does nothing; say so instead.
+  const readyToImport = reviewed && (analysis?.summary?.rowsImported ?? 0) > 0;
+  const nothingNewToImport = reviewed && (analysis?.summary?.rowsImported ?? 0) === 0;
 
   /** Carry the already-chosen file into the confirmation submission. */
   function confirmImport(formData: FormData) {
@@ -196,6 +200,15 @@ export function ImportPanel() {
                   Nothing has been saved yet. Duplicates will be skipped automatically.
                 </p>
               </form>
+            ) : null}
+
+            {nothingNewToImport ? (
+              <div className="mt-6">
+                <Callout tone="info" icon="ⓘ" title="Nothing new to add">
+                  Every record in this file is already in DiaLog, so there is nothing to import.
+                  Your existing records have been left exactly as they were.
+                </Callout>
+              </div>
             ) : null}
 
             {commit?.stage === 'committed' ? (

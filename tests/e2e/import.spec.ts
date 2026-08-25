@@ -1,12 +1,38 @@
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
 import { IMPORT_STATE } from './setup/auth-state';
 
-const SAMPLE_LOGS = path.join(process.cwd(), 'ml/data/sample_logs.csv');
 const MALFORMED = path.join(process.cwd(), 'tests/e2e/fixtures/malformed.csv');
 
-/** ml/data/sample_logs.csv contains 5 glucose rows (plus meals and medications). */
+/** ml/data/sample_logs.csv holds 13 records: 5 glucose, 5 meals, 3 medications. */
 const GLUCOSE_ROWS_IN_SAMPLE = 5;
+const TOTAL_ROWS_IN_SAMPLE = 13;
+
+/**
+ * Write a copy of the sample log whose timestamps are shifted by a unique
+ * number of days.
+ *
+ * The import test necessarily writes records, CI retries it, and it shares an
+ * account with its sibling — so importing the same fixed file every time makes
+ * the second attempt a no-op (every row a duplicate) and the test unrepeatable.
+ * Shifting the dates means every attempt imports genuinely new records, while
+ * re-importing the *same generated file* still exercises duplicate detection.
+ */
+function uniqueSampleLog(): string {
+  const source = readFileSync(path.join(process.cwd(), 'ml/data/sample_logs.csv'), 'utf8');
+  // A day offset that differs per attempt, kept inside a plausible range.
+  const offsetDays = Math.floor(Math.random() * 3000) + 1;
+  const shifted = source.replace(/^(\d{4})-(\d{2})-(\d{2}) /gm, (_match, y, m, d) => {
+    const shiftedDate = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+    shiftedDate.setUTCDate(shiftedDate.getUTCDate() - offsetDays);
+    return `${shiftedDate.toISOString().slice(0, 10)} `;
+  });
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'dialog-import-')), 'sample_logs.csv');
+  writeFileSync(file, shifted, 'utf8');
+  return file;
+}
 
 test.describe('import', () => {
   test.use({ storageState: IMPORT_STATE });
@@ -14,70 +40,62 @@ test.describe('import', () => {
   test('review stage shows counts and saves nothing until confirmed; re-import reports duplicates', async ({
     page,
   }) => {
-    // This test writes records, so it is not naturally repeatable: a retry
-    // would start against an account holding the previous attempt's rows.
-    // Undoing every existing batch first makes each attempt start from the
-    // same state, and exercises the undo path on the way. It lives here rather
-    // than in a beforeEach because the sibling test shares this account and
-    // must not have its state cleared mid-run.
-    await page.goto('/app/import');
-    const undoDisclosures = page.getByRole('group', { name: 'Undo this import' });
-    for (let remaining = await undoDisclosures.count(); remaining > 0; remaining -= 1) {
-      const disclosure = undoDisclosures.first();
-      await disclosure.getByText('Undo this import').click();
-      await disclosure.getByRole('button', { name: 'Yes, remove these records' }).click();
-      await expect(page.getByText('Your imports')).toBeVisible();
-    }
-    await expect(page.getByText('No imports yet')).toBeVisible();
+    // Deliberately written to hold regardless of what this account already
+    // contains. The test writes records, CI retries it, and it shares an
+    // account with its sibling — so asserting on absolute counts or on an
+    // empty starting state makes it unrepeatable. Every assertion below is
+    // about the *change* the import causes.
+    const sampleLog = uniqueSampleLog();
+    const before = await countGlucoseRows(page);
 
-    await page.getByLabel(/Choose a file/).setInputFiles(SAMPLE_LOGS);
+    await page.goto('/app/import');
+    await page.getByLabel(/Choose a file/).setInputFiles(sampleLog);
     await page.getByRole('button', { name: 'Check this file' }).click();
 
     await expect(page.getByText('Here is what DiaLog found')).toBeVisible();
     await expect(page.getByText('Rows in the file')).toBeVisible();
-    const readyToImportButton = page.getByRole('button', { name: /^Import \d+ record/ });
-    await expect(readyToImportButton).toBeVisible();
+    const readyToImport = page.getByRole('button', { name: /^Import \d+ record/ });
+    await expect(readyToImport).toBeVisible();
     await expect(page.getByText('Nothing has been saved yet.')).toBeVisible();
 
-    // Nothing saved yet. History is checked rather than the glucose page,
-    // because the glucose page shows a rolling 30-day window and this sample
-    // file is dated well outside it — an empty glucose page would prove
-    // nothing either way.
-    await page.goto('/app/history?type=glucose');
-    await expect(page.getByText('No glucose records yet')).toBeVisible();
+    const offered = Number((await readyToImport.textContent())?.match(/\d+/)?.[0] ?? '0');
+    expect(offered).toBe(TOTAL_ROWS_IN_SAMPLE);
 
-    // Go back, redo the analysis (file input is not preserved across navigation),
-    // and confirm the import this time.
+    // The review stage must not have written anything.
+    expect(await countGlucoseRows(page)).toBe(before);
+
+    // Redo the analysis (the file input does not survive navigation) and
+    // confirm it this time.
     await page.goto('/app/import');
-    await page.getByLabel(/Choose a file/).setInputFiles(SAMPLE_LOGS);
+    await page.getByLabel(/Choose a file/).setInputFiles(sampleLog);
     await page.getByRole('button', { name: 'Check this file' }).click();
-    await expect(page.getByRole('button', { name: /^Import \d+ record/ })).toBeVisible();
-    const importCountMatch = await page
-      .getByRole('button', { name: /^Import \d+ record/ })
-      .textContent();
-    const expectedCount = Number(importCountMatch?.match(/\d+/)?.[0] ?? '0');
-    expect(expectedCount).toBeGreaterThan(0);
+    const confirm = page.getByRole('button', { name: /^Import \d+ record/ });
+    await expect(confirm).toBeVisible();
+    const committing = Number((await confirm.textContent())?.match(/\d+/)?.[0] ?? '0');
+    expect(committing).toBe(offered);
 
-    await page.getByRole('button', { name: /^Import \d+ record/ }).click();
+    await confirm.click();
     await expect(page.getByText('Import complete')).toBeVisible();
     await expect(page.getByText('Your readings are now in DiaLog')).toBeVisible();
 
-    await page.goto('/app/history?type=glucose');
-    await expect(page.getByText('No glucose records yet')).toHaveCount(0);
-    await expect(page.getByText(/Imported from sample_logs\.csv/i).first()).toBeVisible();
+    // Exactly the file's glucose rows were added, and they carry their origin.
+    const afterFirstImport = await countGlucoseRows(page); // navigates to history
+    expect(afterFirstImport).toBe(before + GLUCOSE_ROWS_IN_SAMPLE);
+    await expect(page.getByText(/Imported from sample_logs\.csv via /i).first()).toBeVisible();
 
-    // Upload the same file again: everything should now be reported as duplicate.
+    // Re-uploading the very same file reports every row as a duplicate and
+    // adds nothing.
     await page.goto('/app/import');
-    await page.getByLabel(/Choose a file/).setInputFiles(SAMPLE_LOGS);
+    await page.getByLabel(/Choose a file/).setInputFiles(sampleLog);
     await page.getByRole('button', { name: 'Check this file' }).click();
     await expect(page.getByText('Here is what DiaLog found')).toBeVisible();
     await expect(page.getByText('Already in DiaLog, so skipped').locator('..')).toContainText(
-      String(expectedCount),
+      String(TOTAL_ROWS_IN_SAMPLE),
     );
+    await expect(page.getByRole('button', { name: /^Import \d+ record/ })).toHaveCount(0);
+    await expect(page.getByText('Nothing new to add')).toBeVisible();
 
-    // Re-importing changed nothing: the stored record count is exactly what
-    // the first import wrote.
-    expect(await countGlucoseRows(page)).toBe(GLUCOSE_ROWS_IN_SAMPLE);
+    expect(await countGlucoseRows(page)).toBe(afterFirstImport);
   });
 
   test('uploading a malformed file shows a clear, non-crashing error', async ({ page }) => {

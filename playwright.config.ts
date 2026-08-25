@@ -33,10 +33,15 @@ const chromiumPath = resolveChromium();
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
+  // Serialized deliberately. The specs share a small pool of accounts (sign-up
+  // is rate limited, so a fresh account per test is not available), and several
+  // of them assert on record counts. Run in parallel, one spec's writes land
+  // between another's count and its assertion. Sequential execution costs about
+  // a minute and removes that entire class of flake.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  workers: 1,
   timeout: 60_000,
   expect: {
     timeout: 10_000,

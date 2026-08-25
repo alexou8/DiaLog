@@ -69,14 +69,26 @@ test.describe('logging records', () => {
   });
 
   test('delete a record via the two-step confirm', async ({ page }) => {
+    // Asserted on the row-count delta rather than on matching row text: the
+    // history list does not render notes, and filtering on a fixed value
+    // ('101') matched any row merely containing those digits — so an attempt
+    // that failed part-way left a matching record behind and the next run
+    // found two.
+    const rows = page.locator('main ul > li').filter({ has: page.getByRole('group') });
+
+    await page.goto('/app/history?type=glucose');
+    const before = await rows.count();
+
     await page.goto('/app/glucose/new');
     await page.getByLabel(/Your reading/).fill('101');
     await page.getByRole('button', { name: 'Save reading' }).click();
     await expect(page).toHaveURL(/\/app\/glucose\?added=1/);
 
     await page.goto('/app/history?type=glucose');
-    const row = page.locator('li').filter({ hasText: '101' }).first();
-    await expect(row).toBeVisible();
+    await expect(rows).toHaveCount(before + 1);
+
+    // Newest first, so the reading just saved is the first row.
+    const row = rows.first();
 
     // First click opens the confirmation; the record must not vanish yet.
     // <summary> exposes an ARIA role of "DisclosureTriangle" in Chromium, not
@@ -85,9 +97,13 @@ test.describe('logging records', () => {
     // Scoped to this row: every row carries its own (usually-hidden) confirm
     // text, so matching page-wide could resolve to more than one row's copy.
     await expect(row.getByText('Delete this record? This cannot be undone.')).toBeVisible();
-    await expect(row).toBeVisible();
+    await expect(rows).toHaveCount(before + 1);
 
-    await page.getByRole('button', { name: 'Yes, delete' }).click();
-    await expect(page.locator('li').filter({ hasText: '101' })).toHaveCount(0);
+    await row.getByRole('button', { name: 'Yes, delete' }).click();
+    // Reload before asserting: the claim under test is that the record is gone
+    // from the server, and a reload proves that rather than the client router
+    // cache's view of the list.
+    await page.reload();
+    await expect(rows).toHaveCount(before);
   });
 });
