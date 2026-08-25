@@ -93,7 +93,8 @@ jobs:
 
       - run: npm ci
       - run: npx prisma migrate deploy
-      - run: npx tsx prisma/seed.ts
+      # The suite seeds itself: tests/e2e/global-setup.ts resets the database
+      # and re-seeds before any test runs, so a run never inherits state.
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 

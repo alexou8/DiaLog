@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { SHARED_STATE } from './setup/auth-state';
+import {
+  shiftLocalDateTime,
+  uniqueDurationMinutes,
+  uniqueGlucoseValue,
+  uniqueMinuteOffset,
+  uniqueText,
+} from './unique';
 
 test.describe('logging records', () => {
   test.use({ storageState: SHARED_STATE });
@@ -11,47 +18,56 @@ test.describe('logging records', () => {
 
   test('add a glucose reading and see it with value and status', async ({ page }) => {
     await page.goto('/app/glucose/new');
-    await page.getByLabel(/Your reading/).fill('142');
+    const label = (await page.getByText(/^Your reading \(/).textContent()) ?? '';
+    const value = uniqueGlucoseValue(label);
+    await page.getByLabel(/Your reading/).fill(value);
     await page.getByRole('radio', { name: 'After a meal', exact: false }).check();
     await page.getByRole('button', { name: 'Save reading' }).click();
 
     await expect(page).toHaveURL(/\/app\/glucose\?added=1/);
     await expect(page.getByText('Reading saved')).toBeVisible();
-    await expect(page.getByText('142').first()).toBeVisible();
+    await expect(page.getByText(value).first()).toBeVisible();
     // A plain-language status label ("Above your target range", etc.) accompanies the value.
     await expect(page.getByText(/target range/i).first()).toBeVisible();
   });
 
   test('log a meal and see it in history with provenance', async ({ page }) => {
+    const description = uniqueText('Grilled chicken and rice');
     await page.goto('/app/meals/new');
-    await page.getByLabel('What did you eat?').fill('Grilled chicken and rice');
+    await page.getByLabel('What did you eat?').fill(description);
     await page.getByRole('button', { name: 'Save meal' }).click();
 
     await expect(page).toHaveURL(/\/app\/meals\?added=1/);
-    await expect(page.getByText('Grilled chicken and rice')).toBeVisible();
+    await expect(page.getByText(description)).toBeVisible();
 
     await page.goto('/app/history?type=meal');
-    await expect(page.getByText('Grilled chicken and rice')).toBeVisible();
+    await expect(page.getByText(description)).toBeVisible();
   });
 
   test('log an exercise session and see it in history', async ({ page }) => {
+    const activity = uniqueText('Walking');
+    const duration = uniqueDurationMinutes();
     await page.goto('/app/activity/new');
-    await page.getByLabel('Activity').fill('Walking');
-    await page.getByLabel('Duration').fill('30');
+    await page.getByLabel('Activity').fill(activity);
+    await page.getByLabel('Duration').fill(duration);
     await page.getByRole('button', { name: 'Save activity' }).click();
 
     await expect(page).toHaveURL(/\/app\/activity\?added=1/);
-    await expect(page.getByText('Walking').first()).toBeVisible();
+    await expect(page.getByText(activity).first()).toBeVisible();
 
     await page.goto('/app/history?type=exercise');
-    await expect(page.getByText('Walking').first()).toBeVisible();
+    await expect(page.getByText(activity).first()).toBeVisible();
   });
 
   test('log sleep and see it in history', async ({ page }) => {
     await page.goto('/app/health/sleep/new');
     // Wake time must be after bedtime for a plausible duration; defaults are
     // both "now", so push the wake time forward.
-    const bedtime = await page.getByLabel('Bedtime').inputValue();
+    const bedtime = shiftLocalDateTime(
+      await page.getByLabel('Bedtime').inputValue(),
+      uniqueMinuteOffset(),
+    );
+    await page.getByLabel('Bedtime').fill(bedtime);
     const wakeDate = new Date(bedtime);
     wakeDate.setHours(wakeDate.getHours() + 7);
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -80,7 +96,16 @@ test.describe('logging records', () => {
     const before = await rows.count();
 
     await page.goto('/app/glucose/new');
-    await page.getByLabel(/Your reading/).fill('101');
+    // A value unique to this attempt. Dedupe keys are content hashes over
+    // (type, timestamp-to-the-minute, value), so re-running with a fixed value
+    // inside the same minute collides with the previous attempt's record and
+    // the save is rejected as a duplicate. The unit is read from the field's
+    // own label so the value is always in the plausible range for it.
+    const readingLabel = (await page.getByText(/^Your reading \(/).textContent()) ?? '';
+    const value = readingLabel.includes('mmol/L')
+      ? (Math.random() * 10 + 4).toFixed(1) // 4.0-14.0 mmol/L
+      : String(Math.floor(Math.random() * 180) + 80); // 80-260 mg/dL
+    await page.getByLabel(/Your reading/).fill(value);
     await page.getByRole('button', { name: 'Save reading' }).click();
     await expect(page).toHaveURL(/\/app\/glucose\?added=1/);
 

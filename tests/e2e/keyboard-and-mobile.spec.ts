@@ -1,3 +1,4 @@
+import { uniqueGlucoseValue } from './unique';
 import { test, expect, type Page } from '@playwright/test';
 import { SHARED_STATE } from './setup/auth-state';
 
@@ -57,7 +58,12 @@ test.describe('keyboard-only journey', () => {
     // Fill and submit the glucose form using only the keyboard.
     const valueInput = page.getByLabel(/Your reading/);
     await expect(valueInput).toBeFocused(); // autoFocus on the value field
-    await page.keyboard.type('133');
+    // Unique per attempt: dedupe keys are (type, minute, value), so a fixed
+    // value re-run inside the same minute is rejected as a duplicate.
+    const value = uniqueGlucoseValue(
+      (await page.getByText(/^Your reading \(/).textContent()) ?? '',
+    );
+    await page.keyboard.type(value);
     // Keep tabbing to the submit button rather than counting a fixed number of
     // presses: a radio group's default-checked option (not necessarily the
     // first one) is where Tab lands, so the exact stop count isn't fixed.
@@ -72,7 +78,7 @@ test.describe('keyboard-only journey', () => {
     // writes can shift aggregate stats (average, median) to other numbers
     // that may or may not contain "133", which would make a page-wide text
     // search flaky. The individual record row is unambiguous regardless.
-    await expect(page.locator('li').filter({ hasText: '133' }).first()).toBeVisible();
+    await expect(page.locator('li').filter({ hasText: value }).first()).toBeVisible();
   });
 });
 

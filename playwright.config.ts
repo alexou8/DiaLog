@@ -33,6 +33,9 @@ const chromiumPath = resolveChromium();
  */
 export default defineConfig({
   testDir: './tests/e2e',
+  // Resets the database and re-seeds the demo account, so a run never inherits
+  // the previous run's records. See tests/e2e/global-setup.ts.
+  globalSetup: './tests/e2e/global-setup.ts',
   // Serialized deliberately. The specs share a small pool of accounts (sign-up
   // is rate limited, so a fresh account per test is not available), and several
   // of them assert on record counts. Run in parallel, one spec's writes land
