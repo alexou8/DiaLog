@@ -14,7 +14,47 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
+
+interface Endpoints {
+  authorize: string;
+  token: string;
+  jwks: string;
+  issuers: string[];
+}
+
+/**
+ * Google's endpoints, unless `GOOGLE_OIDC_TEST_ISSUER` points at a stand-in
+ * provider on loopback. The end-to-end suite runs the whole redirect round trip
+ * — PKCE, state, nonce, real RS256 signature checks — against a fake issuer it
+ * controls (tests/e2e/fake-google.ts), which is only possible if the endpoints
+ * can move.
+ *
+ * The loopback restriction is the safety catch: the override cannot be pointed
+ * at a host an attacker controls, so a leaked or injected value can only ever
+ * degrade to "sign-in fails".
+ */
+function endpoints(): Endpoints {
+  const override = process.env.GOOGLE_OIDC_TEST_ISSUER;
+  if (override) {
+    try {
+      const url = new URL(override);
+      if (url.hostname === '127.0.0.1' || url.hostname === 'localhost') {
+        const base = override.replace(/\/$/, '');
+        return {
+          authorize: `${base}/authorize`,
+          token: `${base}/token`,
+          jwks: `${base}/certs`,
+          issuers: [base],
+        };
+      }
+    } catch {
+      // Fall through to the real Google endpoints.
+    }
+  }
+  return { authorize: AUTHORIZE_URL, token: TOKEN_URL, jwks: JWKS_URL, issuers: ISSUERS };
+}
 
 export interface GoogleConfig {
   clientId: string;
@@ -59,7 +99,7 @@ export function buildAuthorizeUrl(
   config: GoogleConfig,
   params: { state: string; nonce: string; challenge: string; loginHint?: string },
 ): string {
-  const url = new URL(AUTHORIZE_URL);
+  const url = new URL(endpoints().authorize);
   url.search = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
@@ -81,7 +121,7 @@ export async function exchangeCode(
   code: string,
   verifier: string,
 ): Promise<{ idToken: string } | null> {
-  const response = await fetch(TOKEN_URL, {
+  const response = await fetch(endpoints().token, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -106,8 +146,18 @@ export interface GoogleIdentity {
   name: string | null;
 }
 
-// Cached across requests by `jose`; refetched when Google rotates keys.
-const jwks = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
+// One key set per endpoint, cached across requests by `jose` and refetched when
+// the provider rotates keys.
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function keySet(url: string): ReturnType<typeof createRemoteJWKSet> {
+  let existing = jwksCache.get(url);
+  if (!existing) {
+    existing = createRemoteJWKSet(new URL(url));
+    jwksCache.set(url, existing);
+  }
+  return existing;
+}
 
 /**
  * Verify the ID token's signature, issuer, audience and nonce. Everything the
@@ -120,8 +170,9 @@ export async function verifyIdToken(
   nonce: string,
 ): Promise<GoogleIdentity | null> {
   try {
-    const { payload } = await jwtVerify(idToken, jwks, {
-      issuer: ISSUERS,
+    const { jwks: jwksUrl, issuers } = endpoints();
+    const { payload } = await jwtVerify(idToken, keySet(jwksUrl), {
+      issuer: issuers,
       audience: config.clientId,
     });
     if (payload.nonce !== nonce) return null;

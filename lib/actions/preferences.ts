@@ -145,30 +145,43 @@ export async function changePasswordAction(
   }
 
   const passwordHash = await hashPassword(newPassword);
+  const settingFirstPassword = user.passwordHash === null;
 
-  // Bump tokenVersion so every other signed-in device is logged out, then
-  // immediately mint a fresh cookie for this device so the person making the
-  // change is not logged out of the browser they are using right now.
+  // Changing a password invalidates every other session: bump tokenVersion, and
+  // immediately mint a fresh cookie so the person making the change is not
+  // logged out of the browser they are using right now.
+  //
+  // Setting a *first* password does not. Nothing was compromised, and there are
+  // no password sessions to sign out — the account has only ever been reachable
+  // through Google. Leaving tokenVersion alone also keeps the current session
+  // valid for the render that follows this action, which a bump does not: see
+  // the note on this in docs/SECURITY.md.
   const updated = await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash, tokenVersion: { increment: 1 } },
+    data: settingFirstPassword
+      ? { passwordHash }
+      : { passwordHash, tokenVersion: { increment: 1 } },
     select: { tokenVersion: true },
   });
 
   await audit({
     userId: user.id,
-    action: user.passwordHash === null ? 'auth.password_set' : 'auth.password_change',
+    action: settingFirstPassword ? 'auth.password_set' : 'auth.password_change',
   });
-  await setSessionCookie(
-    await signSession({ userId: user.id, tokenVersion: updated.tokenVersion }),
-  );
+
+  if (!settingFirstPassword) {
+    await setSessionCookie(
+      await signSession({ userId: user.id, tokenVersion: updated.tokenVersion }),
+    );
+  }
+
+  revalidatePath('/app/settings');
 
   return {
     ok: true,
-    message:
-      user.passwordHash === null
-        ? 'Your password has been set. You can now sign in with your email and password as well as with Google.'
-        : 'Your password has been changed. You have been signed out of any other devices.',
+    message: settingFirstPassword
+      ? 'Your password has been set. You can now sign in with your email and password as well as with Google.'
+      : 'Your password has been changed. You have been signed out of any other devices.',
   };
 }
 

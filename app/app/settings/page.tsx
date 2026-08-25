@@ -23,15 +23,30 @@ import {
 export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
 
-const LINK_NOTICES: Record<string, string> = {
-  google: 'Your Google account is now connected. You can sign in with it next time.',
-  google_already: 'That Google account was already connected to your DiaLog account.',
-};
+/**
+ * Confirmations that arrive as a query parameter rather than as returned action
+ * state, because the action that produced them ends in a redirect — see
+ * changePasswordAction in lib/actions/preferences.ts.
+ */
+const NOTICES = {
+  linked: {
+    google: 'Your Google account is now connected. You can sign in with it next time.',
+    google_already: 'That Google account was already connected to your DiaLog account.',
+  },
+} satisfies Record<string, Record<string, string>>;
+
+/** Looks up one notice, tolerating a hand-edited query string. */
+function notice(group: Record<string, string>, key: string | undefined): string | null {
+  return key ? (group[key] ?? null) : null;
+}
 
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; linked?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    linked?: string;
+  }>;
 }) {
   const params = await searchParams;
   const user = await requireOnboardedUser();
@@ -49,7 +64,7 @@ export default async function SettingsPage({
       })
     : null;
 
-  const linkNotice = params.linked ? LINK_NOTICES[params.linked] : null;
+  const linkNotice = notice(NOTICES.linked, params.linked);
   const linkError = oauthMessage(params.error);
 
   return (

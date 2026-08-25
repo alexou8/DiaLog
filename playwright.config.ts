@@ -84,12 +84,32 @@ export default defineConfig({
       dependencies: ['setup'],
     },
   ],
-  webServer: {
-    command: 'npm run build && npx next start -p 3100',
-    url: 'http://localhost:3100',
-    reuseExistingServer: false,
-    timeout: 300_000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  webServer: [
+    {
+      // The stand-in Google (tests/e2e/fake-google.ts). Started first so the
+      // app's OIDC endpoint override has something to talk to.
+      command: 'npx tsx tests/e2e/fake-google.ts',
+      url: 'http://127.0.0.1:3210/certs',
+      reuseExistingServer: false,
+      timeout: 60_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      command: 'npm run build && npx next start -p 3100',
+      url: 'http://localhost:3100',
+      reuseExistingServer: false,
+      timeout: 300_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: {
+        // Turns the Google buttons on for the suite and points the flow at the
+        // stand-in issuer. Loopback only — see lib/auth/oauth/google.ts.
+        GOOGLE_CLIENT_ID: 'e2e-client-id',
+        GOOGLE_CLIENT_SECRET: 'e2e-client-secret',
+        GOOGLE_OIDC_TEST_ISSUER: 'http://127.0.0.1:3210',
+        NEXT_PUBLIC_APP_URL: 'http://localhost:3100',
+      },
+    },
+  ],
 });

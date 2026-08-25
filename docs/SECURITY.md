@@ -35,6 +35,17 @@ Sessions are stateless, signed JWT cookies (`lib/auth/session.ts`), not a server
 - **ID token verification.** `verifyIdToken()` checks the signature against Google's live JWKS (`https://www.googleapis.com/oauth2/v3/certs`), and checks issuer, audience (the configured client id), and that the token's `nonce` matches the one minted for this attempt. Only a token that survives all of these is trusted; the callback treats every other input on the request — query parameters included — as attacker-controlled.
 - **Deliberate non-linking-by-email policy.** A Google identity is never auto-linked to an existing DiaLog account by matching email, even when the email is verified. `resolveGoogleSignIn()` treats an email collision as `blocked` with `email_in_use` regardless of whether the existing account has a password or was itself created passwordlessly; `resolveGoogleLink()` only ever attaches a Google identity to the account already proven by an authenticated session. The only path to linking is: sign in with the password, then link from Settings. This is intentional, not an oversight — if a matching email were enough to merge accounts, whoever gained control of a person's Google account (a compromised, reused, or simply re-registered address) would silently inherit that person's entire health record. Requiring proof of the DiaLog password first means a Google account alone is never sufficient to reach someone else's data.
 
+## Known issue: `tokenVersion` bumps and the render that follows
+
+Bumping `tokenVersion` invalidates the cookie the _current_ request arrived with. Next.js re-renders the page after a server action returns, and that render fails its own session check, so the submitting form is left stuck mid-submit — the change lands in the database and the new cookie reaches the browser, but the person never sees the confirmation.
+
+This is reproducible on `changePasswordAction` (and, less consistently, `signOutEverywhereAction`) and predates federated sign-in; it is not caused by it. It has not been fixed here because the fix belongs with those flows rather than with this change:
+
+- **Setting a first password does not bump `tokenVersion`** and so is unaffected. That is not a workaround but the correct behaviour — nothing was compromised, and a Google-only account has no password sessions to sign out (`changePasswordAction`, `lib/actions/preferences.ts`).
+- **Changing an existing password still bumps it**, because signing other devices out is the point, and keeps the defect. Redirecting after the action does not avoid it: the redirect target is rendered in the same request, with the same now-stale cookie.
+
+A real fix likely means re-minting the cookie without invalidating the in-flight request — for example by treating the just-issued `tokenVersion` as valid for the remainder of the request.
+
 ## Per-user authorization at the data layer
 
 There is no row-level security at the Postgres level; authorization is enforced in application code, consistently:
