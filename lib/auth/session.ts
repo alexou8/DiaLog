@@ -19,6 +19,21 @@ export interface SessionPayload {
   tokenVersion: number;
 }
 
+/**
+ * Whether this deployment can mint sessions at all.
+ *
+ * `secret()` throwing is the right behaviour — a deployment that cannot sign a
+ * cookie must not pretend to sign anyone in — but the throw has to happen
+ * somewhere that can explain itself. Callers that run inside a server action or
+ * a page render check this first and surface a configuration message, rather
+ * than letting the raw error escape and replace the whole page with the
+ * framework's generic "Application error" screen. See `lib/actions/auth.ts`.
+ */
+export function isSessionSecretConfigured(): boolean {
+  const value = process.env.AUTH_SECRET;
+  return typeof value === 'string' && value.length >= 32;
+}
+
 function secret(): Uint8Array {
   const value = process.env.AUTH_SECRET;
   if (!value || value.length < 32) {

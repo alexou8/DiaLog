@@ -8,6 +8,7 @@ import { hashPassword, validatePassword, verifyPassword } from '@/lib/auth/passw
 import { RATE_LIMITS, pruneRateLimits, rateLimit } from '@/lib/auth/rate-limit';
 import {
   clearSessionCookie,
+  isSessionSecretConfigured,
   readSessionCookie,
   setSessionCookie,
   signSession,
@@ -20,6 +21,21 @@ export interface ActionState {
   errors?: Record<string, string>;
 }
 
+/**
+ * A deployment with no usable `AUTH_SECRET` cannot sign a session cookie, so
+ * `signSession()` throws. Checked up front in both credential actions because
+ * the throw would otherwise escape the action uncaught and React would replace
+ * the whole sign-in page with its generic error screen — which reads as "the
+ * site is broken" rather than "this deployment is missing a setting", and hides
+ * the one detail an operator needs. Nothing is created and no session is issued
+ * in this state; only the message changes.
+ */
+const NOT_CONFIGURED: ActionState = {
+  ok: false,
+  message:
+    'Sign-in is unavailable because this deployment is not fully configured. If you administer it, set AUTH_SECRET (32+ characters) in the environment and redeploy.',
+};
+
 /** Best-effort client identifier for rate limiting. */
 async function clientKey(prefix: string): Promise<string> {
   const h = await headers();
@@ -31,6 +47,8 @@ export async function signUpAction(
   _prev: ActionState | null,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!isSessionSecretConfigured()) return NOT_CONFIGURED;
+
   pruneRateLimits();
   const limit = rateLimit(
     await clientKey('signup'),
@@ -84,6 +102,8 @@ export async function signInAction(
   _prev: ActionState | null,
   formData: FormData,
 ): Promise<ActionState> {
+  if (!isSessionSecretConfigured()) return NOT_CONFIGURED;
+
   pruneRateLimits();
   const key = await clientKey('signin');
   const limit = rateLimit(key, RATE_LIMITS.signIn.limit, RATE_LIMITS.signIn.windowMs);
