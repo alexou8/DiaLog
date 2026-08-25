@@ -33,6 +33,9 @@ async function signUpAndOnboard(page: Page, label: string, statePath: string): P
   await page.getByRole('button', { name: 'Create account' }).click();
 
   await expect(page).toHaveURL(/\/app\/onboarding/);
+  // mg/dL so that plain integer test values (101, 133, 142, ...) are valid
+  // readings — the onboarding default is mmol/L, which those would fail.
+  await page.getByRole('radio', { name: /mg\/dL/ }).check();
   await page.getByRole('button', { name: 'Finish setup' }).click();
   await expect(page).toHaveURL(/\/app$/);
 

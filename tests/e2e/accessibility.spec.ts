@@ -110,6 +110,10 @@ test.describe('accessibility: public pages', () => {
   for (const url of PUBLIC_PAGES) {
     test(`axe + structure: ${url}`, async ({ page }) => {
       await page.goto(url);
+      // Layout must have settled (fonts/styles applied) before measuring
+      // target sizes, otherwise axe's target-size check can sample an interim,
+      // unstyled layout under CPU contention and report false positives.
+      await page.waitForLoadState('networkidle');
       await assertNoSeriousViolations(page, url);
       await assertHeadingStructure(page, url);
       await assertHtmlLang(page, url);
@@ -124,6 +128,10 @@ test.describe('accessibility: authenticated app pages', () => {
   for (const url of APP_PAGES) {
     test(`axe + structure: ${url}`, async ({ page }) => {
       await page.goto(url);
+      // Layout must have settled (fonts/styles applied) before measuring
+      // target sizes, otherwise axe's target-size check can sample an interim,
+      // unstyled layout under CPU contention and report false positives.
+      await page.waitForLoadState('networkidle');
       await assertNoSeriousViolations(page, url);
       await assertHeadingStructure(page, url);
       await assertHtmlLang(page, url);

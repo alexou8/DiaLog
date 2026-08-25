@@ -174,11 +174,25 @@ Nothing in this repository runs a full test suite against production data, and t
 
 ## Deployment on Vercel
 
-1. **Build command**: `npm run build`, which resolves to `prisma generate && next build`. `prisma generate` must run before `next build` on every deploy because Vercel builds happen in a fresh container each time — the generated Prisma Client (which is environment/schema-specific) is not committed to the repo, so skipping this step fails the build the first time a route imports `@prisma/client`.
-2. **Two database URLs, on purpose**: `DATABASE_URL` should be Vercel's **pooled** Postgres connection string (Vercel Postgres, Neon, Supabase, etc. all offer one) — the app's normal request traffic goes through it. `DIRECT_DATABASE_URL` must be the **non-pooled** connection string; `prisma/schema.prisma` wires it as `directUrl`, and Prisma Migrate needs a direct connection because pooled connections (PgBouncer-style, transaction mode) cannot run the session-level DDL migrations use.
-3. **Run migrations against production** as a deploy step, not by hand on first request: `npx prisma migrate deploy` using `DIRECT_DATABASE_URL`, before traffic is routed to the new deployment (a Vercel deploy hook, a CI step, or the platform's pre-deploy command — there is no migration-runner wired into this repo, so this is an operational step you own).
-4. **Required environment variables in the Vercel project**: `DATABASE_URL`, `DIRECT_DATABASE_URL`, `AUTH_SECRET` at minimum. `AI_PROVIDER`/`ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL`/`OPENAI_API_KEY`/`OPENAI_MODEL`/`NEXT_PUBLIC_APP_URL` as needed — see the table above.
-5. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full walkthrough, managed-Postgres options, and an honest note on where background jobs would go (there aren't any today — everything runs synchronously in the request path).
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Falexou8%2FDiaLog&env=DATABASE_URL,DIRECT_DATABASE_URL,AUTH_SECRET&envDescription=DATABASE_URL%20and%20DIRECT_DATABASE_URL%20are%20PostgreSQL%20connection%20strings%3B%20AUTH_SECRET%20is%20a%2032%2B%20character%20random%20value%20used%20to%20sign%20session%20cookies&project-name=dialog&repository-name=dialog)
+
+DiaLog needs a PostgreSQL database and one secret before it will run anywhere. Nothing else is required — the assistant defaults to the built-in local engine, so no AI keys are needed.
+
+| Variable              | Required | What to put in it                                                                                                         |
+| --------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`        | Yes      | Pooled PostgreSQL connection string.                                                                                      |
+| `DIRECT_DATABASE_URL` | Yes      | Direct (non-pooled) connection string, used by `prisma migrate`. If your provider gives only one string, use it for both. |
+| `AUTH_SECRET`         | Yes      | 32+ random characters. Generate with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`.    |
+| `AI_PROVIDER`         | No       | `local` (default), `anthropic` or `openai`.                                                                               |
+| `NEXT_PUBLIC_APP_URL` | No       | Public URL of the deployment, used for canonical metadata.                                                                |
+
+After the first deploy, apply the schema once against the direct URL:
+
+```bash
+DATABASE_URL="$DIRECT_DATABASE_URL" npx prisma migrate deploy
+```
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full procedure, including where migrations belong in a deploy pipeline and why `prisma generate` runs during the build.
 
 ## Project structure
 

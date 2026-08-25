@@ -134,21 +134,21 @@ export default async function ReportsPage({
                 <div>
                   <dt className="text-sm font-medium text-ink-muted">Meals logged</dt>
                   <dd className="text-xl font-bold tabular-nums">{mealCount}</dd>
-                  <p className="text-sm text-ink-muted">
+                  <dd className="text-sm text-ink-muted">
                     {carbStats._count.carbsG > 0 && carbStats._avg.carbsG != null
                       ? `About ${Math.round(carbStats._avg.carbsG)} g of carbohydrate on average, across the ${carbStats._count.carbsG} meals where you recorded it.`
                       : 'No carbohydrate amounts recorded, so carbohydrate patterns could not be looked at.'}
-                  </p>
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-ink-muted">Activity</dt>
                   <dd className="text-xl font-bold tabular-nums">
                     {activity._sum.durationMin ?? 0} min
                   </dd>
-                  <p className="text-sm text-ink-muted">
+                  <dd className="text-sm text-ink-muted">
                     Across {activity._count._all} logged{' '}
                     {activity._count._all === 1 ? 'session' : 'sessions'}.
-                  </p>
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-ink-muted">Sleep</dt>
@@ -157,11 +157,11 @@ export default async function ReportsPage({
                       ? '—'
                       : `${(sleep._avg.durationMin / 60).toFixed(1)} h`}
                   </dd>
-                  <p className="text-sm text-ink-muted">
+                  <dd className="text-sm text-ink-muted">
                     {sleep._count._all === 0
                       ? 'No sleep recorded this period.'
                       : `Average across ${sleep._count._all} nights.`}
-                  </p>
+                  </dd>
                 </div>
               </dl>
             </Card>
