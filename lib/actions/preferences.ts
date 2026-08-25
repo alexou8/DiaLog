@@ -13,9 +13,9 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/prisma';
 import { requireUser } from '@/lib/auth/current-user';
 import { audit } from '@/lib/auth/audit';
-import { hashPassword, validatePassword, verifyPassword } from '@/lib/auth/password';
+import { verifyPassword } from '@/lib/auth/password';
 import { RATE_LIMITS, rateLimit } from '@/lib/auth/rate-limit';
-import { clearSessionCookie, setSessionCookie, signSession } from '@/lib/auth/session';
+import { clearSessionCookie } from '@/lib/auth/session';
 import { GLUCOSE_ENTRY_BOUNDS, toMgdl } from '@/lib/domain/units';
 import { fieldErrors, preferencesSchema } from '@/lib/validation';
 import type { GlucoseUnit } from '@prisma/client';
@@ -106,105 +106,19 @@ export async function updatePreferencesAction(
 }
 
 // ------------------------------------------------------------------ auth
-
-export async function changePasswordAction(
-  _prev: ActionState | null,
-  formData: FormData,
-): Promise<ActionState> {
-  const user = await requireUser();
-  const limited = guard(user.id, 'pwchange');
-  if (limited) return limited;
-
-  const currentPassword = String(formData.get('currentPassword') ?? '');
-  const newPassword = String(formData.get('newPassword') ?? '');
-  const confirmPassword = String(formData.get('confirmPassword') ?? '');
-
-  // A Google-only account has no password to prove; the session cookie is the
-  // proof. This is the "set a password" path, and it is what lets someone who
-  // signed up with Google stop depending on Google.
-  if (user.passwordHash !== null) {
-    if (!currentPassword) {
-      return { ok: false, errors: { currentPassword: 'Please enter your current password.' } };
-    }
-
-    const valid = await verifyPassword(currentPassword, user.passwordHash);
-    if (!valid) {
-      await audit({ userId: user.id, action: 'auth.password_change_failed' });
-      return {
-        ok: false,
-        errors: { currentPassword: 'That is not your current password. Please try again.' },
-      };
-    }
-  }
-
-  const policy = validatePassword(newPassword);
-  if (!policy.ok) return { ok: false, errors: { newPassword: policy.message } };
-
-  if (newPassword !== confirmPassword) {
-    return { ok: false, errors: { confirmPassword: 'The two new passwords do not match.' } };
-  }
-
-  const passwordHash = await hashPassword(newPassword);
-  const settingFirstPassword = user.passwordHash === null;
-
-  // Changing a password invalidates every other session: bump tokenVersion, and
-  // immediately mint a fresh cookie so the person making the change is not
-  // logged out of the browser they are using right now.
-  //
-  // Setting a *first* password does not. Nothing was compromised, and there are
-  // no password sessions to sign out — the account has only ever been reachable
-  // through Google. Leaving tokenVersion alone also keeps the current session
-  // valid for the render that follows this action, which a bump does not: see
-  // the note on this in docs/SECURITY.md.
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: settingFirstPassword
-      ? { passwordHash }
-      : { passwordHash, tokenVersion: { increment: 1 } },
-    select: { tokenVersion: true },
-  });
-
-  await audit({
-    userId: user.id,
-    action: settingFirstPassword ? 'auth.password_set' : 'auth.password_change',
-  });
-
-  if (!settingFirstPassword) {
-    await setSessionCookie(
-      await signSession({ userId: user.id, tokenVersion: updated.tokenVersion }),
-    );
-  }
-
-  return {
-    ok: true,
-    message: settingFirstPassword
-      ? 'Your password has been set. You can now sign in with your email and password as well as with Google.'
-      : 'Your password has been changed. You have been signed out of any other devices.',
-  };
-}
-
-export async function signOutEverywhereAction(
-  _prev: ActionState | null,
-  _formData: FormData,
-): Promise<ActionState> {
-  const user = await requireUser();
-
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: { tokenVersion: { increment: 1 } },
-    select: { tokenVersion: true },
-  });
-
-  await audit({ userId: user.id, action: 'auth.sign_out_everywhere' });
-  await setSessionCookie(
-    await signSession({ userId: user.id, tokenVersion: updated.tokenVersion }),
-  );
-
-  return {
-    ok: true,
-    message: 'Every other device has been signed out. This device stays signed in.',
-  };
-}
+//
+// Changing a password and "sign out everywhere" used to live here. Both bump
+// `User.tokenVersion`, which revokes the cookie the request arrived with — an
+// outcome a Server Action cannot deliver through the client router, and the
+// cause of the change-password form failing 6 times in 10. They are now route
+// handlers posted to by plain HTML forms:
+//
+//   app/api/auth/password/route.ts
+//   app/api/auth/sessions/revoke/route.ts
+//
+// See lib/auth/route-form.ts for the full explanation, and
+// tests/unit/auth/session-revocation.test.ts, which fails the build if a
+// tokenVersion write reappears in this directory.
 
 // --------------------------------------------------------------- deletion
 

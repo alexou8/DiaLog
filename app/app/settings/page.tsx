@@ -18,15 +18,20 @@ import {
   SignOutEverywhereForm,
   DeleteAllRecordsForm,
   DeleteAccountForm,
+  type AccountFeedback,
 } from './AccountForms';
+import { PASSWORD_POLICY_MESSAGES } from '@/lib/auth/password';
+import type { PasswordOutcome } from '@/app/api/auth/password/route';
+import type { SessionsOutcome } from '@/app/api/auth/sessions/revoke/route';
 
 export const metadata: Metadata = { title: 'Settings' };
 export const dynamic = 'force-dynamic';
 
 /**
  * Confirmations that arrive as a query parameter rather than as returned action
- * state, because the action that produced them ends in a redirect — see
- * changePasswordAction in lib/actions/preferences.ts.
+ * state, because the handler that produced them answers with a redirect the
+ * browser follows itself — see lib/auth/route-form.ts for why every
+ * credential-changing form on this page works that way.
  */
 const NOTICES = {
   linked: {
@@ -46,6 +51,59 @@ function notice(group: Record<string, string>, key: string | undefined): string 
   return key ? (group[key] ?? null) : null;
 }
 
+/**
+ * Every outcome app/api/auth/password/route.ts can report, as the sentence and
+ * the field it belongs to. Typing this by `PasswordOutcome` rather than by
+ * `string` is what makes a new code a compile error here instead of a silently
+ * blank confirmation in front of a user.
+ */
+const PASSWORD_FEEDBACK: Record<PasswordOutcome, AccountFeedback> = {
+  changed: {
+    ok: true,
+    message: 'Your password has been changed. You have been signed out of any other devices.',
+  },
+  set: {
+    ok: true,
+    message:
+      'Your password has been set. You can now sign in with your email and password as well as with Google.',
+  },
+  missing_current: {
+    ok: false,
+    field: 'currentPassword',
+    message: 'Please enter your current password.',
+  },
+  wrong_current: {
+    ok: false,
+    field: 'currentPassword',
+    message: 'That is not your current password. Please try again.',
+  },
+  mismatch: {
+    ok: false,
+    field: 'confirmPassword',
+    message: 'The two new passwords do not match.',
+  },
+  too_short: { ok: false, field: 'newPassword', message: PASSWORD_POLICY_MESSAGES.too_short },
+  too_long: { ok: false, field: 'newPassword', message: PASSWORD_POLICY_MESSAGES.too_long },
+  too_common: { ok: false, field: 'newPassword', message: PASSWORD_POLICY_MESSAGES.too_common },
+  rate_limited: { ok: false, message: 'Please wait a moment and try again.' },
+};
+
+const SESSIONS_FEEDBACK: Record<SessionsOutcome, AccountFeedback> = {
+  revoked: {
+    ok: true,
+    message: 'Every other device has been signed out. This device stays signed in.',
+  },
+  rate_limited: { ok: false, message: 'Please wait a moment and try again.' },
+};
+
+/** As `notice()`, but for the structured feedback the account forms render. */
+function feedback<K extends string>(
+  group: Record<K, AccountFeedback>,
+  key: string | undefined,
+): AccountFeedback | null {
+  return key ? ((group as Record<string, AccountFeedback>)[key] ?? null) : null;
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -53,6 +111,8 @@ export default async function SettingsPage({
     error?: string;
     linked?: string;
     unlinked?: string;
+    password?: string;
+    sessions?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -138,7 +198,10 @@ export default async function SettingsPage({
         </h2>
 
         <div className="space-y-4">
-          <ChangePasswordForm hasPassword={hasPassword} />
+          <ChangePasswordForm
+            hasPassword={hasPassword}
+            feedback={feedback(PASSWORD_FEEDBACK, params.password)}
+          />
           {isGoogleEnabled() ? (
             <ConnectedAccounts
               googleEmail={googleIdentity?.email ?? null}
@@ -152,7 +215,7 @@ export default async function SettingsPage({
               }
             />
           ) : null}
-          <SignOutEverywhereForm />
+          <SignOutEverywhereForm feedback={feedback(SESSIONS_FEEDBACK, params.sessions)} />
         </div>
 
         <div className="rounded-[var(--radius-card)] border-2 border-critical/50 bg-critical-soft/40 p-5 sm:p-6">

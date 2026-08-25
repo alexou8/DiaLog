@@ -1,6 +1,8 @@
 import { test as setup, expect, type Page } from '@playwright/test';
+import { PrismaClient } from '@prisma/client';
 import { DEMO_EMAIL, DEMO_PASSWORD, TEST_PASSWORD, uniqueEmail } from '../helpers';
 import { ASSISTANT_FRESH_STATE, DEMO_STATE, IMPORT_STATE, SHARED_STATE } from './auth-state';
+import { SECURITY_LABELS, provisionSecurityAccount } from './security-accounts';
 
 /**
  * One-time authentication setup, run once per full suite invocation by the
@@ -22,6 +24,10 @@ import { ASSISTANT_FRESH_STATE, DEMO_STATE, IMPORT_STATE, SHARED_STATE } from '.
  * auth-and-onboarding.spec.ts is the exception: it deliberately drives the
  * real sign-up/sign-in forms itself, because exercising that UI flow is the
  * point of that spec.
+ *
+ * Those two, plus the three below, spend the sign-up budget exactly. Anything
+ * else needing an account must be provisioned straight from the database — see
+ * `security-accounts.ts`, which is what the last setup step here uses.
  */
 
 async function signUpAndOnboard(page: Page, label: string, statePath: string): Promise<void> {
@@ -61,4 +67,20 @@ setup('register the import spec fresh account', async ({ page }) => {
 
 setup('register the assistant spec fresh account', async ({ page }) => {
   await signUpAndOnboard(page, 'assistant-fresh', ASSISTANT_FRESH_STATE);
+});
+
+/**
+ * account-security.spec.ts needs a disposable account per test, because every
+ * one of its tests revokes its own session on purpose. Created directly in the
+ * database so they cost nothing from the sign-up budget spent above.
+ */
+setup('provision the account-security accounts', async ({ baseURL }) => {
+  const prisma = new PrismaClient();
+  try {
+    for (const label of SECURITY_LABELS) {
+      await provisionSecurityAccount(prisma, label, baseURL as string);
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
 });

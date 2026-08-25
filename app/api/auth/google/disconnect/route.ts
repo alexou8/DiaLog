@@ -12,38 +12,36 @@
  * other route passed forty times running, leaving the row deleted, the server
  * answering 303, and the person looking at a disabled "Disconnecting…" button.
  * Connecting already works this way (`../start`), so the two halves now match.
+ *
+ * The origin check, the 303 helpers and the session read are shared with the
+ * password and sign-out-everywhere handlers — see lib/auth/route-form.ts,
+ * which also explains why the whole settings surface works this way.
  */
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, type NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { audit } from '@/lib/auth/audit';
-import { readSessionCookie } from '@/lib/auth/session';
+import {
+  back,
+  crossOrigin,
+  isSameOrigin,
+  sessionFromRequest,
+  toSignIn,
+} from '@/lib/auth/route-form';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function back(request: NextRequest, outcome: string): NextResponse {
-  const url = request.nextUrl.clone();
-  url.pathname = '/app/settings';
-  url.search = `?unlinked=${outcome}`;
-  // 303 so the browser follows with a GET, whatever it posted.
-  return NextResponse.redirect(url, 303);
+export type UnlinkOutcome = 'google' | 'absent' | 'blocked';
+
+function result(request: NextRequest, outcome: UnlinkOutcome): NextResponse {
+  return back(request, 'unlinked', outcome);
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  // Server actions get CSRF protection from Next; a route handler has to do
-  // its own. Only a form on this origin may disconnect an account.
-  const origin = request.headers.get('origin');
-  if (origin && origin !== request.nextUrl.origin) {
-    return NextResponse.json({ error: 'cross_origin' }, { status: 403 });
-  }
+  if (!isSameOrigin(request)) return crossOrigin();
 
-  const session = await readSessionCookie();
-  if (!session) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/sign-in';
-    url.search = '';
-    return NextResponse.redirect(url, 303);
-  }
+  const session = await sessionFromRequest(request);
+  if (!session) return toSignIn(request);
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
@@ -54,22 +52,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       identities: { where: { provider: 'google' }, select: { id: true } },
     },
   });
-  if (!user || user.tokenVersion !== session.tokenVersion) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/sign-in';
-    url.search = '';
-    return NextResponse.redirect(url, 303);
-  }
+  if (!user || user.tokenVersion !== session.tokenVersion) return toSignIn(request);
 
   const identity = user.identities[0];
-  if (!identity) return back(request, 'absent');
+  if (!identity) return result(request, 'absent');
 
   // Refused while Google is the only way in: removing it would lock the person
   // out of their own health records with no recovery path.
-  if (user.passwordHash === null) return back(request, 'blocked');
+  if (user.passwordHash === null) return result(request, 'blocked');
 
   await prisma.authIdentity.delete({ where: { id: identity.id } });
   await audit({ userId: user.id, action: 'auth.google_unlinked' });
 
-  return back(request, 'google');
+  return result(request, 'google');
 }

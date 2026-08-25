@@ -189,9 +189,9 @@ test.describe('connecting and disconnecting Google', () => {
     await page.getByRole('button', { name: 'Set password' }).click();
     await expect(page.getByText('Your password has been set')).toBeVisible();
 
-    // Reload before disconnecting: setting the password revalidates the page,
-    // and clicking into a section that is mid-refresh loses the click.
-    await page.reload();
+    // No reload needed before disconnecting. Setting a password is a native
+    // form post now, so the page above is already the server's fresh response
+    // rather than a client-router re-render that a click could land mid-flight.
     await expect(page.getByRole('heading', { name: 'Change your password' })).toBeVisible();
 
     // With a password in place, Google is no longer the only way in.

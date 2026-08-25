@@ -3,10 +3,8 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
-  changePasswordAction,
   deleteAccountAction,
   deleteAllRecordsAction,
-  signOutEverywhereAction,
   type ActionState,
 } from '@/lib/actions/preferences';
 import { Button } from '@/components/ui';
@@ -31,12 +29,44 @@ function SubmitButton({
 
 // ---------------------------------------------------------------- password
 
-export function ChangePasswordForm({ hasPassword = true }: { hasPassword?: boolean }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(changePasswordAction, null);
+/**
+ * The result of a password or session change, as rendered on the page after
+ * the browser has followed the handler's redirect.
+ *
+ * `field` places the message on the input it is about, so a refusal reads the
+ * same way it did when this was a Server Action returning field errors — the
+ * delivery mechanism changed, the accessible behaviour did not.
+ */
+export interface AccountFeedback {
+  ok: boolean;
+  message: string;
+  field?: 'currentPassword' | 'newPassword' | 'confirmPassword';
+}
 
+function fieldError(feedback: AccountFeedback | null, field: AccountFeedback['field']) {
+  return feedback && feedback.field === field ? feedback.message : undefined;
+}
+
+/**
+ * Set or change the account password.
+ *
+ * A plain `method="post"` form, deliberately: it posts to a route handler and
+ * the browser performs the navigation itself. Changing a password revokes this
+ * browser's session cookie, and a response carrying that revocation cannot be
+ * delivered through the client router — see lib/auth/route-form.ts. This form
+ * must therefore never be converted back to `useActionState`.
+ */
+export function ChangePasswordForm({
+  hasPassword = true,
+  feedback = null,
+}: {
+  hasPassword?: boolean;
+  feedback?: AccountFeedback | null;
+}) {
   return (
     <form
-      action={action}
+      method="post"
+      action="/api/auth/password"
       noValidate
       className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6"
     >
@@ -51,12 +81,14 @@ export function ChangePasswordForm({ hasPassword = true }: { hasPassword?: boole
 
       <div className="mt-4">
         <FormStatus
-          status={state && state.message ? { ok: state.ok, message: state.message } : null}
+          status={
+            feedback && !feedback.field ? { ok: feedback.ok, message: feedback.message } : null
+          }
         />
       </div>
 
       {hasPassword ? (
-        <Field label="Current password" required error={state?.errors?.currentPassword}>
+        <Field label="Current password" required error={fieldError(feedback, 'currentPassword')}>
           {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
@@ -75,7 +107,7 @@ export function ChangePasswordForm({ hasPassword = true }: { hasPassword?: boole
         label="New password"
         required
         hint="At least 10 characters. A short phrase works well."
-        error={state?.errors?.newPassword}
+        error={fieldError(feedback, 'newPassword')}
       >
         {({ id, describedBy, invalid }) => (
           <TextInput
@@ -93,7 +125,7 @@ export function ChangePasswordForm({ hasPassword = true }: { hasPassword?: boole
       <Field
         label={hasPassword ? 'Confirm new password' : 'Confirm password'}
         required
-        error={state?.errors?.confirmPassword}
+        error={fieldError(feedback, 'confirmPassword')}
       >
         {({ id, describedBy, invalid }) => (
           <TextInput
@@ -108,24 +140,21 @@ export function ChangePasswordForm({ hasPassword = true }: { hasPassword?: boole
         )}
       </Field>
 
-      <SubmitButton pendingLabel={hasPassword ? 'Changing…' : 'Setting…'}>
+      <Button type="submit" variant="primary">
         {hasPassword ? 'Change password' : 'Set password'}
-      </SubmitButton>
+      </Button>
     </form>
   );
 }
 
 // ------------------------------------------------------------- sign out all
 
-export function SignOutEverywhereForm() {
-  const [state, action] = useActionState<ActionState | null, FormData>(
-    signOutEverywhereAction,
-    null,
-  );
-
+/** Also a plain form posting to a route handler, and for the same reason. */
+export function SignOutEverywhereForm({ feedback = null }: { feedback?: AccountFeedback | null }) {
   return (
     <form
-      action={action}
+      method="post"
+      action="/api/auth/sessions/revoke"
       className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6"
     >
       <h3 className="text-lg font-semibold">Sign out everywhere</h3>
@@ -133,13 +162,11 @@ export function SignOutEverywhereForm() {
         Immediately signs out every device and browser signed in to your account, except this one.
       </p>
       <div className="mt-4">
-        <FormStatus
-          status={state && state.message ? { ok: state.ok, message: state.message } : null}
-        />
+        <FormStatus status={feedback ? { ok: feedback.ok, message: feedback.message } : null} />
       </div>
-      <SubmitButton pendingLabel="Signing out other devices…" variant="secondary">
+      <Button type="submit" variant="secondary">
         Sign out everywhere else
-      </SubmitButton>
+      </Button>
     </form>
   );
 }

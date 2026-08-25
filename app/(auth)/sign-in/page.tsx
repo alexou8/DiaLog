@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { getCurrentUser } from '@/lib/auth/current-user';
 import { SignInForm } from './SignInForm';
 import { AuthNotice } from '@/components/auth/AuthNotice';
 import { AuthDivider, GoogleButton } from '@/components/auth/GoogleButton';
@@ -12,6 +14,11 @@ export default async function SignInPage({
 }: {
   searchParams: Promise<{ error?: string; email?: string; next?: string }>;
 }) {
+  // Verified here rather than in middleware: only a database read can tell a
+  // live session from a revoked one, and bouncing a revoked cookie away from
+  // this page is what used to make it unreachable. See middleware.ts.
+  if (await getCurrentUser()) redirect('/app');
+
   const params = await searchParams;
 
   return (

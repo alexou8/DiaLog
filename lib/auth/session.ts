@@ -47,15 +47,23 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
   }
 }
 
+/**
+ * Cookie attributes for the session cookie, in one place so that the two ways
+ * of issuing it cannot drift apart: `setSessionCookie()` writes to the ambient
+ * request store, while a route handler that answers with a redirect attaches
+ * the cookie to that response directly (see lib/auth/route-form.ts).
+ */
+export const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+  maxAge: SESSION_MAX_AGE_S,
+} as const;
+
 export async function setSessionCookie(token: string): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: SESSION_MAX_AGE_S,
-  });
+  store.set(SESSION_COOKIE, token, SESSION_COOKIE_OPTIONS);
 }
 
 export async function clearSessionCookie(): Promise<void> {
