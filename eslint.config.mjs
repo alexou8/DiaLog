@@ -56,6 +56,10 @@ const config = [
       // report viewer.
       'playwright-report/**',
       'test-results/**',
+      // Vendored agent skills (.claude/skills) are third-party content managed
+      // by `npx skills`, not project source. Linting them only produces noise.
+      '.claude/**',
+      '.agents/**',
     ],
   },
 ];
