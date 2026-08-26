@@ -26,7 +26,17 @@ export const metadata: Metadata = {
   applicationName: 'DiaLog',
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, title: 'DiaLog', statusBarStyle: 'default' },
-  icons: { icon: '/icons/icon-192.png', apple: '/icons/icon-180.png' },
+  // SVG first so the tab icon stays sharp on any DPI and in dark tab bars.
+  // The ICO is a fallback, not a duplicate: Safari only gained SVG favicon
+  // support in 17, and every browser still probes /favicon.ico regardless of
+  // what is declared here.
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32' },
+    ],
+    apple: '/icons/icon-180.png',
+  },
   openGraph: {
     type: 'website',
     siteName: 'DiaLog',

@@ -7,7 +7,11 @@
  * instantly and shows a real offline page when the network is gone, without
  * leaving readings in a cache that outlives the session.
  */
-const CACHE = 'dialog-shell-v1';
+// Bumped to v2 with the brand asset refresh. /icons/* is cache-first with no
+// revalidation, so without a new cache name every existing install would keep
+// serving the pre-rebrand icons indefinitely; `activate` deletes any cache not
+// named here, which is what evicts them.
+const CACHE = 'dialog-shell-v2';
 const SHELL = ['/', '/offline', '/manifest.webmanifest', '/icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {

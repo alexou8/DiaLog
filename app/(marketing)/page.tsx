@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ButtonLink, Card, Icon } from '@/components/ui';
+import { ButtonLink, Card, Icon, Logo } from '@/components/ui';
 
 export const metadata: Metadata = {
   title: 'DiaLog: understand your glucose data',
@@ -35,6 +35,10 @@ export default function LandingPage() {
   return (
     <>
       <section className="mx-auto max-w-5xl px-5 py-14 sm:py-20">
+        {/* The one place the full lockup appears. Everywhere else the mark
+            sits beside the word "DiaLog" in a header, where the descriptor
+            would be too small to read. */}
+        <Logo className="mb-8" />
         <p className="mb-3 inline-block rounded-full border border-brand/30 bg-brand-soft px-3 py-1 text-sm font-semibold text-brand-ink">
           For prediabetes, type 2 diabetes, and anyone tracking their glucose
         </p>

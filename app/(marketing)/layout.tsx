@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
-import { ButtonLink, MedicalDisclaimer } from '@/components/ui';
+import { ButtonLink, LogoMark, MedicalDisclaimer } from '@/components/ui';
 
 const FOOTER_LINKS = [
   { href: '/about', label: 'About' },
@@ -20,14 +19,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <header className="dl-safe-top border-b border-line bg-surface">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-3">
           <Link href="/" className="dl-target flex items-center gap-2 text-lg font-bold">
-            <Image
-              src="/icons/icon-192.png"
-              alt=""
-              width={32}
-              height={32}
-              className="rounded-lg"
-              priority
-            />
+            <LogoMark size={32} />
             DiaLog
           </Link>
           <nav aria-label="Account">
