@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="t d">
+<title id="t">DiaLog</title><desc id="d">DiaLog symbol: a dialogue bubble with a glucose trend line.</desc>
+<rect width="128" height="128" rx="34" fill="#155E69"/>
+<path d="M36 39c0-6.627 5.373-12 12-12h32c6.627 0 12 5.373 12 12v33c0 6.627-5.373 12-12 12H67L49 98V84H48c-6.627 0-12-5.373-12-12V39z" fill="none" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+<path d="M46 65h10l8-13 9 24 9-17 8 8h9" fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

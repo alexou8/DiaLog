@@ -1,11 +1,10 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import type { Metadata } from 'next';
 import { requireUser } from '@/lib/auth/current-user';
 import { getDictionary } from '@/lib/i18n/dictionaries';
 import { signOutAction } from '@/lib/actions/auth';
 import { BottomNav, SideNav } from '@/components/AppNav';
-import { ButtonLink, Icon } from '@/components/ui';
+import { ButtonLink, Icon, LogoMark } from '@/components/ui';
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
@@ -27,14 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             href="/app"
             className="dl-target flex items-center gap-2 text-lg font-semibold tracking-tight"
           >
-            <Image
-              src="/icons/icon-192.png"
-              alt=""
-              width={30}
-              height={30}
-              className="rounded-lg"
-              priority
-            />
+            <LogoMark size={30} />
             DiaLog
           </Link>
           <div className="flex items-center gap-2">

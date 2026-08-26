@@ -348,3 +348,4 @@ export { CardContent, CardDescription, CardFooter, CardTitle, CardAction };
 export { Alert, AlertTitle, AlertDescription };
 export { Icon } from './icon';
 export type { IconName } from './icon';
+export { Logo, LogoMark } from './logo';

@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
-import { MedicalDisclaimer } from '@/components/ui';
+import { LogoMark, MedicalDisclaimer } from '@/components/ui';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -10,14 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </a>
       <header className="dl-safe-top px-5 py-4">
         <Link href="/" className="dl-target inline-flex items-center gap-2 text-lg font-bold">
-          <Image
-            src="/icons/icon-192.png"
-            alt=""
-            width={32}
-            height={32}
-            className="rounded-lg"
-            priority
-          />
+          <LogoMark size={32} />
           DiaLog
         </Link>
       </header>
