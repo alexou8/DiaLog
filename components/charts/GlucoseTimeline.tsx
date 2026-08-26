@@ -154,7 +154,7 @@ export function GlucoseTimeline({
               textAnchor="middle"
               fill="var(--color-ink-muted)"
             >
-              {m.kind === 'meal' ? '🍽' : '🚶'}
+              {m.kind === 'meal' ? 'M' : 'A'}
             </text>
           </g>
         ))}
@@ -173,7 +173,7 @@ export function GlucoseTimeline({
           const band = classifyGlucose(p.valueMgdl, range);
           const cx = x(p.takenAt.getTime());
           const cy = y(fromMgdl(p.valueMgdl, unit));
-          const title = `${stampFmt.format(p.takenAt)}: ${formatGlucose(p.valueMgdl, unit, locale)} ${unitLabel(unit)} — ${band.label}`;
+          const title = `${stampFmt.format(p.takenAt)}: ${formatGlucose(p.valueMgdl, unit, locale)} ${unitLabel(unit)}, ${band.label}`;
           if (band.id === 'in-range') {
             return (
               <circle key={i} cx={cx} cy={cy} r={4.5} fill="var(--color-brand)">

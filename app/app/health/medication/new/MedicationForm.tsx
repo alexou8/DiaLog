@@ -29,8 +29,8 @@ export function MedicationForm({ timezone }: { timezone: string }) {
         status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
       />
 
-      <Callout tone="info" icon="ℹ️">
-        This just records that you took something, and when — so you can see it next to your
+      <Callout tone="info" icon="info">
+        This just records that you took something, and when, so you can see it next to your
         readings. DiaLog never calculates or suggests a dose.
       </Callout>
 

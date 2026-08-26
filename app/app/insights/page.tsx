@@ -34,13 +34,13 @@ export default async function InsightsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Insights"
-        description="What DiaLog can and cannot tell from your last 30 days — with the evidence behind each observation."
+        description="What DiaLog can and cannot tell from your last 30 days, with the evidence behind each observation."
       />
 
       {insights.length === 0 ? (
         <EmptyState
           title="Nothing to report yet"
-          icon="🔎"
+          icon="search"
           action={<ButtonLink href="/app/glucose/new">Add a reading</ButtonLink>}
         >
           <p>
@@ -67,7 +67,7 @@ export default async function InsightsPage() {
             <CardHeader
               id="unusual"
               title="Readings that stand out from your own pattern"
-              description="These are unusual compared with your typical reading at that time of day. Unusual does not mean wrong or dangerous — it means worth a look."
+              description="These are unusual compared with your typical reading at that time of day. Unusual does not mean wrong or dangerous. It means worth a look."
             />
             <ul className="space-y-2">
               {unusual.slice(0, 8).map((flag) => (
@@ -131,7 +131,7 @@ export default async function InsightsPage() {
             <WhyThis>
               <p>
                 This grouping is produced by a clustering algorithm looking only at your own days.
-                It describes what your days have in common — it does not say one kind of day causes
+                It describes what your days have in common. It does not say one kind of day causes
                 another, and it cannot see anything you did not log.
               </p>
             </WhyThis>
@@ -161,7 +161,7 @@ export default async function InsightsPage() {
                 </li>
               ))}
             </ol>
-            <Callout tone="notice" icon="⚠" title="Association is not cause">
+            <Callout tone="notice" icon="caution" title="Association is not cause">
               {importance.warning} Based on {importance.sampleSize} readings after meals.
             </Callout>
           </Card>

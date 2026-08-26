@@ -14,10 +14,10 @@ export default async function NewSymptomPage() {
         title="Note how you're feeling"
         description="Recording a symptom next to your readings gives you something concrete to describe at an appointment."
       />
-      <Callout tone="info" icon="ⓘ" title="This is a note, not an assessment">
+      <Callout tone="info" icon="info" title="This is a note, not an assessment">
         DiaLog records what you write, in your words. It does not interpret symptoms, and it will
         never suggest what they might mean. If something worries you, contact your healthcare
-        provider — and in an emergency, your local emergency services.
+        provider, and in an emergency, your local emergency services.
       </Callout>
       <Card>
         <SymptomForm defaultTime={toLocalInputValue(new Date(), profile.timezone)} />

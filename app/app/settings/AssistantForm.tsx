@@ -51,7 +51,7 @@ export function AssistantForm({
 
       <Callout
         tone={providerIsExternal ? 'notice' : 'positive'}
-        icon={providerIsExternal ? '☁️' : '🔒'}
+        icon={providerIsExternal ? 'external' : 'local'}
       >
         {providerIsExternal ? (
           <>
@@ -61,7 +61,7 @@ export function AssistantForm({
           </>
         ) : (
           <>
-            <strong>Currently configured: {providerName} — nothing leaves this server.</strong> The
+            <strong>Currently configured: {providerName}. Nothing leaves this server.</strong> The
             assistant runs entirely on DiaLog&apos;s own infrastructure, so no external company ever
             sees your data.
           </>
@@ -73,7 +73,7 @@ export function AssistantForm({
           <Checkbox
             name="externalAiConsent"
             label={`I agree to send structured findings to ${providerName}`}
-            description="This can include summaries such as your average reading or how often you are in range. It never includes raw readings, meal descriptions, notes, or anything else word-for-word — and only when the assistant is on."
+            description="This can include summaries such as your average reading or how often you are in range. It never includes raw readings, meal descriptions, notes, or anything else word-for-word, and only when the assistant is on."
             defaultChecked={profile.externalAiConsentAt != null}
           />
           <p className="text-sm text-ink-muted">

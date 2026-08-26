@@ -7,7 +7,7 @@ export default function OfflinePage() {
     <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center px-6 text-center">
       <h1 className="text-3xl font-bold">You&apos;re offline</h1>
       <p className="mt-3 text-ink-muted">
-        DiaLog needs a connection to show your readings. Your data is safe — nothing was lost. This
+        DiaLog needs a connection to show your readings. Your data is safe. Nothing was lost. This
         page will work again as soon as you&apos;re back online.
       </p>
       <p className="mt-6 text-sm text-ink-muted">

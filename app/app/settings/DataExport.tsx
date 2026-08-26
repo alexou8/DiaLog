@@ -1,5 +1,5 @@
 import { EXPORT_RECORD_TYPES, EXPORT_ROW_LIMIT, exportLabel } from '@/lib/services/export-service';
-import { ButtonLink, Card } from '@/components/ui';
+import { ButtonLink, Card, Icon } from '@/components/ui';
 
 /**
  * Server component: it only renders links to the authenticated /api/export
@@ -13,7 +13,7 @@ export function DataExport({ totalRecords }: { totalRecords: number }) {
         Your export contains every reading, meal, activity, sleep, medication, weight, blood
         pressure, mood and note you have logged, plus your profile settings and the history of any
         files you imported. It never includes your password. Each file is generated fresh when you
-        download it and is capped at {EXPORT_ROW_LIMIT.toLocaleString()} rows per record type — the
+        download it and is capped at {EXPORT_ROW_LIMIT.toLocaleString()} rows per record type, the
         file tells you if a type was cut off.
       </p>
 
@@ -24,7 +24,7 @@ export function DataExport({ totalRecords }: { totalRecords: number }) {
           every glucose reading so it is usable outside DiaLog too.
         </p>
         <ButtonLink href="/api/export?format=json" className="mt-3" variant="secondary">
-          <span aria-hidden="true">⬇</span> Download everything (JSON)
+          <Icon name="download" /> Download everything (JSON)
         </ButtonLink>
       </div>
 
@@ -35,7 +35,7 @@ export function DataExport({ totalRecords }: { totalRecords: number }) {
         </p>
         {totalRecords === 0 ? (
           <p className="mt-3 text-sm text-ink-muted">
-            There is nothing to export yet — once you log something, it will be available here.
+            There is nothing to export yet. Once you log something, it will be available here.
           </p>
         ) : (
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -45,7 +45,7 @@ export function DataExport({ totalRecords }: { totalRecords: number }) {
                   href={`/api/export?format=csv&type=${type}`}
                   className="dl-target flex min-h-11 items-center gap-2 rounded-xl border-2 border-line-strong px-4 py-2.5 text-sm font-semibold hover:border-brand hover:text-brand-ink"
                 >
-                  <span aria-hidden="true">⬇</span> {exportLabel(type)} (CSV)
+                  <Icon name="download" /> {exportLabel(type)} (CSV)
                 </a>
               </li>
             ))}

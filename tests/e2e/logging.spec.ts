@@ -124,16 +124,31 @@ test.describe('logging records', () => {
     // Newest first, so the reading just saved is the first row.
     const row = rows.first();
 
-    // First click opens the confirmation; the record must not vanish yet.
-    // <summary> exposes an ARIA role of "DisclosureTriangle" in Chromium, not
-    // "button", so it is targeted by its visible text rather than by role.
-    await row.locator('summary').filter({ hasText: 'Delete' }).click();
-    // Scoped to this row: every row carries its own (usually-hidden) confirm
-    // text, so matching page-wide could resolve to more than one row's copy.
-    await expect(row.getByText('Delete this record? This cannot be undone.')).toBeVisible();
+    // Each row's trigger carries a per-row accessible name, so this resolves
+    // to one button even though every row has a "Delete".
+    const trigger = row.getByRole('button', { name: 'Delete this record' });
+    await trigger.click();
+
+    // The dialog is portalled to the end of <body>, so it is addressed on the
+    // page rather than inside the row. Asserting the alertdialog role is also
+    // the assertion that it is a real modal.
+    const confirm = page.getByRole('alertdialog');
+    await expect(confirm).toBeVisible();
+    await expect(confirm.getByText('It cannot be undone.')).toBeVisible();
+
+    // Backing out must delete nothing. This is also the assertion that the
+    // rest of the page really is inert while the dialog is open: the row
+    // count below can only be taken once the dialog has closed, because
+    // Radix marks everything behind the modal aria-hidden and role-based
+    // locators correctly refuse to match hidden content. A count taken with
+    // the dialog still open resolves to zero, which is the modal working.
+    await confirm.getByRole('button', { name: 'Keep it' }).click();
+    await expect(confirm).toBeHidden();
+    await expect(trigger).toBeFocused();
     await expect(rows).toHaveCount(before + 1);
 
-    await row.getByRole('button', { name: 'Yes, delete' }).click();
+    await trigger.click();
+    await confirm.getByRole('button', { name: 'Yes, delete' }).click();
     // Reload before asserting: the claim under test is that the record is gone
     // from the server, and a reload proves that rather than the client router
     // cache's view of the list.

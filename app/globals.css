@@ -1,4 +1,16 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+
+/*
+  shadcn/ui is the component foundation. Its primitives are styled through the
+  semantic token layer below rather than through their stock palette, so a
+  shadcn Dialog and a DiaLog Card are the same product.
+
+  DiaLog switches theme with `data-theme` on <html> (set before paint by
+  PreferencesScript, so there is no flash), not with a `.dark` class. This
+  variant is what makes shadcn's `dark:` utilities follow that.
+*/
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 /*
   DiaLog design system.
@@ -12,8 +24,14 @@
 */
 
 @theme {
+  /* Inter first where it is installed, then the platform UI face. Both are
+     high-legibility grotesques with unambiguous 1/l/I and open apertures,
+     which matters for reading a glucose value at a glance. No webfont is
+     downloaded: a health app should render its numbers on the first paint,
+     not after a font swap. */
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    Inter, 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
 
   /* Neutrals — warm, paper-like rather than clinical white. */
   --color-canvas: oklch(98.4% 0.005 95);
@@ -43,8 +61,74 @@
   --color-info: oklch(45% 0.1 260);
   --color-info-soft: oklch(96% 0.025 260);
 
-  --radius-card: 0.875rem;
+  /* Restrained radii. Health data reads as a record, not as a chat bubble,
+     so surfaces are only slightly softened. */
+  /* Foreground for filled brand surfaces. Light theme puts white on the deep
+     teal; dark theme inverts, because the dark brand tone is a light teal and
+     white on it fails contrast. */
+  --dl-on-brand: oklch(100% 0 0);
+  --dl-on-critical: oklch(100% 0 0);
+
+  --radius-card: 0.625rem;
+  --radius-control: 0.5rem;
+
+  /* Type scale. Kept short on purpose: seven steps cover the whole product,
+     which is what keeps headings consistent between pages. */
   --text-base: 1.0625rem;
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.4;
+}
+
+/*
+  shadcn/ui semantic tokens.
+
+  Every one of these is an alias onto a DiaLog token above, never a new colour.
+  That is the whole point: `bg-primary` on a shadcn Button resolves to the same
+  deep teal as everything else, and the dark-theme override at the top of this
+  file moves both at once. Adding a colour here rather than aliasing one is how
+  the design system starts to drift, so don't.
+*/
+@theme inline {
+  --color-background: var(--color-canvas);
+  --color-foreground: var(--color-ink);
+
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-ink);
+
+  --color-primary: var(--color-brand);
+  --color-primary-foreground: var(--dl-on-brand);
+
+  --color-secondary: var(--color-surface-sunken);
+  --color-secondary-foreground: var(--color-ink);
+
+  --color-muted: var(--color-surface-sunken);
+  --color-muted-foreground: var(--color-ink-muted);
+
+  --color-accent: var(--color-brand-soft);
+  --color-accent-foreground: var(--color-brand-ink);
+
+  --color-destructive: var(--color-critical);
+  --color-destructive-foreground: var(--dl-on-critical);
+
+  --color-border: var(--color-line);
+  --color-input: var(--color-line-strong);
+  --color-ring: var(--color-brand);
+
+  /* Charts read as a categorical scale, not a gradient: each step is one of
+     the status tones, which are already tested against the common forms of
+     colour vision deficiency. */
+  --color-chart-1: var(--color-brand);
+  --color-chart-2: var(--color-info);
+  --color-chart-3: var(--color-positive);
+  --color-chart-4: var(--color-notice);
+  --color-chart-5: var(--color-caution);
+
+  --radius-sm: calc(var(--radius-card) - 4px);
+  --radius-md: calc(var(--radius-card) - 2px);
+  --radius-lg: var(--radius-card);
+  --radius-xl: calc(var(--radius-card) + 4px);
 }
 
 @layer base {
@@ -85,6 +169,8 @@
     --color-critical-soft: oklch(29% 0.07 20);
     --color-info: oklch(78% 0.1 260);
     --color-info-soft: oklch(28% 0.05 260);
+    --dl-on-brand: oklch(19% 0.012 250);
+    --dl-on-critical: oklch(19% 0.012 250);
   }
 
   html {
@@ -141,10 +227,47 @@
   h4 {
     text-wrap: balance;
     line-height: 1.25;
+    /* A touch of negative tracking at display sizes; headings otherwise look
+       loose next to the tighter body face. */
+    letter-spacing: -0.012em;
+  }
+
+  /* Every number in the product is compared against another number, so all
+     digits are tabular by default and the zero is slashed where the face
+     offers it. This is what stops a column of readings from shifting as the
+     values change. */
+  :is(td, th, .dl-numeric, output) {
+    font-variant-numeric: tabular-nums slashed-zero;
   }
 }
 
 @layer components {
+  /* A measured column for prose. Long health explanations become unreadable
+     past roughly 70 characters. */
+  .dl-measure {
+    max-width: 68ch;
+  }
+
+  /* A health measurement: large, tabular, and tracked slightly tight so the
+     value and its unit read as one token. */
+  .dl-numeric {
+    font-variant-numeric: tabular-nums slashed-zero;
+    letter-spacing: -0.015em;
+  }
+
+  /* Metadata: timestamps, units, record counts, source labels. */
+  .dl-meta {
+    font-size: var(--text-meta);
+    line-height: 1.4;
+    color: var(--color-ink-muted);
+  }
+
+  /* Section rule used instead of wrapping everything in a card. Hierarchy
+     comes from layout first and surfaces second. */
+  .dl-rule {
+    border-top: 1px solid var(--color-line);
+  }
+
   .dl-skip-link {
     position: absolute;
     left: -9999px;

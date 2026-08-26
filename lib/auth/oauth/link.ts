@@ -87,7 +87,7 @@ export const OAUTH_MESSAGES: Record<OAuthErrorCode, string> = {
   unverified_email:
     'Google has not verified the email address on that account, so we cannot use it to sign in. Please verify it with Google, or sign in with your email and password.',
   email_in_use:
-    'You already have a DiaLog account with that email address and a password. Sign in with your password below, then connect Google from Settings — that way nobody can reach your records just by holding the Google account.',
+    'You already have a DiaLog account with that email address and a password. Sign in with your password below, then connect Google from Settings. That way nobody can reach your records just by holding the Google account.',
   linked_elsewhere:
     'That Google account is already connected to a different DiaLog account. Disconnect it there first, or use another Google account.',
   provider_already_linked:

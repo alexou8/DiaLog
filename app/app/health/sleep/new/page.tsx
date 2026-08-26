@@ -12,7 +12,7 @@ export default async function NewSleepPage() {
     <div className="mx-auto max-w-xl">
       <PageHeader
         title="Log sleep"
-        description="Bedtime and wake time — DiaLog works out the duration."
+        description="Bedtime and wake time. DiaLog works out the duration."
       />
       <Card>
         <SleepForm timezone={user.profile.timezone} />

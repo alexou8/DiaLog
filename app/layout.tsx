@@ -18,7 +18,7 @@ function resolveAppUrl(): string {
 export const metadata: Metadata = {
   metadataBase: new URL(resolveAppUrl()),
   title: {
-    default: 'DiaLog — understand your glucose data',
+    default: 'DiaLog: understand your glucose data',
     template: '%s · DiaLog',
   },
   description:
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'DiaLog',
-    title: 'DiaLog — understand your glucose data',
+    title: 'DiaLog: understand your glucose data',
     description: 'Calm, accessible tracking for glucose and the everyday things that affect it.',
   },
 };

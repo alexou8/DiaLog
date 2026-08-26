@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { analyzeImportAction, commitImportAction, type ImportState } from '@/lib/actions/import';
-import { Button, Callout, Card, CardHeader } from '@/components/ui';
+import { Button, Callout, Card, CardHeader, Icon } from '@/components/ui';
 import { FormStatus } from '@/components/ui/form';
 
 const ISSUE_EXPLANATIONS: Record<string, string> = {
@@ -122,7 +122,7 @@ export function ImportPanel() {
               </li>
               <li className="flex items-baseline justify-between gap-3 border-b border-line pb-2">
                 <span>
-                  <span aria-hidden="true">✓ </span>
+                  <Icon name="ok" className="shrink-0" />
                   {commit?.stage === 'committed' ? 'Added to your history' : 'Ready to add'}
                 </span>
                 <strong className="tabular-nums">
@@ -137,7 +137,7 @@ export function ImportPanel() {
               </li>
               <li className="flex items-baseline justify-between gap-3">
                 <span>
-                  <span aria-hidden="true">⚠ </span>Could not be read
+                  <Icon name="caution" className="shrink-0" /> Could not be read
                 </span>
                 <strong className="tabular-nums">{summary.rowsRejected}</strong>
               </li>
@@ -145,7 +145,7 @@ export function ImportPanel() {
 
             {summary.warnings.length > 0 ? (
               <div className="mt-4">
-                <Callout tone="notice" icon="ⓘ" title="Assumptions DiaLog had to make">
+                <Callout tone="notice" icon="info" title="Assumptions DiaLog had to make">
                   <ul className="list-disc space-y-1 pl-5">
                     {summary.warnings.map((warning, index) => (
                       <li key={index}>{warning}</li>
@@ -186,7 +186,7 @@ export function ImportPanel() {
                 <ul className="mt-2 space-y-1 text-sm text-ink-muted">
                   {state.preview.map((item, index) => (
                     <li key={index}>
-                      {item.when} — {item.detail}
+                      {item.when}: {item.detail}
                     </li>
                   ))}
                 </ul>
@@ -204,7 +204,7 @@ export function ImportPanel() {
 
             {nothingNewToImport ? (
               <div className="mt-6">
-                <Callout tone="info" icon="ⓘ" title="Nothing new to add">
+                <Callout tone="info" icon="info" title="Nothing new to add">
                   Every record in this file is already in DiaLog, so there is nothing to import.
                   Your existing records have been left exactly as they were.
                 </Callout>
@@ -213,7 +213,7 @@ export function ImportPanel() {
 
             {commit?.stage === 'committed' ? (
               <div className="mt-6">
-                <Callout tone="positive" icon="✓" title="Saved">
+                <Callout tone="positive" icon="ok" title="Saved">
                   Your readings are now in DiaLog. If this was the wrong file, you can undo the
                   whole import below.
                 </Callout>

@@ -10,12 +10,12 @@ export default function HelpPage() {
       <p>There are three ways, and you can mix them freely:</p>
       <ul>
         <li>
-          <strong>Type them in.</strong> Home → Add a reading. Value, time and (optionally) whether
-          it was fasting or after a meal. That is the whole form.
+          <strong>Type them in.</strong> Open Home, then choose Add a reading. Value, time and
+          (optionally) whether it was fasting or after a meal. That is the whole form.
         </li>
         <li>
-          <strong>Import a file.</strong> Import → drag in the CSV, Excel, JSON or XML file your
-          meter&apos;s software or your phone&apos;s health app exports. DiaLog works out the
+          <strong>Import a file.</strong> Open Import, then drag in the CSV, Excel, JSON or XML file
+          your meter&apos;s software or your phone&apos;s health app exports. DiaLog works out the
           format, shows you what it found, and asks before saving anything.
         </li>
         <li>
@@ -34,9 +34,9 @@ export default function HelpPage() {
 
       <h2>Changing units</h2>
       <p>
-        Settings → Units. Switching between mmol/L and mg/dL converts everything you see instantly;
-        your stored readings are untouched, because DiaLog keeps one canonical unit internally and
-        converts only for display.
+        Open Settings, then Units. Switching between mmol/L and mg/dL converts everything you see
+        instantly; your stored readings are untouched, because DiaLog keeps one canonical unit
+        internally and converts only for display.
       </p>
 
       <h2>Duplicate imports</h2>

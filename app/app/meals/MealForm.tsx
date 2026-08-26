@@ -5,7 +5,7 @@ import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { addMealAction, type RecordActionState } from '@/lib/actions/records';
 import { toLocalInputValue } from '@/lib/domain/time';
-import { Button } from '@/components/ui';
+import { Button, Icon } from '@/components/ui';
 import { Field, FormStatus, Select, TextArea, TextInput } from '@/components/ui/form';
 
 const MEAL_TYPES: { value: string; label: string }[] = [
@@ -90,7 +90,7 @@ export function MealForm({ timezone }: { timezone: string }) {
 
       <details className="mb-5 rounded-xl border border-line bg-surface-sunken">
         <summary className="cursor-pointer list-none px-4 py-3 text-base font-semibold text-brand-ink marker:content-none">
-          <span aria-hidden="true">＋ </span>
+          <Icon name="add" />
           Add nutrition details (optional)
         </summary>
         <div className="border-t border-line p-4">

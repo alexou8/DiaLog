@@ -16,7 +16,7 @@ export default async function QuickLogPage() {
         <PageHeader title="Quick logging" />
         <EmptyState
           title="Quick logging needs the assistant"
-          icon="✍️"
+          icon="quickLog"
           action={
             <>
               <ButtonLink href="/app/settings">Open settings</ButtonLink>
@@ -41,9 +41,9 @@ export default async function QuickLogPage() {
         title="Describe your day"
         description="Type what you ate or did in ordinary words. DiaLog will suggest entries, and nothing is saved until you check them."
       />
-      <Callout tone="info" icon="ⓘ" title="Every number here is an estimate">
+      <Callout tone="info" icon="info" title="Every number here is an estimate">
         Nutrition figures worked out from a description are approximations, not measurements. Edit
-        anything that looks wrong before you save — you are always the one who decides what gets
+        anything that looks wrong before you save. You are always the one who decides what gets
         recorded.
       </Callout>
       <QuickLogPanel defaultTime={toLocalInputValue(new Date(), profile.timezone)} />

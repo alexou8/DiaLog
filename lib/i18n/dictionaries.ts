@@ -16,7 +16,7 @@ export type Locale = (typeof LOCALES)[number];
 
 export const LOCALE_LABELS: Record<Locale, string> = {
   'en-CA': 'English (Canada)',
-  'fr-CA': 'Français (Canada) — partial translation',
+  'fr-CA': 'Français (Canada), partial translation',
 };
 
 const en = {

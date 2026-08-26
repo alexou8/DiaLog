@@ -1,18 +1,29 @@
 /**
- * Accessible form primitives.
+ * Accessible form primitives, built on shadcn/ui.
  *
- * Every field is a real label bound to a real control. Errors are associated
- * via aria-describedby and announced through a live region, and they are
- * written in plain language ("Please enter a number between 1.1 and 38.9")
- * rather than as validation jargon.
+ * Health data entry is the part of this product where a mistake is most
+ * expensive, so the rules here are stricter than the component library's
+ * defaults and are enforced by the primitives rather than left to call sites:
+ *
+ * - Every field is a real <label> bound to a real control. Placeholder text is
+ *   never a substitute for a label.
+ * - Required *and* optional are stated in words. "No asterisk" is not an
+ *   answer to "is this one optional?".
+ * - Errors are associated with `aria-describedby`, announced through a live
+ *   region, and written in plain language ("Please enter a number between 1.1
+ *   and 38.9") rather than as validation jargon.
+ * - Hints sit above the control, not in a tooltip. Nothing a person needs in
+ *   order to answer correctly is hidden behind a hover.
  */
 'use client';
 
 import { useId, type ReactNode } from 'react';
-import clsx from 'clsx';
 
-const CONTROL =
-  'w-full rounded-xl border-2 border-line-strong bg-surface px-4 py-3 text-base text-ink placeholder:text-ink-muted/70 focus:border-brand';
+import { cn } from '@/lib/utils';
+import { Icon } from './icon';
+import { Input } from './input';
+import { Label } from './label';
+import { Textarea } from './textarea';
 
 export function Field({
   label,
@@ -37,23 +48,22 @@ export function Field({
 
   return (
     <div className="mb-5">
-      <label htmlFor={id} className="mb-1.5 block text-base font-semibold">
+      <Label htmlFor={id} className="mb-1.5">
         {label}
-        {required ? (
-          <span className="ml-1 font-normal text-ink-muted">(required)</span>
-        ) : (
-          <span className="ml-1 font-normal text-ink-muted">(optional)</span>
-        )}
-      </label>
+        <span className="font-normal text-ink-muted">{required ? '(required)' : '(optional)'}</span>
+      </Label>
       {hint ? (
-        <p id={hintId} className="mb-2 text-sm text-ink-muted">
+        <p id={hintId} className="dl-measure mb-2 text-sm text-ink-muted">
           {hint}
         </p>
       ) : null}
       {children({ id, describedBy, invalid: Boolean(error) })}
       {error ? (
-        <p id={errorId} className="mt-1.5 text-sm font-medium text-critical">
-          <span aria-hidden="true">⚠ </span>
+        <p
+          id={errorId}
+          className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-critical"
+        >
+          <Icon name="caution" className="shrink-0" />
           {error}
         </p>
       ) : null}
@@ -63,32 +73,31 @@ export function Field({
 
 export function TextInput({
   invalid,
-  className,
   ...rest
-}: React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
-  return (
-    <input
-      {...rest}
-      aria-invalid={invalid || undefined}
-      className={clsx(CONTROL, invalid && 'border-critical', className)}
-    />
-  );
+}: React.ComponentProps<typeof Input> & { invalid?: boolean }) {
+  return <Input {...rest} aria-invalid={invalid || undefined} />;
 }
 
 export function TextArea({
   invalid,
-  className,
   ...rest
-}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }) {
-  return (
-    <textarea
-      {...rest}
-      aria-invalid={invalid || undefined}
-      className={clsx(CONTROL, 'min-h-28', invalid && 'border-critical', className)}
-    />
-  );
+}: React.ComponentProps<typeof Textarea> & { invalid?: boolean }) {
+  return <Textarea {...rest} aria-invalid={invalid || undefined} />;
 }
 
+/**
+ * A native <select>, styled with the shadcn control tokens.
+ *
+ * Deliberately not shadcn's Radix Select. These forms post to Server Actions
+ * and must work before hydration; a Radix Select renders a button plus a
+ * portalled listbox and submits nothing without JavaScript. The native control
+ * also gets the platform's own picker, which on a phone is a larger and more
+ * familiar target than anything rendered in the page.
+ *
+ * The same reasoning applies to RadioCards and Checkbox below. shadcn's Select,
+ * RadioGroup and Checkbox are used elsewhere in the product, just not for
+ * controls whose value has to survive a submit that beats hydration.
+ */
 export function Select({
   invalid,
   className,
@@ -99,7 +108,10 @@ export function Select({
     <select
       {...rest}
       aria-invalid={invalid || undefined}
-      className={clsx(CONTROL, invalid && 'border-critical', className)}
+      className={cn(
+        'min-h-11 w-full rounded-[var(--radius-control)] border-2 border-input bg-surface px-4 py-2.5 text-base text-ink outline-none transition-colors focus:border-brand aria-invalid:border-destructive',
+        className,
+      )}
     >
       {children}
     </select>
@@ -107,9 +119,20 @@ export function Select({
 }
 
 /**
- * Large tappable radio group — used instead of dropdowns wherever there are
- * few options, because a visible set of big targets is easier than a picker
- * for users with limited dexterity or eyesight.
+ * Large tappable radio group.
+ *
+ * Native <input type="radio"> for the reason given on `Select` above: Radix's
+ * RadioGroup carries its value in a hidden input that is only attached once
+ * the component finds its <form> on the client, so a submit that beats
+ * hydration posts nothing. These forms are progressively enhanced through
+ * `useActionState`, and a settings change that silently saves the wrong value
+ * is worse than a plainer control.
+ *
+ * Used instead of a dropdown wherever there are few options: a visible set of
+ * big targets is easier than a picker for someone with limited dexterity or
+ * eyesight, and it shows every option's description without opening anything.
+ * `has-[:checked]` gives the selected card a border and a fill, so the choice
+ * is not signalled by the small radio dot alone.
  */
 export function RadioCards<T extends string>({
   name,
@@ -126,12 +149,19 @@ export function RadioCards<T extends string>({
   defaultValue?: T;
   columns?: 1 | 2 | 3;
 }) {
+  const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
+
   return (
-    <fieldset className="mb-5">
+    <fieldset className="mb-5" aria-describedby={hintId}>
       <legend className="mb-1.5 text-base font-semibold">{legend}</legend>
-      {hint ? <p className="mb-2 text-sm text-ink-muted">{hint}</p> : null}
+      {hint ? (
+        <p id={hintId} className="dl-measure mb-2 text-sm text-ink-muted">
+          {hint}
+        </p>
+      ) : null}
       <div
-        className={clsx(
+        className={cn(
           'grid gap-2',
           columns === 1 && 'grid-cols-1',
           columns === 2 && 'grid-cols-1 sm:grid-cols-2',
@@ -141,7 +171,7 @@ export function RadioCards<T extends string>({
         {options.map((option) => (
           <label
             key={option.value}
-            className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-line-strong bg-surface p-4 has-[:checked]:border-brand has-[:checked]:bg-brand-soft has-[:focus-visible]:outline has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-brand"
+            className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-control)] border-2 border-line-strong bg-surface p-4 has-[:checked]:border-brand has-[:checked]:bg-brand-soft has-[:focus-visible]:outline has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-brand"
           >
             <input
               type="radio"
@@ -163,6 +193,7 @@ export function RadioCards<T extends string>({
   );
 }
 
+/** Native checkbox, for the same submit-before-hydration reason as RadioCards. */
 export function Checkbox({
   name,
   label,
@@ -199,14 +230,14 @@ export function FormStatus({ status }: { status: { ok: boolean; message: string 
     <div aria-live="polite" className="min-h-0">
       {status ? (
         <p
-          className={clsx(
-            'mb-4 rounded-xl border p-3 text-sm font-medium',
+          className={cn(
+            'mb-4 flex items-center gap-2 rounded-[var(--radius-control)] border p-3 text-sm font-medium',
             status.ok
               ? 'border-positive/40 bg-positive-soft text-positive'
               : 'border-critical/40 bg-critical-soft text-critical',
           )}
         >
-          <span aria-hidden="true">{status.ok ? '✓ ' : '⚠ '}</span>
+          <Icon name={status.ok ? 'ok' : 'caution'} className="shrink-0" />
           {status.message}
         </p>
       ) : null}

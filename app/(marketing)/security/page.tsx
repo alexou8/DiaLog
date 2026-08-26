@@ -30,7 +30,7 @@ export default function SecurityPage() {
       <p>
         Every query that touches health data is scoped by the signed-in user&apos;s id at the data
         layer, not merely filtered in the interface. A record belonging to another account cannot be
-        read, edited or deleted even with a valid session and a guessed record id — the request
+        read, edited or deleted even with a valid session and a guessed record id. The request
         simply does not match. This is covered by automated tests that attempt exactly that.
       </p>
 
@@ -45,7 +45,7 @@ export default function SecurityPage() {
           builder.
         </li>
         <li>
-          The application renders text as text — no HTML from user input or from an AI response is
+          The application renders text as text. No HTML from user input or from an AI response is
           ever injected into the page.
         </li>
         <li>

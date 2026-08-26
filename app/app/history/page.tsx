@@ -6,6 +6,8 @@ import { pageGlucose, RECORD_TYPES, isRecordType, type RecordType } from '@/lib/
 import { classifyGlucose } from '@/lib/domain/thresholds';
 import { formatGlucose, unitLabel } from '@/lib/domain/units';
 import { ButtonLink, Card, EmptyState } from '@/components/ui';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { DeleteRecordButton } from './DeleteRecordButton';
 
 export const metadata: Metadata = { title: 'History' };
@@ -85,12 +87,15 @@ export default async function HistoryPage({
                 <Link
                   href={`/app/history?type=${t}`}
                   aria-current={active ? 'page' : undefined}
-                  className={
-                    'dl-target inline-flex min-h-11 items-center rounded-xl px-4 py-2 text-sm font-semibold ' +
-                    (active
-                      ? 'bg-brand text-white'
-                      : 'border-2 border-line-strong text-ink hover:border-brand hover:text-brand-ink')
-                  }
+                  // Links, not a shadcn Tabs widget: the record type lives in
+                  // the URL so a filter can be shared, bookmarked and paged
+                  // through on the server. `aria-current="page"` is the right
+                  // announcement for that; `role="tab"` would be a lie. They
+                  // borrow the button styling so they still read as one system.
+                  className={cn(
+                    buttonVariants({ variant: active ? 'primary' : 'secondary', size: 'sm' }),
+                    'dl-target',
+                  )}
                 >
                   {TAB_LABELS[t]}
                 </Link>
@@ -102,7 +107,7 @@ export default async function HistoryPage({
 
       <Card>
         {rows.length === 0 ? (
-          <EmptyState title={`No ${TAB_LABELS[type].toLowerCase()} records yet`} icon="🗂️">
+          <EmptyState title={`No ${TAB_LABELS[type].toLowerCase()} records yet`} icon="history">
             <p>
               Once you log some, they will show up here with the option to review or delete them.
             </p>

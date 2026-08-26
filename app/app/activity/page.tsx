@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { prisma } from '@/lib/db/prisma';
 import { dayKeyInZone, daysAgo, weekdayInZone } from '@/lib/domain/time';
-import { ButtonLink, Card, CardHeader, EmptyState, Stat } from '@/components/ui';
+import { ButtonLink, Card, CardHeader, EmptyState, Icon, Stat } from '@/components/ui';
 import { BarChart, type Bar } from '@/components/charts/BarChart';
 import { DeleteRecordButton } from './DeleteRecordButton';
 
@@ -44,11 +44,11 @@ export default async function ActivityPage() {
         </header>
         <EmptyState
           title="No activity logged yet"
-          icon="🚶"
+          icon="activity"
           action={<ButtonLink href="/app/activity/new">Log your first session</ButtonLink>}
         >
           <p>
-            A walk, a swim, housework — anything that gets you moving counts. Just the activity and
+            A walk, a swim, housework: anything that gets you moving counts. Just the activity and
             how long is enough to start.
           </p>
         </EmptyState>
@@ -98,7 +98,7 @@ export default async function ActivityPage() {
           <p className="mt-1 text-ink-muted">Your recent sessions, grouped by day.</p>
         </div>
         <ButtonLink href="/app/activity/new">
-          <span aria-hidden="true">＋</span> Log activity
+          <Icon name="add" /> Log activity
         </ButtonLink>
       </header>
 

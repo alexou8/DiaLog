@@ -41,7 +41,7 @@ export function RegionForm({ profile }: { profile: Profile }) {
           label="Language"
           required
           error={state?.errors?.locale}
-          hint="French is a partial translation today — some screens still show in English."
+          hint="French is a partial translation today. Some screens still show in English."
         >
           {({ id, describedBy, invalid }) => (
             <Select

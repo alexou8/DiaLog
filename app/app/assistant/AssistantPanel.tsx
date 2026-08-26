@@ -73,9 +73,9 @@ export function AssistantPanel({ defaultDetail }: { defaultDetail: DetailLevel }
           >
             {({ id }) => (
               <Select id={id} name="detailLevel" defaultValue={defaultDetail.toLowerCase()}>
-                <option value="simple">Simple — a short, plain answer</option>
-                <option value="standard">Standard — the answer and the reasoning</option>
-                <option value="detailed">Detailed — include the numbers</option>
+                <option value="simple">Simple: a short, plain answer</option>
+                <option value="standard">Standard: the answer and the reasoning</option>
+                <option value="detailed">Detailed: include the numbers</option>
               </Select>
             )}
           </Field>

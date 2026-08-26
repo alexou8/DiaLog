@@ -114,7 +114,7 @@ function anomaliesToInsight(result: AnalyticsResult): InsightCard | null {
     title: 'A few unusual readings',
     summary: `We noticed ${anomalies.length} reading${anomalies.length === 1 ? '' : 's'} that stood out compared with your own typical readings at that time of day.`,
     detail:
-      'These are compared only against your own history at similar times of day, not a population reference range. An unusual reading is not necessarily a problem — it is simply different from your usual pattern.',
+      'These are compared only against your own history at similar times of day, not a population reference range. An unusual reading is not necessarily a problem. It is simply different from your usual pattern.',
     evidenceLevel: gradeEvidence(anomalies.length, 'summary'),
     sampleSize: anomalies.length,
     source: 'ML',
@@ -147,7 +147,7 @@ function dayPatternsToInsights(result: AnalyticsResult): InsightCard[] {
     .map((cluster) => ({
       kind: 'day-pattern',
       title: `Recurring pattern: ${cluster.label}`,
-      summary: `This kind of day — ${cluster.label} — showed up ${cluster.size} time${cluster.size === 1 ? '' : 's'} in your logs.`,
+      summary: `This kind of day (${cluster.label}) showed up ${cluster.size} time${cluster.size === 1 ? '' : 's'} in your logs.`,
       detail: `Typical numbers on these days: average glucose ${formatLevel(cluster.centroid.meanGlucoseMgdl, result.displayUnit)}, ${cluster.centroid.carbsG.toFixed(0)}g carbs logged, ${Math.max(0, cluster.centroid.activityMinutes).toFixed(0)} minutes of activity, ${Math.max(0, cluster.centroid.sleepHours).toFixed(1)}h sleep.`,
       evidenceLevel: gradeEvidence(cluster.size, 'summary'),
       sampleSize: cluster.size,

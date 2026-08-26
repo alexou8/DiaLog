@@ -11,7 +11,8 @@ export default function MealsError({
   return (
     <ErrorState title="We could not load your meals">
       <p>
-        Please try again. If this keeps happening, your data is safe — this is just a display issue.
+        Please try again. If this keeps happening, your data is safe. This is a display problem
+        only.
       </p>
       <button
         type="button"

@@ -10,6 +10,16 @@
  */
 import type { ReactNode } from 'react';
 
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
 export interface Scale {
   (value: number): number;
 }
@@ -64,34 +74,28 @@ export function ChartFrame({
         <summary className="cursor-pointer text-sm font-semibold text-brand-ink">
           View this chart as a table
         </summary>
-        <div className="mt-2 max-h-80 overflow-auto rounded-lg border border-line">
-          <table className="w-full border-collapse text-sm">
-            <caption className="sr-only">{table.caption}</caption>
-            <thead className="sticky top-0 bg-surface-sunken">
-              <tr>
+        <div className="mt-2 max-h-80 overflow-auto rounded-[var(--radius-control)] border border-line">
+          <Table className="text-sm">
+            <TableCaption className="sr-only">{table.caption}</TableCaption>
+            <TableHeader className="sticky top-0 bg-surface-sunken">
+              <TableRow>
                 {table.head.map((h) => (
-                  <th
-                    key={h}
-                    scope="col"
-                    className="border-b border-line px-3 py-2 text-left font-semibold"
-                  >
+                  <TableHead key={h} scope="col" className="font-semibold text-ink">
                     {h}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {table.rows.map((row, i) => (
-                <tr key={i} className="odd:bg-surface-sunken/50">
+                <TableRow key={i}>
                   {row.map((cell, j) => (
-                    <td key={j} className="border-b border-line px-3 py-2 tabular-nums">
-                      {cell}
-                    </td>
+                    <TableCell key={j}>{cell}</TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </details>
     </figure>

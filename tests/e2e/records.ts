@@ -15,11 +15,22 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * empty state to actually render first.
  */
 
-/** The record rows on a history page — each carries its own delete disclosure. */
+/** The record rows on a history page — each carries its own delete control. */
 export function recordRows(page: Page): Locator {
-  // Scoped by the delete control so it cannot also match the record-type tab
-  // bar, which is itself a list.
-  return page.locator('main ul > li').filter({ has: page.getByRole('group') });
+  // Scoped by the delete control so it cannot also match the record-type
+  // filter bar, which is itself a list.
+  //
+  // Matched by the control's accessible name, deliberately. This used to be
+  // `has: getByRole('group')`, which worked only because the delete
+  // confirmation happened to be a <details> element and <details> has an
+  // implicit ARIA role of "group". Nothing said so, and when the confirmation
+  // became a real alertdialog the role vanished and every row count in two
+  // specs silently resolved to zero. An accessible name is a contract the UI
+  // states on purpose; an implicit role of whichever widget is currently in
+  // use is not.
+  return page
+    .locator('main ul > li')
+    .filter({ has: page.getByRole('button', { name: /^Delete / }) });
 }
 
 /** Navigate to a history view and count its rows once it has actually rendered. */

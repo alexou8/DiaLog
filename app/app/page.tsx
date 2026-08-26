@@ -15,7 +15,8 @@ import { GlucoseReadingRow } from '@/components/GlucoseReadingRow';
 export const metadata: Metadata = { title: 'Home' };
 export const dynamic = 'force-dynamic';
 
-const BAND_ICON = { alert: '!', down: '▼', check: '✓', up: '▲' } as const;
+/** Band name to icon-registry name. Status also carries a text label. */
+const BAND_ICON = { alert: 'alert', down: 'down', check: 'ok', up: 'up' } as const;
 
 export default async function HomePage() {
   const user = await requireOnboardedUser();
@@ -72,6 +73,9 @@ export default async function HomePage() {
   });
 
   const summary = result.summary;
+  // Classified once: the same band drives the value, the badge and the
+  // explanation below it.
+  const latestBand = latest ? classifyGlucose(latest.valueMgdl, range) : null;
   const timelinePoints = (
     await prisma.glucoseReading.findMany({
       where: { userId: user.id, takenAt: { gte: window.from } },
@@ -83,14 +87,14 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{greeting}</h1>
-        <p className="mt-1 text-ink-muted">{dayFmt.format(new Date())}</p>
+      <header className="border-b border-line pb-5">
+        <p className="dl-meta uppercase tracking-wide">{dayFmt.format(new Date())}</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-[1.75rem]">{greeting}</h1>
       </header>
 
       {/* ---------------------------------------------------------- Today */}
       <section aria-labelledby="today-heading">
-        <Card>
+        <div>
           <CardHeader
             id="today-heading"
             title="How you're doing today"
@@ -102,35 +106,36 @@ export default async function HomePage() {
             action={<ButtonLink href="/app/glucose/new">Add a reading</ButtonLink>}
           />
 
-          {latest ? (
-            <div className="rounded-xl border border-line bg-surface-sunken p-5">
-              <p className="text-sm font-medium text-ink-muted">Your most recent reading</p>
-              <p className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="text-4xl font-bold tabular-nums sm:text-5xl">
+          {latest && latestBand ? (
+            /* The most recent value is the one thing someone opens the app to
+               check, so it gets the only surface on this screen and the
+               largest type in the product. Status is carried by the value, a
+               badge with an icon, and a sentence, never by colour alone. */
+            <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6">
+              <p className="dl-meta font-medium uppercase tracking-wide">
+                Your most recent reading
+              </p>
+              <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="dl-numeric text-5xl font-semibold leading-none sm:text-6xl">
                   {formatGlucose(latest.valueMgdl, unit, locale)}
                 </span>
-                <span className="text-lg text-ink-muted">{unitLabel(unit)}</span>
-                <span className="text-base text-ink-muted">
-                  at {timeFmt.format(latest.takenAt)}
-                </span>
+                <span className="text-lg font-medium text-ink-muted">{unitLabel(unit)}</span>
+                <span className="dl-meta">at {timeFmt.format(latest.takenAt)}</span>
               </p>
-              <p className="mt-3">
-                <Badge
-                  tone={classifyGlucose(latest.valueMgdl, range).tone}
-                  icon={BAND_ICON[classifyGlucose(latest.valueMgdl, range).icon]}
-                >
-                  {classifyGlucose(latest.valueMgdl, range).label}
+              <p className="mt-4">
+                <Badge tone={latestBand.tone} icon={BAND_ICON[latestBand.icon]}>
+                  {latestBand.label}
                 </Badge>
               </p>
-              <p className="mt-3 text-sm text-ink-muted">
-                {classifyGlucose(latest.valueMgdl, range).description} Your target range is{' '}
-                {formatGlucose(range.lowMgdl, unit, locale)}–
+              <p className="dl-measure mt-3 text-sm text-ink-muted">
+                {latestBand.description} Your target range is{' '}
+                {formatGlucose(range.lowMgdl, unit, locale)} to{' '}
                 {formatGlucose(range.highMgdl, unit, locale)} {unitLabel(unit)}, which you can
                 change in Settings.
               </p>
-              {classifyGlucose(latest.valueMgdl, range).safetyMessage ? (
-                <p className="mt-3 rounded-lg border border-line bg-surface p-3 text-sm">
-                  {classifyGlucose(latest.valueMgdl, range).safetyMessage}
+              {latestBand.safetyMessage ? (
+                <p className="dl-measure mt-4 rounded-[var(--radius-control)] border border-line bg-surface-sunken p-3 text-sm">
+                  {latestBand.safetyMessage}
                 </p>
               ) : null}
             </div>
@@ -138,9 +143,9 @@ export default async function HomePage() {
             <p className="text-ink-muted">Add your first reading to see it here.</p>
           )}
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="mt-6 grid gap-6 sm:grid-cols-2">
             <div>
-              <h3 className="text-sm font-semibold text-ink-muted">Recent meals</h3>
+              <h3 className="text-sm font-semibold">Recent meals</h3>
               {recentMeals.length === 0 ? (
                 <p className="mt-1 text-sm">
                   Nothing logged.{' '}
@@ -164,7 +169,7 @@ export default async function HomePage() {
               )}
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-ink-muted">Recent activity</h3>
+              <h3 className="text-sm font-semibold">Recent activity</h3>
               {recentExercise.length === 0 ? (
                 <p className="mt-1 text-sm">
                   Nothing logged.{' '}
@@ -187,12 +192,12 @@ export default async function HomePage() {
               )}
             </div>
           </div>
-        </Card>
+        </div>
       </section>
 
       {/* ------------------------------------------------------- This week */}
-      <section aria-labelledby="period-heading">
-        <Card>
+      <section aria-labelledby="period-heading" className="dl-rule pt-8">
+        <div>
           <CardHeader
             id="period-heading"
             title="Your last 30 days"
@@ -209,7 +214,7 @@ export default async function HomePage() {
           />
 
           {summary.count === 0 ? (
-            <EmptyState title="Nothing to summarise yet" icon="📈">
+            <EmptyState title="Nothing to summarise yet" icon="chart">
               <p>
                 Once you have a few readings in this period, this is where the averages and the
                 trend will appear.
@@ -222,7 +227,7 @@ export default async function HomePage() {
                   label="Average reading"
                   value={
                     summary.averageMgdl == null
-                      ? '—'
+                      ? 'No data'
                       : formatGlucose(summary.averageMgdl, unit, locale)
                   }
                   unit={unitLabel(unit)}
@@ -231,7 +236,9 @@ export default async function HomePage() {
                 <Stat
                   label="Readings in your target range"
                   value={
-                    summary.percentInRange == null ? '—' : `${Math.round(summary.percentInRange)}%`
+                    summary.percentInRange == null
+                      ? 'No data'
+                      : `${Math.round(summary.percentInRange)}%`
                   }
                   hint="Share of readings, not time"
                   tone={
@@ -242,7 +249,7 @@ export default async function HomePage() {
                 />
                 <Stat
                   label="Variability"
-                  value={summary.cv == null ? '—' : `${Math.round(summary.cv * 100)}%`}
+                  value={summary.cv == null ? 'No data' : `${Math.round(summary.cv * 100)}%`}
                   hint="How spread out your readings are"
                 />
               </div>
@@ -277,13 +284,13 @@ export default async function HomePage() {
               ) : null}
             </>
           )}
-        </Card>
+        </div>
       </section>
 
       {/* --------------------------------------------------------- Insights */}
-      <section aria-labelledby="insights-heading">
+      <section aria-labelledby="insights-heading" className="dl-rule pt-8">
         <div className="mb-4 flex items-end justify-between gap-3">
-          <h2 id="insights-heading" className="text-xl font-semibold sm:text-2xl">
+          <h2 id="insights-heading" className="text-lg font-semibold tracking-tight sm:text-xl">
             What your data shows
           </h2>
           <Link
@@ -294,7 +301,7 @@ export default async function HomePage() {
           </Link>
         </div>
         {insights.length === 0 ? (
-          <EmptyState title="No observations yet" icon="🔎">
+          <EmptyState title="No observations yet" icon="search">
             <p>
               DiaLog needs a bit more of your history before it can say anything meaningful. Keep
               logging readings and the observations will start here.
@@ -310,8 +317,8 @@ export default async function HomePage() {
       </section>
 
       {/* ---------------------------------------------------- Recent entries */}
-      <section aria-labelledby="recent-heading">
-        <Card>
+      <section aria-labelledby="recent-heading" className="dl-rule pt-8">
+        <div>
           <CardHeader id="recent-heading" title="Your latest readings" level={2} />
           <ul>
             {recentReadings.map((reading) => (
@@ -328,7 +335,7 @@ export default async function HomePage() {
               />
             ))}
           </ul>
-        </Card>
+        </div>
       </section>
     </div>
   );
@@ -338,26 +345,26 @@ export default async function HomePage() {
 function FirstRun({ name }: { name: string | null }) {
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+      <header className="border-b border-line pb-5">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">
           {name ? `Welcome, ${name}` : 'Welcome to DiaLog'}
         </h1>
-        <p className="mt-2 max-w-prose text-ink-muted">
-          There is nothing here yet — that is expected. Pick whichever of these is easiest for you
+        <p className="dl-measure mt-2 text-ink-muted">
+          There is nothing here yet, which is expected. Pick whichever of these is easiest for you
           right now. You can always do the others later.
         </p>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <h2 className="text-lg font-semibold">Add one reading</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Add one reading</h2>
           <p className="mt-2 text-ink-muted">The fastest start. Value, time, done.</p>
           <ButtonLink href="/app/glucose/new" className="mt-4">
             Add a reading
           </ButtonLink>
         </Card>
         <Card>
-          <h2 className="text-lg font-semibold">Import a file</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Import a file</h2>
           <p className="mt-2 text-ink-muted">
             Bring in the export from your meter software, a spreadsheet, or your phone&apos;s health
             app.
@@ -367,7 +374,7 @@ function FirstRun({ name }: { name: string | null }) {
           </ButtonLink>
         </Card>
         <Card>
-          <h2 className="text-lg font-semibold">Describe your day</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Describe your day</h2>
           <p className="mt-2 text-ink-muted">
             Type what you ate and did in ordinary words, then check what DiaLog suggests before
             saving.
@@ -379,10 +386,10 @@ function FirstRun({ name }: { name: string | null }) {
       </div>
 
       <Card>
-        <h2 className="text-lg font-semibold">What happens next</h2>
-        <p className="mt-2 max-w-prose text-ink-muted">
+        <h2 className="text-lg font-semibold tracking-tight">What happens next</h2>
+        <p className="dl-measure mt-2 text-ink-muted">
           As readings build up, DiaLog starts comparing them against your own history and shows what
-          it finds — with the number of records behind each observation. Until there is enough, it
+          it finds, with the number of records behind each observation. Until there is enough, it
           will say so rather than guess.
         </p>
       </Card>

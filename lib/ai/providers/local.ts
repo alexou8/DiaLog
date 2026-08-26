@@ -144,7 +144,7 @@ function buildNotEnoughDataAnswer(bundle: EvidenceBundle): unknown {
   const lowest = Object.entries(rc).sort((a, b) => a[1] - b[1])[0];
   if (lowest) {
     suggestions.push(
-      `Log more ${lowest[0]} records — you currently have ${lowest[1]} for this period.`,
+      `Log more ${lowest[0]} records. You currently have ${lowest[1]} for this period.`,
     );
   }
   for (const skipped of bundle.dataQuality.skippedAnalyses) {
@@ -178,7 +178,7 @@ function formatFindingLine(f: Finding): string {
 
 /** The provenance half of a finding, usable on its own when the statement is already the headline. */
 function formatFindingBasis(f: Finding): string {
-  return `That comes from ${lowerFirst(f.basis.replace(/\.$/, ''))} — ${f.sampleSize} data ${f.sampleSize === 1 ? 'point' : 'points'}, ${EVIDENCE_PHRASE[f.evidenceLevel]}.`;
+  return `That comes from ${lowerFirst(f.basis.replace(/\.$/, ''))}: ${f.sampleSize} data ${f.sampleSize === 1 ? 'point' : 'points'}, ${EVIDENCE_PHRASE[f.evidenceLevel]}.`;
 }
 
 function lowerFirst(text: string): string {

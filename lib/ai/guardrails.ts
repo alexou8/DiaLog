@@ -112,7 +112,7 @@ export function safeFallbackAnswer(): AssistantAnswer {
 // ---------------------------------------------------------------------------
 
 export const LIMITED_EVIDENCE_CAVEAT =
-  'This is based on limited evidence — treat it as a first hint, not a conclusion.';
+  'This is based on limited evidence. Treat it as a first hint, not a conclusion.';
 
 /**
  * Every `citedFindingIds` entry must exist in the evidence bundle; drop
