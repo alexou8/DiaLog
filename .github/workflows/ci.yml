@@ -124,6 +124,15 @@ jobs:
           path: |
             .next
             !.next/cache
+          # `.next` is a dot-prefixed directory, and upload-artifact@v4 treats
+          # everything under one as a hidden file and skips it by default. That
+          # silently matched zero files and uploaded an empty artifact, which
+          # only surfaced 45s later as "Artifact not found" in the e2e job.
+          include-hidden-files: true
+          # An empty match is a `##[warning]`, so the build job still reported
+          # success while producing nothing. Fail here, at the real defect,
+          # rather than in a downstream job.
+          if-no-files-found: error
           retention-days: 1
 
   e2e:
@@ -170,6 +179,18 @@ jobs:
           name: nextjs-build
           path: .next
 
+      # The e2e job starts a prebuilt `.next` rather than building one, so a
+      # truncated or wrongly-rooted artifact would otherwise surface as an
+      # opaque `next start` failure inside Playwright's webServer. Assert the
+      # handoff here, where the cause is.
+      - name: Verify the downloaded build
+        run: |
+          test -f .next/BUILD_ID || {
+            echo "::error::.next/BUILD_ID missing after download-artifact — the build artifact is empty or wrongly rooted."
+            ls -la .next || true
+            exit 1
+          }
+
       - run: npx prisma migrate deploy
 
       - name: Cache Playwright browsers
@@ -199,6 +220,12 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
+          # Same reason as the build artifact above: without this, any
+          # dot-prefixed entry in the report is dropped and the trace viewer
+          # loads incomplete. Not paired with `if-no-files-found: error` —
+          # this step is guarded by `if: failure()`, and a failing run that
+          # produced no report at all is legitimate.
+          include-hidden-files: true
           retention-days: 7
 
   research-pipeline:

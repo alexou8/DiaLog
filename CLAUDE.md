@@ -93,6 +93,58 @@ result is undefined.
 integration suite hard-refuses any `DATABASE_URL` not naming `dialog_test` —
 that guard protects real databases, so don't work around it.
 
+## CI failures
+
+**Fix the cause, not the symptom.** A red check is a defect report. It gets
+diagnosed and resolved at its root, the same as a bug in application code. This
+is not negotiable and it is not traded against speed — a suppressed failure is a
+defect that survives into `main` and costs more later than the diagnosis would
+have cost now.
+
+Work every failure in this order:
+
+1. **Read the actual error.** The verbatim `##[error]` line and the failing step
+   name, from the job log. Not the summary, not the step name alone, not a guess
+   from the diff. If the log tail only shows teardown, page further back until
+   you have the real line.
+2. **Explain the mechanism.** State why the failure happens, specifically enough
+   that you could predict which other inputs would trigger it. "It's flaky",
+   "it's the environment", "CI is being weird" are not mechanisms — they are
+   admissions that step 2 has not happened yet.
+3. **Reproduce it**, locally or in a job you can iterate on. A fix for a failure
+   you never reproduced is a guess. Where the environment is the difference
+   (artifact round-trips, service containers, a clean `npm ci`), reproduce _that
+   difference_ rather than the convenient local approximation.
+4. **Fix the root cause.** Then confirm the original failure is gone _and_ that
+   the fix did not just relocate it.
+5. **Close the class, not the instance.** Ask what else the same cause could
+   break, and whether the failure could have been caught earlier — by a type, a
+   test, or a check that runs before CI does.
+
+Never do these to get green:
+
+- Skip, disable, `.skip`, quarantine, or loosen the assertion of a failing test.
+- Add a retry, a bare `sleep`, or a raised timeout to paper over a race. Fix the
+  race. Timeouts change only when the work genuinely got slower.
+- `continue-on-error`, `|| true`, or dropping a step from the workflow.
+- Re-run the job hoping for different output.
+- Weaken lint or type rules rather than fixing what they caught.
+
+**Flakiness is a root cause, not an excuse.** A test that fails intermittently
+has a real defect — usually a race, shared state, or an ordering assumption.
+The serialization in both the integration suite (one shared physical database)
+and the e2e suite (shared rate-limited accounts, count assertions) exists
+because someone did this work properly; the `locator.count()` ESLint rule exists
+because someone traced a CI-only flake to its mechanism instead of retrying it.
+Match that standard.
+
+**Green locally is not green.** CI differs from a dev machine in ways that
+matter: a clean `npm ci`, service containers, artifacts round-tripped between
+jobs, a different Node version, no warm caches. When a change touches how CI
+itself is wired, verifying the local equivalent is necessary but not sufficient
+— the CI-only path is exactly where the bug will be. Say plainly which parts
+you verified and which you could not.
+
 ## Testing
 
 - **Unit** (`tests/unit/`) — pure logic, no DB. This is `npm test`.
