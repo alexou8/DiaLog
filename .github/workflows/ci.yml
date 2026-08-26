@@ -1,14 +1,20 @@
 name: CI
 
+# `push: branches: ['**']` alongside `pull_request` ran the entire matrix
+# twice for every commit on a PR branch. Concurrency alone does not dedupe
+# them: the two events produce different group keys (a `push` has no
+# `pull_request.number` and falls back to `github.ref`), so both runs survive.
+# Restricting `push` to the default branch removes the duplicate at its
+# source — PR branches are covered by the `pull_request` trigger, and `main`
+# still gets a run per merge. A branch with no open PR gets no run, which is
+# the intended trade.
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
 
-# A branch push that is part of an open PR fires both `push` and
-# `pull_request`, which used to run the entire matrix twice for the same
-# commit. Group by workflow + branch/PR so a newer run cancels an
-# in-progress older one instead of both running to completion.
+# Still worth keeping, for a different case: successive pushes to the same PR.
+# A newer commit cancels the in-progress run for the older one.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -28,8 +34,8 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -75,8 +81,8 @@ jobs:
       TEST_DIRECT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/dialog_test?schema=public
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -95,8 +101,8 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -104,7 +110,7 @@ jobs:
       - run: npm ci
 
       - name: Cache Next.js build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'lib/**', 'prisma/schema.prisma', 'next.config.ts') }}
@@ -114,7 +120,7 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: nextjs-build
           # `.next/cache` is excluded on purpose: it's large, and it's already
@@ -163,8 +169,8 @@ jobs:
       PLAYWRIGHT_SKIP_BUILD: '1'
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -174,7 +180,7 @@ jobs:
       # postinstall already does it — but the downloaded .next below still
       # needs a Prisma client on disk, which postinstall provides.
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: nextjs-build
           path: .next
@@ -195,7 +201,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -215,7 +221,7 @@ jobs:
 
       - run: npm run test:e2e
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: playwright-report
@@ -243,8 +249,8 @@ jobs:
         working-directory: ml
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: pip
