@@ -1,15 +1,45 @@
 /**
- * DiaLog UI primitives.
+ * DiaLog's semantic layer over shadcn/ui.
  *
- * Deliberately small and semantic: real <button>, real <label>, real <table>.
- * Every interactive element has a visible focus ring (see globals.css) and a
- * 44px minimum touch target. Nothing here relies on colour alone to convey
- * state.
+ * shadcn is the foundation: every primitive here renders a shadcn component
+ * (which in turn renders a Radix primitive where one exists), retuned to the
+ * DiaLog design tokens in `globals.css`. What this file adds on top is
+ * *meaning*: a call site asks for a `Callout` with tone "caution", not for an
+ * Alert with a set of utility classes. That is what keeps twelve callouts
+ * across nine pages looking like one product.
+ *
+ * The rules the primitives below encode, so no call site has to remember them:
+ *
+ * - Real semantics. A real <button>, a real <label>, a real <table>, and list
+ *   items that stay list items.
+ * - A 44px minimum touch target and 17px body text everywhere, including on
+ *   desktop. Stock shadcn sizes are smaller on both counts; see button.tsx.
+ * - One focus treatment, defined once in globals.css and never removed.
+ * - Colour is never the only signal. Every tone is paired with a text label,
+ *   and usually an icon, at the call site.
  */
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import clsx from 'clsx';
+
+import { cn } from '@/lib/utils';
 import { Icon, isIconName, type IconName } from './icon';
+import { Button as ShadButton, type ButtonVariant } from './button';
+import { Badge as ShadBadge } from './badge';
+import { toneVariants, type Tone } from './tone';
+import { Alert, AlertDescription, AlertTitle } from './alert';
+import {
+  Card as ShadCard,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader as ShadCardHeader,
+  CardTitle,
+} from './card';
+import { Skeleton } from './skeleton';
+
+/** Health status tones. Shared by Badge, Alert, Callout and Stat. */
+export type { Tone };
 
 /**
  * Icon props accept either a registry name or a ready-made node. Call sites
@@ -23,18 +53,16 @@ function renderIcon(icon: IconProp, className?: string) {
   return icon;
 }
 
-type Tone = 'brand' | 'positive' | 'notice' | 'caution' | 'critical' | 'info' | 'neutral';
+/* -------------------------------------------------------------- surfaces */
 
-const TONE_SOFT: Record<Tone, string> = {
-  brand: 'bg-brand-soft text-brand-ink border-brand/30',
-  positive: 'bg-positive-soft text-positive border-positive/30',
-  notice: 'bg-notice-soft text-notice border-notice/30',
-  caution: 'bg-caution-soft text-caution border-caution/30',
-  critical: 'bg-critical-soft text-critical border-critical/30',
-  info: 'bg-info-soft text-info border-info/30',
-  neutral: 'bg-surface-sunken text-ink-muted border-line',
-};
-
+/**
+ * A padded surface. Wraps shadcn's Card, but flattens its column layout so
+ * children keep their own vertical rhythm, and adds the horizontal padding
+ * shadcn leaves to CardContent — because most DiaLog cards hold one block of
+ * content rather than the header/content/footer trio.
+ *
+ * Reach for `Section` first. Not everything needs a surface.
+ */
 export function Card({
   children,
   className,
@@ -45,14 +73,9 @@ export function Card({
   as?: 'section' | 'div' | 'article' | 'li';
 }) {
   return (
-    <As
-      className={clsx(
-        'rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6',
-        className,
-      )}
-    >
-      {children}
-    </As>
+    <ShadCard asChild className={cn('gap-0 px-5 sm:px-6', className)}>
+      <As>{children}</As>
+    </ShadCard>
   );
 }
 
@@ -71,25 +94,22 @@ export function CardHeader({
 }) {
   const Heading = level === 2 ? 'h2' : 'h3';
   return (
-    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <Heading id={id} className="text-lg font-semibold tracking-tight sm:text-xl">
-          {title}
-        </Heading>
-        {description ? (
-          <p className="dl-measure mt-1 text-sm text-ink-muted">{description}</p>
-        ) : null}
-      </div>
-      {action}
-    </div>
+    // px-0 because the surrounding Card already pads; shadcn's CardHeader
+    // assumes it is the one applying it.
+    <ShadCardHeader className="mb-4 px-0">
+      <CardTitle asChild>
+        <Heading id={id}>{title}</Heading>
+      </CardTitle>
+      {description ? <CardDescription>{description}</CardDescription> : null}
+      {action ? <CardAction>{action}</CardAction> : null}
+    </ShadCardHeader>
   );
 }
 
 /**
  * A page section that is *not* a card. Most content does not need a surface:
  * a heading and a rule give it hierarchy without the "every fact in its own
- * floating rectangle" look. Reach for `Card` only when the content genuinely
- * needs to be separated from what surrounds it.
+ * floating rectangle" look.
  */
 export function Section({
   title,
@@ -116,62 +136,40 @@ export function Section({
   );
 }
 
-export { Icon } from './icon';
-export type { IconName } from './icon';
+/* --------------------------------------------------------------- actions */
 
-const BUTTON_BASE =
-  'inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] px-5 py-2.5 text-base font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60';
+export { ShadButton as Button };
+export type { ButtonVariant };
 
-const BUTTON_VARIANTS = {
-  primary: 'bg-brand text-white hover:bg-brand-strong dark:text-[oklch(19%_0.012_250)]',
-  secondary:
-    'border border-line-strong bg-surface text-ink hover:border-brand hover:text-brand-ink',
-  ghost: 'text-brand-ink hover:bg-brand-soft',
-  danger: 'border border-critical text-critical hover:bg-critical-soft',
-} as const;
-
-export type ButtonVariant = keyof typeof BUTTON_VARIANTS;
-
-export function Button({
-  children,
-  variant = 'primary',
-  className,
-  type = 'button',
-  ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
-  return (
-    <button
-      type={type}
-      className={clsx(BUTTON_BASE, BUTTON_VARIANTS[variant], className)}
-      {...rest}
-    >
-      {children}
-    </button>
-  );
-}
-
+/**
+ * A link that looks and behaves like a button. `asChild` hands the button's
+ * styling to a real <a>, so it keeps link semantics: opening in a new tab,
+ * "copy link address", and the correct screen-reader role all still work.
+ */
 export function ButtonLink({
   children,
   href,
-  variant = 'primary',
+  variant,
+  size,
   className,
   ...rest
 }: {
   children: ReactNode;
   href: string;
   variant?: ButtonVariant;
+  size?: React.ComponentProps<typeof ShadButton>['size'];
   className?: string;
 } & Omit<React.ComponentProps<typeof Link>, 'href' | 'className'>) {
   return (
-    <Link
-      href={href}
-      className={clsx(BUTTON_BASE, 'dl-target', BUTTON_VARIANTS[variant], className)}
-      {...rest}
-    >
-      {children}
-    </Link>
+    <ShadButton asChild variant={variant} size={size} className={cn('dl-target', className)}>
+      <Link href={href} {...rest}>
+        {children}
+      </Link>
+    </ShadButton>
   );
 }
+
+/* ------------------------------------------------------- status and tone */
 
 export function Badge({
   children,
@@ -183,19 +181,18 @@ export function Badge({
   icon?: IconProp;
 }) {
   return (
-    <span
-      className={clsx(
-        'inline-flex items-center gap-1.5 rounded-[var(--radius-control)] border px-2 py-0.5 text-sm font-medium',
-        TONE_SOFT[tone],
-      )}
-    >
+    <ShadBadge tone={tone}>
       {renderIcon(icon, 'shrink-0')}
       {children}
-    </span>
+    </ShadBadge>
   );
 }
 
-/** Non-alarming contextual message. `tone` never carries meaning by itself. */
+/**
+ * A contextual note. `role="note"` rather than `role="alert"`: these explain
+ * something on a page the user chose to open, and should not interrupt a
+ * screen reader mid-sentence. `ErrorState` is the one that announces.
+ */
 export function Callout({
   children,
   tone = 'info',
@@ -208,21 +205,27 @@ export function Callout({
   icon?: IconProp;
 }) {
   return (
-    <div
-      className={clsx('flex gap-3 rounded-[var(--radius-control)] border p-4', TONE_SOFT[tone])}
-      role="note"
-    >
-      {icon ? <span className="mt-0.5 shrink-0">{renderIcon(icon)}</span> : null}
-      <div className="min-w-0">
-        {title ? <p className="font-semibold">{title}</p> : null}
-        <div className={clsx('dl-measure text-sm', title && 'mt-1')}>{children}</div>
-      </div>
-    </div>
+    <Alert tone={tone}>
+      {renderIcon(icon)}
+      {title ? <AlertTitle>{title}</AlertTitle> : null}
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
+  );
+}
+
+export function ErrorState({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <Alert tone="critical" role="alert" className="p-6">
+      <Icon name="alert" />
+      <AlertTitle>{title}</AlertTitle>
+      {children ? <AlertDescription>{children}</AlertDescription> : null}
+    </Alert>
   );
 }
 
 /**
- * Empty states teach the next action instead of showing an empty chart.
+ * Empty states teach the next action instead of showing an empty chart. They
+ * say what the screen is, why it is empty, and what to do about it.
  */
 export function EmptyState({
   title,
@@ -247,31 +250,6 @@ export function EmptyState({
   );
 }
 
-export function ErrorState({ title, children }: { title: string; children?: ReactNode }) {
-  return (
-    <div
-      role="alert"
-      className="rounded-[var(--radius-card)] border border-critical/40 bg-critical-soft p-6"
-    >
-      <p className="flex items-center gap-2 font-semibold text-critical">
-        <Icon name="alert" className="shrink-0" />
-        {title}
-      </p>
-      {children ? <div className="dl-measure mt-2 text-sm">{children}</div> : null}
-    </div>
-  );
-}
-
-/** Skeleton placeholder used by route-level loading.tsx files. */
-export function Skeleton({ className }: { className?: string }) {
-  return (
-    <div
-      className={clsx('animate-pulse rounded-lg bg-surface-sunken', className)}
-      aria-hidden="true"
-    />
-  );
-}
-
 export function PageHeader({
   title,
   description,
@@ -293,8 +271,14 @@ export function PageHeader({
 }
 
 /**
- * "Why am I seeing this?" disclosure. Native <details> so it works without
- * JavaScript and is announced correctly by screen readers.
+ * "Why am I seeing this?" disclosure.
+ *
+ * Deliberately a native <details> rather than shadcn's Accordion. Accordion is
+ * a client component, and this sits inside server-rendered pages that would
+ * otherwise stay on the server; more importantly, <details> opens with
+ * JavaScript unavailable or still loading, which is the state a slow phone on
+ * mobile data is actually in. The evidence behind an observation is not
+ * something to hide behind a hydration boundary.
  */
 export function WhyThis({
   children,
@@ -316,6 +300,7 @@ export function WhyThis({
   );
 }
 
+/** One health measurement. Tabular figures so a row of these stays aligned. */
 export function Stat({
   label,
   value,
@@ -330,7 +315,10 @@ export function Stat({
   tone?: Tone;
 }) {
   return (
-    <div className={clsx('rounded-[var(--radius-control)] border p-4', TONE_SOFT[tone])}>
+    // A tinted panel, not an Alert. A dashboard row of six metrics announcing
+    // themselves as notes is noise; the tone here is colour, and the meaning
+    // is in the label and the hint beside it.
+    <div className={cn('rounded-[var(--radius-control)] border p-4', toneVariants({ tone }))}>
       <p className="text-sm font-medium">{label}</p>
       <p className="dl-numeric mt-1 text-[1.75rem] font-semibold leading-none sm:text-3xl">
         {value}
@@ -346,9 +334,17 @@ export const MEDICAL_DISCLAIMER =
 
 export function MedicalDisclaimer({ compact = false }: { compact?: boolean }) {
   return (
-    <p className={clsx('dl-measure flex gap-2 text-ink-muted', compact ? 'text-xs' : 'text-sm')}>
+    <p className={cn('dl-measure flex gap-2 text-ink-muted', compact ? 'text-xs' : 'text-sm')}>
       <Icon name="info" className="mt-0.5 shrink-0" />
       <span>{MEDICAL_DISCLAIMER}</span>
     </p>
   );
 }
+
+/* ------------------------------------------- shadcn primitives, re-exported */
+
+export { Skeleton };
+export { CardContent, CardDescription, CardFooter, CardTitle, CardAction };
+export { Alert, AlertTitle, AlertDescription };
+export { Icon } from './icon';
+export type { IconName } from './icon';

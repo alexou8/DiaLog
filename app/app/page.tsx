@@ -112,7 +112,9 @@ export default async function HomePage() {
                largest type in the product. Status is carried by the value, a
                badge with an icon, and a sentence, never by colour alone. */
             <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6">
-              <p className="dl-meta font-medium uppercase tracking-wide">Most recent reading</p>
+              <p className="dl-meta font-medium uppercase tracking-wide">
+                Your most recent reading
+              </p>
               <p className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <span className="dl-numeric text-5xl font-semibold leading-none sm:text-6xl">
                   {formatGlucose(latest.valueMgdl, unit, locale)}

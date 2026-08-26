@@ -2,11 +2,33 @@
 
 import { deleteRecordAction } from '@/lib/actions/records';
 import { Button } from '@/components/ui';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 /**
- * Two-step delete confirmation built from native <details>/<summary> so it
- * works without JavaScript and is announced correctly by screen readers —
- * no window.confirm().
+ * Two-step delete confirmation, on shadcn/ui's AlertDialog.
+ *
+ * This replaced a <details>/<summary> popover. The popover worked without
+ * JavaScript, which the dialog does not, and that trade was made deliberately:
+ * deleting a health record is exactly the case the alertdialog role exists for.
+ * The dialog traps focus, restores it to the trigger on close, closes on
+ * Escape, names itself through aria-labelledby/aria-describedby, and marks the
+ * page behind it inert. The popover did none of that, so a screen-reader user
+ * could tab straight past the confirmation into the page behind it and never
+ * know the prompt was open.
+ *
+ * The destructive action is still a real <form> posting to a Server Action, so
+ * the deletion itself is a normal submit rather than a fetch the client has to
+ * get right.
  */
 export function DeleteRecordButton({
   type,
@@ -18,20 +40,30 @@ export function DeleteRecordButton({
   label: string;
 }) {
   return (
-    <details className="relative inline-block">
-      <summary className="dl-target inline-flex min-h-11 cursor-pointer list-none items-center rounded-xl border-2 border-line-strong px-3 py-2 text-sm font-semibold text-ink-muted marker:content-none hover:border-critical hover:text-critical">
-        Delete
-      </summary>
-      <div className="absolute right-0 z-10 mt-2 w-64 rounded-xl border border-line bg-surface p-3 shadow-lg">
-        <p className="mb-3 text-sm">Delete {label}? This cannot be undone.</p>
-        <form action={deleteRecordAction} className="flex justify-end gap-2">
-          <input type="hidden" name="type" value={type} />
-          <input type="hidden" name="id" value={id} />
-          <Button type="submit" variant="danger" className="px-3 py-1.5 text-sm">
-            Yes, delete
-          </Button>
-        </form>
-      </div>
-    </details>
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="secondary" size="sm" aria-label={`Delete ${label}`}>
+          Delete
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {label}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes the record from your history. It cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep it</AlertDialogCancel>
+          <form action={deleteRecordAction}>
+            <input type="hidden" name="type" value={type} />
+            <input type="hidden" name="id" value={id} />
+            <AlertDialogAction type="submit" variant="danger">
+              Yes, delete
+            </AlertDialogAction>
+          </form>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
