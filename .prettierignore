@@ -5,3 +5,6 @@ prisma/migrations
 package-lock.json
 tests/fixtures/
 docs/screenshots/
+
+.claude/skills
+.agents

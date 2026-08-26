@@ -96,7 +96,14 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      command: 'npm run build && npx next start -p 3100',
+      // In CI the `e2e` job downloads a `.next` build produced by the `build`
+      // job (see .github/workflows/ci.yml) instead of building here a second
+      // time. Set PLAYWRIGHT_SKIP_BUILD=1 in that case to skip straight to
+      // `next start`. Local runs (and any environment without a prebuilt
+      // `.next`) still build first so the suite works standalone.
+      command: process.env.PLAYWRIGHT_SKIP_BUILD
+        ? 'npx next start -p 3100'
+        : 'npm run build && npx next start -p 3100',
       url: 'http://localhost:3100',
       reuseExistingServer: false,
       timeout: 300_000,
