@@ -10,6 +10,7 @@
 
 import { useId, type ReactNode } from 'react';
 import clsx from 'clsx';
+import { Icon } from './icon';
 
 const CONTROL =
   'w-full rounded-xl border-2 border-line-strong bg-surface px-4 py-3 text-base text-ink placeholder:text-ink-muted/70 focus:border-brand';
@@ -53,7 +54,7 @@ export function Field({
       {children({ id, describedBy, invalid: Boolean(error) })}
       {error ? (
         <p id={errorId} className="mt-1.5 text-sm font-medium text-critical">
-          <span aria-hidden="true">⚠ </span>
+          <Icon name="caution" className="shrink-0" />
           {error}
         </p>
       ) : null}
@@ -206,7 +207,7 @@ export function FormStatus({ status }: { status: { ok: boolean; message: string 
               : 'border-critical/40 bg-critical-soft text-critical',
           )}
         >
-          <span aria-hidden="true">{status.ok ? '✓ ' : '⚠ '}</span>
+          <Icon name={status.ok ? 'ok' : 'caution'} className="shrink-0" />
           {status.message}
         </p>
       ) : null}

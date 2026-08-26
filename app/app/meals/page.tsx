@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { prisma } from '@/lib/db/prisma';
 import { dayKeyInZone } from '@/lib/domain/time';
-import { Badge, ButtonLink, Card, CardHeader, EmptyState } from '@/components/ui';
+import { Badge, ButtonLink, Card, CardHeader, EmptyState, Icon } from '@/components/ui';
 import { BarChart, type Bar } from '@/components/charts/BarChart';
 import { DeleteRecordButton } from './DeleteRecordButton';
 
@@ -51,11 +51,11 @@ export default async function MealsPage() {
         </header>
         <EmptyState
           title="No meals logged yet"
-          icon="🍽️"
+          icon="meals"
           action={<ButtonLink href="/app/meals/new">Log your first meal</ButtonLink>}
         >
           <p>
-            Log what you eat to see it here — a short description and the time are all that is
+            Log what you eat to see it here. A short description and the time are all that is
             required. If you add carbs, DiaLog can start showing how meals relate to your readings.
           </p>
         </EmptyState>
@@ -107,7 +107,7 @@ export default async function MealsPage() {
           <p className="mt-1 text-ink-muted">Your recent meals, grouped by day.</p>
         </div>
         <ButtonLink href="/app/meals/new">
-          <span aria-hidden="true">＋</span> Log a meal
+          <Icon name="add" /> Log a meal
         </ButtonLink>
       </header>
 
@@ -147,7 +147,7 @@ export default async function MealsPage() {
                       <p className="flex flex-wrap items-center gap-2">
                         <span className="text-base font-semibold">{meal.description}</span>
                         {meal.estimateSource === 'AI_ESTIMATE' ? (
-                          <Badge tone="info" icon="✨">
+                          <Badge tone="info" icon="chart">
                             Estimated by the assistant
                           </Badge>
                         ) : null}

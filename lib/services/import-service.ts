@@ -56,7 +56,7 @@ export async function prepareImport(params: {
   const detection = detectConnector(parsedFile);
   if (!detection) {
     throw new ImportError(
-      'DiaLog could not recognise the layout of that file. The supported formats are listed on this page — a plain CSV with a date column and a glucose column always works.',
+      'DiaLog could not recognise the layout of that file. The supported formats are listed on this page. A plain CSV with a date column and a glucose column always works.',
     );
   }
 

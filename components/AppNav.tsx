@@ -4,27 +4,28 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import type { Dictionary } from '@/lib/i18n/dictionaries';
+import { Icon, type IconName } from '@/components/ui/icon';
 
 export interface NavItem {
   href: string;
   labelKey: keyof Dictionary['nav'];
-  icon: string;
+  icon: IconName;
   /** Shown in the compact mobile bar. Five items maximum. */
   primary?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: '/app', labelKey: 'home', icon: '🏠', primary: true },
-  { href: '/app/insights', labelKey: 'insights', icon: '💡', primary: true },
-  { href: '/app/glucose', labelKey: 'glucose', icon: '💧', primary: true },
-  { href: '/app/meals', labelKey: 'meals', icon: '🍽️' },
-  { href: '/app/activity', labelKey: 'activity', icon: '🚶' },
-  { href: '/app/health', labelKey: 'health', icon: '❤️' },
-  { href: '/app/assistant', labelKey: 'assistant', icon: '💬', primary: true },
-  { href: '/app/reports', labelKey: 'reports', icon: '📄' },
-  { href: '/app/history', labelKey: 'history', icon: '🗂️' },
-  { href: '/app/import', labelKey: 'import', icon: '📥' },
-  { href: '/app/settings', labelKey: 'settings', icon: '⚙️', primary: true },
+  { href: '/app', labelKey: 'home', icon: 'home', primary: true },
+  { href: '/app/insights', labelKey: 'insights', icon: 'insights', primary: true },
+  { href: '/app/glucose', labelKey: 'glucose', icon: 'glucose', primary: true },
+  { href: '/app/meals', labelKey: 'meals', icon: 'meals' },
+  { href: '/app/activity', labelKey: 'activity', icon: 'activity' },
+  { href: '/app/health', labelKey: 'health', icon: 'health' },
+  { href: '/app/assistant', labelKey: 'assistant', icon: 'assistant', primary: true },
+  { href: '/app/reports', labelKey: 'reports', icon: 'reports' },
+  { href: '/app/history', labelKey: 'history', icon: 'history' },
+  { href: '/app/import', labelKey: 'import', icon: 'import' },
+  { href: '/app/settings', labelKey: 'settings', icon: 'settings', primary: true },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -45,13 +46,16 @@ export function SideNav({ dict }: { dict: Dictionary }) {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={clsx(
-                  'dl-target flex items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium',
-                  active ? 'bg-brand-soft font-semibold text-brand-ink' : 'hover:bg-surface-sunken',
+                  // The active item is marked by a left rule as well as by
+                  // colour and `aria-current`, so the current location is
+                  // still obvious without colour perception.
+                  'dl-target flex items-center gap-3 border-l-2 py-2.5 pl-3 pr-3 text-base',
+                  active
+                    ? 'border-brand bg-brand-soft font-semibold text-brand-ink'
+                    : 'border-transparent font-medium text-ink-muted hover:border-line-strong hover:bg-surface-sunken hover:text-ink',
                 )}
               >
-                <span aria-hidden="true" className="text-lg">
-                  {item.icon}
-                </span>
+                <Icon name={item.icon} className="shrink-0" size="1.25em" />
                 {dict.nav[item.labelKey]}
               </Link>
             </li>
@@ -84,14 +88,14 @@ export function BottomNav({ dict }: { dict: Dictionary }) {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={clsx(
-                  'flex flex-col items-center gap-0.5 px-1 py-2 text-xs font-medium',
-                  active ? 'text-brand-ink' : 'text-ink-muted',
+                  // A top rule repeats what the colour says, for the same
+                  // reason as the sidebar.
+                  'flex flex-col items-center gap-1 border-t-2 px-1 pb-2 pt-2 text-xs font-medium',
+                  active ? 'border-brand text-brand-ink' : 'border-transparent text-ink-muted',
                 )}
               >
-                <span aria-hidden="true" className="text-xl leading-none">
-                  {item.icon}
-                </span>
-                <span className={clsx(active && 'font-bold')}>{dict.nav[item.labelKey]}</span>
+                <Icon name={item.icon} size="1.5em" />
+                <span className={clsx(active && 'font-semibold')}>{dict.nav[item.labelKey]}</span>
               </Link>
             </li>
           );

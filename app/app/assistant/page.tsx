@@ -27,12 +27,12 @@ export default async function AssistantPage() {
         <PageHeader title="Assistant" />
         <EmptyState
           title="The assistant is switched off"
-          icon="💬"
+          icon="assistant"
           action={<ButtonLink href="/app/settings">Open settings</ButtonLink>}
         >
           <p>
-            You turned the assistant off for your account. Everything else in DiaLog — your
-            readings, charts and observations — keeps working exactly the same.
+            You turned the assistant off for your account. Everything else in DiaLog, including your
+            readings, charts and observations, keeps working exactly the same.
           </p>
         </EmptyState>
       </div>
@@ -43,12 +43,12 @@ export default async function AssistantPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
         title="Ask about your data"
-        description="Questions are answered from the observations DiaLog has already worked out from your records — not from your raw readings, and not from anything outside your account."
+        description="Questions are answered from the observations DiaLog has already worked out from your records, not from your raw readings, and not from anything outside your account."
       />
 
       <Callout
         tone={provider.isExternal ? 'notice' : 'positive'}
-        icon={provider.isExternal ? 'ⓘ' : '🔒'}
+        icon={provider.isExternal ? 'external' : 'local'}
         title={
           provider.isExternal
             ? `Answers are written by ${provider.name}`
@@ -57,8 +57,8 @@ export default async function AssistantPage() {
       >
         {provider.isExternal ? (
           <p>
-            Only the summarised findings — figures such as &ldquo;average post-dinner reading across
-            14 days&rdquo; — are sent. Your individual readings and your notes are not. You can
+            Only the summarised findings, figures such as &ldquo;average post-dinner reading across
+            14 days&rdquo;, are sent. Your individual readings and your notes are not. You can
             switch this off in Settings.
           </p>
         ) : (
@@ -72,7 +72,7 @@ export default async function AssistantPage() {
       {!hasData ? (
         <EmptyState
           title="There is nothing to ask about yet"
-          icon="💬"
+          icon="assistant"
           action={<ButtonLink href="/app/glucose/new">Add a reading</ButtonLink>}
         >
           <p>

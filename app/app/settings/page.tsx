@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { getProvider } from '@/lib/ai/provider';
 import { recordCounts } from '@/lib/db/health-records';
-import { PageHeader } from '@/components/ui';
+import { Icon, PageHeader } from '@/components/ui';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UnitsForm } from './UnitsForm';
 import { RegionForm } from './RegionForm';
@@ -220,11 +220,11 @@ export default async function SettingsPage({
 
         <div className="rounded-[var(--radius-card)] border-2 border-critical/50 bg-critical-soft/40 p-5 sm:p-6">
           <h3 className="text-lg font-semibold text-critical">
-            <span aria-hidden="true">⚠ </span>
+            <Icon name="caution" className="shrink-0" />
             Permanently delete
           </h3>
           <p className="mt-1 max-w-prose text-sm text-ink">
-            These actions cannot be undone. Nothing is kept in a recoverable state — once you
+            These actions cannot be undone. Nothing is kept in a recoverable state. Once you
             confirm, the data is gone.
           </p>
           <div className="mt-5 space-y-6">

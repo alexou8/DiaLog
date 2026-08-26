@@ -12,8 +12,14 @@
 */
 
 @theme {
+  /* Inter first where it is installed, then the platform UI face. Both are
+     high-legibility grotesques with unambiguous 1/l/I and open apertures,
+     which matters for reading a glucose value at a glance. No webfont is
+     downloaded: a health app should render its numbers on the first paint,
+     not after a font swap. */
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    Inter, 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
 
   /* Neutrals — warm, paper-like rather than clinical white. */
   --color-canvas: oklch(98.4% 0.005 95);
@@ -43,8 +49,16 @@
   --color-info: oklch(45% 0.1 260);
   --color-info-soft: oklch(96% 0.025 260);
 
-  --radius-card: 0.875rem;
+  /* Restrained radii. Health data reads as a record, not as a chat bubble,
+     so surfaces are only slightly softened. */
+  --radius-card: 0.625rem;
+  --radius-control: 0.5rem;
+
+  /* Type scale. Kept short on purpose: seven steps cover the whole product,
+     which is what keeps headings consistent between pages. */
   --text-base: 1.0625rem;
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.4;
 }
 
 @layer base {
@@ -141,10 +155,47 @@
   h4 {
     text-wrap: balance;
     line-height: 1.25;
+    /* A touch of negative tracking at display sizes; headings otherwise look
+       loose next to the tighter body face. */
+    letter-spacing: -0.012em;
+  }
+
+  /* Every number in the product is compared against another number, so all
+     digits are tabular by default and the zero is slashed where the face
+     offers it. This is what stops a column of readings from shifting as the
+     values change. */
+  :is(td, th, .dl-numeric, output) {
+    font-variant-numeric: tabular-nums slashed-zero;
   }
 }
 
 @layer components {
+  /* A measured column for prose. Long health explanations become unreadable
+     past roughly 70 characters. */
+  .dl-measure {
+    max-width: 68ch;
+  }
+
+  /* A health measurement: large, tabular, and tracked slightly tight so the
+     value and its unit read as one token. */
+  .dl-numeric {
+    font-variant-numeric: tabular-nums slashed-zero;
+    letter-spacing: -0.015em;
+  }
+
+  /* Metadata: timestamps, units, record counts, source labels. */
+  .dl-meta {
+    font-size: var(--text-meta);
+    line-height: 1.4;
+    color: var(--color-ink-muted);
+  }
+
+  /* Section rule used instead of wrapping everything in a card. Hierarchy
+     comes from layout first and surfaces second. */
+  .dl-rule {
+    border-top: 1px solid var(--color-line);
+  }
+
   .dl-skip-link {
     position: absolute;
     left: -9999px;

@@ -102,7 +102,7 @@ export default async function HistoryPage({
 
       <Card>
         {rows.length === 0 ? (
-          <EmptyState title={`No ${TAB_LABELS[type].toLowerCase()} records yet`} icon="🗂️">
+          <EmptyState title={`No ${TAB_LABELS[type].toLowerCase()} records yet`} icon="history">
             <p>
               Once you log some, they will show up here with the option to review or delete them.
             </p>

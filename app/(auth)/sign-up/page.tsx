@@ -27,7 +27,7 @@ export default async function SignUpPage({
       <h1 className="text-2xl font-bold sm:text-3xl">Create your account</h1>
       <p className="mt-2 text-ink-muted">
         {google
-          ? 'You only need an email address — or your Google account. There is nothing to pay and no card to enter.'
+          ? 'You only need an email address, or your Google account. There is nothing to pay and no card to enter.'
           : 'You only need an email address and a password. There is nothing to pay and no card to enter.'}
       </p>
 

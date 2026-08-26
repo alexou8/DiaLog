@@ -78,7 +78,7 @@ export default async function ReportsPage({
       {summary.count === 0 ? (
         <EmptyState
           title="No readings in this period"
-          icon="📄"
+          icon="reports"
           action={<ButtonLink href="/app/glucose/new">Add a reading</ButtonLink>}
         >
           <p>A report needs readings to report on. Add a few and this page will fill itself in.</p>
@@ -93,7 +93,7 @@ export default async function ReportsPage({
                   <dt className="text-sm font-medium text-ink-muted">Average reading</dt>
                   <dd className="text-xl font-bold tabular-nums">
                     {summary.averageMgdl == null
-                      ? '—'
+                      ? 'No data'
                       : formatGlucose(summary.averageMgdl, unit, profile.locale)}{' '}
                     <span className="text-base font-normal">{unitLabel(unit)}</span>
                   </dd>
@@ -104,7 +104,7 @@ export default async function ReportsPage({
                   </dt>
                   <dd className="text-xl font-bold tabular-nums">
                     {summary.percentInRange == null
-                      ? '—'
+                      ? 'No data'
                       : `${Math.round(summary.percentInRange)}%`}
                   </dd>
                 </div>
@@ -113,7 +113,7 @@ export default async function ReportsPage({
                     How much your readings varied
                   </dt>
                   <dd className="text-xl font-bold tabular-nums">
-                    {summary.cv == null ? '—' : `${Math.round(summary.cv * 100)}%`}
+                    {summary.cv == null ? 'No data' : `${Math.round(summary.cv * 100)}%`}
                   </dd>
                 </div>
                 <div>
@@ -154,7 +154,7 @@ export default async function ReportsPage({
                   <dt className="text-sm font-medium text-ink-muted">Sleep</dt>
                   <dd className="text-xl font-bold tabular-nums">
                     {sleep._avg.durationMin == null
-                      ? '—'
+                      ? 'No data'
                       : `${(sleep._avg.durationMin / 60).toFixed(1)} h`}
                   </dd>
                   <dd className="text-sm text-ink-muted">
@@ -177,7 +177,7 @@ export default async function ReportsPage({
               {strongest.length === 0 ? (
                 <p className="text-ink-muted">
                   Nothing reached the point where DiaLog would call it a pattern this period. That
-                  is a finding in itself — it usually means either a steady stretch, or not enough
+                  is a finding in itself. It usually means either a steady stretch, or not enough
                   logged days to compare.
                 </p>
               ) : (
@@ -210,7 +210,7 @@ export default async function ReportsPage({
                 ))}
               </ul>
               <div className="mt-5">
-                <Callout tone="info" icon="ⓘ" title="Taking this to an appointment">
+                <Callout tone="info" icon="info" title="Taking this to an appointment">
                   You can download your full history from Settings as a file, so your healthcare
                   professional can see the underlying readings rather than only this summary.
                 </Callout>
@@ -230,7 +230,7 @@ function describeTrend(classification: string): string {
     case 'improving':
       return 'Across this period your readings drifted downwards. A single period is not a trend on its own, so this is worth watching rather than concluding from.';
     case 'rising':
-      return 'Across this period your readings drifted upwards. Many ordinary things can do that — illness, a change in routine, different timing of tests — so it is a prompt to look, not a verdict.';
+      return 'Across this period your readings drifted upwards. Many ordinary things can do that, including illness, a change in routine and different timing of tests, so it is a prompt to look, not a verdict.';
     case 'more-variable':
       return 'Your readings were more spread out than earlier in the period, which usually means the days differed more from each other than usual.';
     case 'stable':

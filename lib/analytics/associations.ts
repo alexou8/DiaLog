@@ -182,7 +182,7 @@ export function postDinnerActivityComparison(input: AnalyticsInput): Finding | n
     ...periodBounds(input),
     caveats: [
       'These days may differ in other ways that were not recorded (what was eaten, sleep, stress).',
-      'Only logged activity is counted — unlogged activity is treated as none.',
+      'Only logged activity is counted. Unlogged activity is treated as none.',
     ],
   };
 }

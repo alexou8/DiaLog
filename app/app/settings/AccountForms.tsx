@@ -240,7 +240,7 @@ export function DeleteAllRecordsForm({
       <p className="mt-1 max-w-prose text-sm text-ink">
         Permanently deletes all {totalRecords.toLocaleString()} of your glucose readings, meals,
         activity, sleep, medication, weight, blood pressure, mood and note entries. Your account,
-        sign-in and settings are kept. This cannot be undone — there is no way to recover deleted
+        sign-in and settings are kept. This cannot be undone. There is no way to recover deleted
         records.
       </p>
 
@@ -294,7 +294,7 @@ export function DeleteAccountForm({
         Delete your account
       </h4>
       <p className="mt-1 max-w-prose text-sm text-ink">
-        Permanently deletes your DiaLog account and every record in it — readings, meals, activity,
+        Permanently deletes your DiaLog account and every record in it: readings, meals, activity,
         sleep, medication, weight, blood pressure, mood, notes, imports, insights and assistant
         conversations. You will be signed out immediately. This cannot be undone; there is no
         recovery, grace period, or way to reactivate the account afterwards.

@@ -50,7 +50,7 @@ export function DisplayForm({ profile }: { profile: Profile }) {
       <RadioCards
         name="detailLevel"
         legend="How much detail to show on your dashboard"
-        hint="You can change this at any time — it only affects how much is shown, not what is recorded."
+        hint="You can change this at any time. It only affects how much is shown, not what is recorded."
         defaultValue={profile.detailLevel}
         columns={3}
         options={[

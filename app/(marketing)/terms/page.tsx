@@ -15,7 +15,7 @@ export default function TermsPage() {
 
       <h2>Not medical advice</h2>
       <p>
-        Nothing in DiaLog — including observations, summaries and anything the assistant writes — is
+        Nothing in DiaLog, including observations, summaries and anything the assistant writes, is
         medical advice, diagnosis or treatment. Do not use DiaLog to make decisions about
         medication, insulin, diet or treatment. Always consult a qualified healthcare professional.
         In an emergency, contact your local emergency services.

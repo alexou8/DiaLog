@@ -92,10 +92,10 @@ export default async function ImportPage() {
           <CardHeader
             id="history"
             title="Your imports"
-            description="Every import is recorded, so you can always see where a reading came from — and undo a whole import if it went wrong."
+            description="Every import is recorded, so you can always see where a reading came from, and undo a whole import if it went wrong."
           />
           {batches.length === 0 ? (
-            <EmptyState title="No imports yet" icon="📥">
+            <EmptyState title="No imports yet" icon="import">
               <p>When you import a file, it will be listed here with what it added.</p>
             </EmptyState>
           ) : (

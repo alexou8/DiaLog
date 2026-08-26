@@ -12,11 +12,11 @@ const QUALITY_OPTIONS: {
   label: string;
   description: string;
 }[] = [
-  { value: '1', label: '1 — Poor', description: 'Woke up feeling exhausted' },
-  { value: '2', label: '2 — Fair', description: 'Restless, several wake-ups' },
-  { value: '3', label: '3 — Okay', description: 'An average night' },
-  { value: '4', label: '4 — Good', description: 'Slept well, woke rested' },
-  { value: '5', label: '5 — Excellent', description: 'Deep, uninterrupted sleep' },
+  { value: '1', label: '1: Poor', description: 'Woke up feeling exhausted' },
+  { value: '2', label: '2: Fair', description: 'Restless, several wake-ups' },
+  { value: '3', label: '3: Okay', description: 'An average night' },
+  { value: '4', label: '4: Good', description: 'Slept well, woke rested' },
+  { value: '5', label: '5: Excellent', description: 'Deep, uninterrupted sleep' },
 ];
 
 function Submit() {

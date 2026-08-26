@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { prisma } from '@/lib/db/prisma';
-import { Badge, ButtonLink, Callout, Card, CardHeader, EmptyState } from '@/components/ui';
+import { Badge, ButtonLink, Callout, Card, CardHeader, EmptyState, Icon } from '@/components/ui';
 import { DeleteRecordButton } from './DeleteRecordButton';
 
 export const metadata: Metadata = { title: 'Health' };
@@ -90,7 +90,7 @@ export default async function HealthPage({
       <div aria-live="polite">
         {addedMessage ? (
           <p className="rounded-xl border border-positive/40 bg-positive-soft p-3 text-sm font-medium text-positive">
-            <span aria-hidden="true">✓ </span>
+            <Icon name="ok" className="shrink-0" />
             {addedMessage}
           </p>
         ) : null}
@@ -109,7 +109,7 @@ export default async function HealthPage({
             }
           />
           {sleep.length === 0 ? (
-            <EmptyState title="No sleep logged yet" icon="🌙">
+            <EmptyState title="No sleep logged yet" icon="sleep">
               <p>Log your bedtime and wake time to start seeing patterns.</p>
             </EmptyState>
           ) : (
@@ -148,12 +148,12 @@ export default async function HealthPage({
               </ButtonLink>
             }
           />
-          <Callout tone="info" icon="ℹ️">
+          <Callout tone="info" icon="info">
             DiaLog records medication events so you can see your own timing next to your readings.
             It never calculates or suggests doses.
           </Callout>
           {medication.length === 0 ? (
-            <EmptyState title="No medication events yet" icon="💊">
+            <EmptyState title="No medication events yet" icon="medication">
               <p>Record when you take something to see it alongside your readings.</p>
             </EmptyState>
           ) : (
@@ -192,7 +192,7 @@ export default async function HealthPage({
             }
           />
           {weight.length === 0 ? (
-            <EmptyState title="No weight logged yet" icon="⚖️">
+            <EmptyState title="No weight logged yet" icon="weight">
               <p>Log your weight to track it over time.</p>
             </EmptyState>
           ) : (
@@ -227,7 +227,7 @@ export default async function HealthPage({
             }
           />
           {bloodPressure.length === 0 ? (
-            <EmptyState title="No blood pressure logged yet" icon="🩺">
+            <EmptyState title="No blood pressure logged yet" icon="bloodPressure">
               <p>Log a reading to start tracking your blood pressure over time.</p>
             </EmptyState>
           ) : (
@@ -272,7 +272,7 @@ export default async function HealthPage({
             }
           />
           {mood.length === 0 ? (
-            <EmptyState title="No mood entries yet" icon="🙂">
+            <EmptyState title="No mood entries yet" icon="mood">
               <p>A quick check-in helps you see how you have been feeling over time.</p>
             </EmptyState>
           ) : (
@@ -350,7 +350,7 @@ export default async function HealthPage({
           {symptoms.length === 0 ? (
             <EmptyState title="Nothing noted yet" icon="\u{1F4DD}">
               <p>
-                If you notice something — feeling tired, shaky, unusually thirsty — noting it here
+                If you notice something (feeling tired, shaky, unusually thirsty), noting it here
                 gives you something concrete to mention at your next appointment.
               </p>
             </EmptyState>

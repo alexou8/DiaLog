@@ -1,3 +1,4 @@
+import { Icon } from '@/components/ui';
 import { oauthMessage } from '@/lib/auth/oauth/link';
 
 /**
@@ -13,7 +14,7 @@ export function AuthNotice({ code }: { code?: string | string[] }) {
       role="alert"
       className="mt-6 rounded-xl border border-critical/40 bg-critical-soft p-3 text-sm font-medium text-critical"
     >
-      <span aria-hidden="true">⚠ </span>
+      <Icon name="caution" className="shrink-0" />
       {message}
     </p>
   );

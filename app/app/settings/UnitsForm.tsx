@@ -75,7 +75,7 @@ export function UnitsForm({ profile }: { profile: Profile }) {
       <fieldset className="mb-2">
         <legend className="mb-1.5 text-base font-semibold">Your personal target range</legend>
         <p className="mb-3 text-sm text-ink-muted">
-          This is the range you and your healthcare professional consider reasonable for you — not a
+          This is the range you and your healthcare professional consider reasonable for you, not a
           clinical threshold, and not medical advice. DiaLog uses it only to describe your own
           readings (for example, &ldquo;in your target range&rdquo;); it never changes what is
           stored.
@@ -116,7 +116,7 @@ export function UnitsForm({ profile }: { profile: Profile }) {
         </div>
       </fieldset>
 
-      <Callout tone="info" icon="ℹ️">
+      <Callout tone="info" icon="info">
         Changing your target range changes how readings are labelled going forward. It does not
         re-interpret past observations or alter any reading you already logged.
       </Callout>

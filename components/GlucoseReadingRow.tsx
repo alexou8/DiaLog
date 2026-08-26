@@ -3,7 +3,8 @@ import { classifyGlucose, GLUCOSE_CONTEXT_LABELS, type TargetRange } from '@/lib
 import { formatGlucose, unitLabel } from '@/lib/domain/units';
 import { Badge } from '@/components/ui';
 
-const BAND_ICON = { alert: '!', down: '▼', check: '✓', up: '▲' } as const;
+/** Band name to icon-registry name. Status also carries a text label. */
+const BAND_ICON = { alert: 'alert', down: 'down', check: 'ok', up: 'up' } as const;
 
 /**
  * One reading, shown with value, unit, plain-language status, icon and time.

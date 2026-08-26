@@ -74,7 +74,7 @@ export default async function GlucosePage({
     id: band.id,
     label: band.label,
     tone: band.tone,
-    icon: band.icon === 'check' ? '✓' : band.icon === 'up' ? '▲' : band.icon === 'down' ? '▼' : '!',
+    icon: band.icon === 'check' ? ('ok' as const) : (band.icon as 'up' | 'down' | 'alert'),
     count: readings.filter((r) => classifyGlucose(r.valueMgdl, range).id === band.id).length,
   }));
 
@@ -88,7 +88,7 @@ export default async function GlucosePage({
 
       {params.added ? (
         <div role="status">
-          <Callout tone="positive" icon="✓" title="Reading saved">
+          <Callout tone="positive" icon="ok" title="Reading saved">
             Your reading has been added to your history.
           </Callout>
         </div>
@@ -114,7 +114,7 @@ export default async function GlucosePage({
       {readings.length === 0 ? (
         <EmptyState
           title="No readings in this period"
-          icon="💧"
+          icon="glucose"
           action={
             <>
               <ButtonLink href="/app/glucose/new">Add a reading</ButtonLink>
@@ -139,7 +139,7 @@ export default async function GlucosePage({
                   label="Average"
                   value={
                     summary.averageMgdl == null
-                      ? '—'
+                      ? 'No data'
                       : formatGlucose(summary.averageMgdl, unit, locale)
                   }
                   unit={unitLabel(unit)}
@@ -148,7 +148,7 @@ export default async function GlucosePage({
                   label="Middle value (median)"
                   value={
                     summary.medianMgdl == null
-                      ? '—'
+                      ? 'No data'
                       : formatGlucose(summary.medianMgdl, unit, locale)
                   }
                   unit={unitLabel(unit)}
@@ -156,13 +156,17 @@ export default async function GlucosePage({
                 <Stat
                   label="In your target range"
                   value={
-                    summary.percentInRange == null ? '—' : `${Math.round(summary.percentInRange)}%`
+                    summary.percentInRange == null
+                      ? 'No data'
+                      : `${Math.round(summary.percentInRange)}%`
                   }
                   hint="Share of readings"
                 />
                 <Stat
                   label="Readings per day"
-                  value={summary.readingsPerDay == null ? '—' : summary.readingsPerDay.toFixed(1)}
+                  value={
+                    summary.readingsPerDay == null ? 'No data' : summary.readingsPerDay.toFixed(1)
+                  }
                   hint={`${summary.daysWithReadings} days with readings`}
                 />
               </div>
@@ -177,7 +181,7 @@ export default async function GlucosePage({
               <CardHeader
                 id="timeline"
                 title="Over time"
-                description="Dotted lines mark meals (🍽) and activity (🚶) you logged."
+                description="Dotted lines mark the meals and activity you logged."
               />
               <GlucoseTimeline
                 points={timeline}

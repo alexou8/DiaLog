@@ -19,8 +19,8 @@ export default function AboutPage() {
       <p>The pipeline is deliberately boring in the places where being boring is safer:</p>
       <ul>
         <li>
-          <strong>Your records are normalised.</strong> Whatever the source — a meter export, a
-          spreadsheet, a form you filled in — everything becomes the same kind of timestamped event,
+          <strong>Your records are normalised.</strong> Whatever the source (a meter export, a
+          spreadsheet, a form you filled in), everything becomes the same kind of timestamped event,
           with its origin recorded so you can always trace a reading back to where it came from.
         </li>
         <li>
@@ -35,7 +35,7 @@ export default function AboutPage() {
         </li>
         <li>
           <strong>Language models only explain.</strong> The assistant never sees your raw records.
-          It receives a structured set of findings — each with its sample size and confidence — and
+          It receives a structured set of findings, each with its sample size and confidence, and
           its job is to put them into readable sentences. It cannot invent a number that the
           analysis did not produce.
         </li>
@@ -55,7 +55,7 @@ export default function AboutPage() {
         DiaLog is not a medical device and has not been assessed by any regulator. It does not
         diagnose, does not calculate or recommend doses, and does not tell you to change anything
         about your treatment. Medication logging exists so you can see your own timing next to your
-        own readings — that is medication <em>tracking</em>, which is a different thing from
+        own readings. That is medication <em>tracking</em>, which is a different thing from
         medication management.
       </p>
 

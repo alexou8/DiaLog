@@ -100,7 +100,7 @@ export async function analyzeImportAction(
                 ? record.name
                 : record.kind === 'exercise'
                   ? `${record.activity}, ${record.durationMin} min`
-                  : '—',
+                  : 'Not recorded',
       })),
     };
   } catch (error) {

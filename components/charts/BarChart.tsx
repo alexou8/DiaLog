@@ -47,7 +47,7 @@ export function BarChart({
         rows: bars.map((b) => [
           b.label,
           b.value == null ? 'Not enough data' : format(b.value),
-          b.n ?? '—',
+          b.n ?? 'No data',
         ]),
       }}
     >
@@ -102,7 +102,7 @@ export function BarChart({
                   textAnchor="middle"
                   fill="var(--color-ink-muted)"
                 >
-                  —
+                  n/a
                 </text>
               )}
               <text

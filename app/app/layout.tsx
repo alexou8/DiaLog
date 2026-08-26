@@ -5,7 +5,7 @@ import { requireUser } from '@/lib/auth/current-user';
 import { getDictionary } from '@/lib/i18n/dictionaries';
 import { signOutAction } from '@/lib/actions/auth';
 import { BottomNav, SideNav } from '@/components/AppNav';
-import { ButtonLink } from '@/components/ui';
+import { ButtonLink, Icon } from '@/components/ui';
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
@@ -23,7 +23,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <header className="dl-safe-top sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link href="/app" className="dl-target flex items-center gap-2 text-lg font-bold">
+          <Link
+            href="/app"
+            className="dl-target flex items-center gap-2 text-lg font-semibold tracking-tight"
+          >
             <Image
               src="/icons/icon-192.png"
               alt=""
@@ -36,13 +39,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <div className="flex items-center gap-2">
             <ButtonLink href="/app/glucose/new" className="px-4 py-2 text-sm sm:text-base">
-              <span aria-hidden="true">＋</span> {dict.nav.add}
+              <Icon name="add" /> {dict.nav.add}
             </ButtonLink>
             <form action={signOutAction}>
               <button
                 type="submit"
-                className="dl-target rounded-xl px-3 py-2 text-sm font-semibold text-ink-muted underline underline-offset-4 hover:text-ink"
+                className="dl-target inline-flex items-center gap-2 rounded-[var(--radius-control)] px-3 py-2 text-sm font-semibold text-ink-muted hover:bg-surface-sunken hover:text-ink"
               >
+                <Icon name="signOut" />
                 {dict.nav.signOut}
               </button>
             </form>

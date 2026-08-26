@@ -45,10 +45,10 @@ export default function PrivacyPage() {
       </p>
       <p>
         If an external AI provider is configured and you switch it on, DiaLog sends only the
-        structured findings produced by the analysis — figures such as &ldquo;average post-dinner
-        reading across 14 comparable days&rdquo; — never your raw records, and never your free-text
-        notes unless you separately consent to that. You can turn the assistant off entirely in
-        Settings, and everything else keeps working.
+        structured findings produced by the analysis. These are figures such as &ldquo;average
+        post-dinner reading across 14 comparable days&rdquo;, never your raw records, and never your
+        free-text notes unless you separately consent to that. You can turn the assistant off
+        entirely in Settings, and everything else keeps working.
       </p>
 
       <h2>Your control</h2>

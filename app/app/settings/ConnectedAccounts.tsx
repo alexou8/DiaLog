@@ -1,5 +1,5 @@
 import { GoogleButton } from '@/components/auth/GoogleButton';
-import { Button } from '@/components/ui';
+import { Button, Icon } from '@/components/ui';
 
 /**
  * The Google connection panel. A server component: every outcome of connecting
@@ -20,8 +20,8 @@ export function ConnectedAccounts({
       <h3 className="text-lg font-semibold">Sign in with Google</h3>
       <p className="mt-1 max-w-prose text-sm text-ink-muted">
         {googleEmail
-          ? `Your account is connected to ${googleEmail}. DiaLog only uses Google to check it is you — none of your health data is shared with Google.`
-          : 'Connect your Google account so you can sign in with one tap. DiaLog only uses Google to check it is you — none of your health data is shared with Google.'}
+          ? `Your account is connected to ${googleEmail}. DiaLog only uses Google to check it is you. None of your health data is shared with Google.`
+          : 'Connect your Google account so you can sign in with one tap. DiaLog only uses Google to check it is you. None of your health data is shared with Google.'}
       </p>
 
       {notice ? (
@@ -33,7 +33,7 @@ export function ConnectedAccounts({
               : 'mt-4 rounded-xl border border-critical/40 bg-critical-soft p-3 text-sm font-medium text-critical'
           }
         >
-          <span aria-hidden="true">{notice.ok ? '✓ ' : '⚠ '}</span>
+          <Icon name={notice.ok ? 'ok' : 'caution'} className="shrink-0" />
           {notice.message}
         </p>
       ) : null}
