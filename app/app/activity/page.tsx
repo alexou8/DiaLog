@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { prisma } from '@/lib/db/prisma';
 import { dayKeyInZone, daysAgo, weekdayInZone } from '@/lib/domain/time';
-import { ButtonLink, Card, CardHeader, EmptyState, Icon, Stat } from '@/components/ui';
+import { ButtonLink, Card, CardHeader, EmptyState, Icon, PageHeader, Stat } from '@/components/ui';
 import { BarChart, type Bar } from '@/components/charts/BarChart';
 import { DeleteRecordButton } from './DeleteRecordButton';
 
@@ -39,9 +39,7 @@ export default async function ActivityPage() {
   if (sessions.length === 0) {
     return (
       <div className="space-y-6">
-        <header>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Activity</h1>
-        </header>
+        <PageHeader title="Activity" />
         <EmptyState
           title="No activity logged yet"
           icon="activity"
@@ -92,15 +90,15 @@ export default async function ActivityPage() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Activity</h1>
-          <p className="mt-1 text-ink-muted">Your recent sessions, grouped by day.</p>
-        </div>
-        <ButtonLink href="/app/activity/new">
-          <Icon name="add" /> Log activity
-        </ButtonLink>
-      </header>
+      <PageHeader
+        title="Activity"
+        description="Your recent sessions, grouped by day."
+        action={
+          <ButtonLink href="/app/activity/new">
+            <Icon name="add" /> Log activity
+          </ButtonLink>
+        }
+      />
 
       <section aria-labelledby="activity-week-heading">
         <Card>

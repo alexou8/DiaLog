@@ -195,7 +195,30 @@ function cellToString(value: ExcelJS.CellValue): string {
 
 // ---------------------------------------------------------------- XML
 
+/**
+ * XML entity expansion ("billion laughs") is a decompression-bomb attack: a
+ * few kilobytes of nested DOCTYPE entity definitions expand to gigabytes
+ * during parsing, so the MAX_FILE_BYTES ceiling below does not bound it — the
+ * blow-up happens after the size check passes. fast-xml-parser has carried a
+ * series of advisories for exactly this (GHSA-jmr7-xgp7-cmfj and its
+ * incomplete fixes), so the pinned version is only half the defence.
+ *
+ * None of the formats DiaLog imports uses a DTD: Apple Health's export.xml,
+ * LibreView and the generic-XML fallback are all plain element trees. So we
+ * reject any internal subset outright rather than relying on the parser's
+ * expansion limits. This keeps standard predefined entities (`&amp;`, which
+ * does appear in Apple Health `sourceName` attributes) working, which
+ * `processEntities: false` would have broken.
+ */
+const DOCTYPE_WITH_INTERNAL_SUBSET = /<!DOCTYPE[^>[]*\[/i;
+
 export function parseXmlText(text: string): unknown {
+  if (DOCTYPE_WITH_INTERNAL_SUBSET.test(text)) {
+    throw new Error(
+      'XML file declares a DOCTYPE internal subset (custom entities), which is not ' +
+        'supported and is rejected because it can be used to exhaust memory during parsing.',
+    );
+  }
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',

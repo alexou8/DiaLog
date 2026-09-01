@@ -43,7 +43,7 @@ export function DataExport({ totalRecords }: { totalRecords: number }) {
               <li key={type}>
                 <a
                   href={`/api/export?format=csv&type=${type}`}
-                  className="dl-target flex min-h-11 items-center gap-2 rounded-xl border-2 border-line-strong px-4 py-2.5 text-sm font-semibold hover:border-brand hover:text-brand-ink"
+                  className="dl-target flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] border-2 border-line-strong px-4 py-2.5 text-sm font-semibold hover:border-brand hover:text-brand-ink"
                 >
                   <Icon name="download" /> {exportLabel(type)} (CSV)
                 </a>

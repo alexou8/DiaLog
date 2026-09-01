@@ -1,5 +1,5 @@
 import { GoogleButton } from '@/components/auth/GoogleButton';
-import { Button, Icon } from '@/components/ui';
+import { Button, Callout } from '@/components/ui';
 
 /**
  * The Google connection panel. A server component: every outcome of connecting
@@ -25,17 +25,15 @@ export function ConnectedAccounts({
       </p>
 
       {notice ? (
-        <p
-          role="status"
-          className={
-            notice.ok
-              ? 'mt-4 rounded-xl border border-positive/40 bg-positive-soft p-3 text-sm font-medium text-positive'
-              : 'mt-4 rounded-xl border border-critical/40 bg-critical-soft p-3 text-sm font-medium text-critical'
-          }
-        >
-          <Icon name={notice.ok ? 'ok' : 'caution'} className="shrink-0" />
-          {notice.message}
-        </p>
+        <div className="mt-4">
+          <Callout
+            tone={notice.ok ? 'positive' : 'critical'}
+            icon={notice.ok ? 'ok' : 'caution'}
+            role="status"
+          >
+            {notice.message}
+          </Callout>
+        </div>
       ) : null}
 
       <div className="mt-4">

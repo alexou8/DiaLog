@@ -88,7 +88,7 @@ export function MealForm({ timezone }: { timezone: string }) {
         )}
       </Field>
 
-      <details className="mb-5 rounded-xl border border-line bg-surface-sunken">
+      <details className="mb-5 rounded-[var(--radius-card)] border border-line bg-surface-sunken">
         <summary className="cursor-pointer list-none px-4 py-3 text-base font-semibold text-brand-ink marker:content-none">
           <Icon name="add" />
           Add nutrition details (optional)
@@ -208,7 +208,7 @@ export function MealForm({ timezone }: { timezone: string }) {
 
 function Callout() {
   return (
-    <p className="mb-5 rounded-xl border border-line bg-surface-sunken p-4 text-sm text-ink-muted">
+    <p className="mb-5 rounded-[var(--radius-card)] border border-line bg-surface-sunken p-4 text-sm text-ink-muted">
       In a hurry? You can{' '}
       <Link
         href="/app/quick-log"

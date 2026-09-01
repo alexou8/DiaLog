@@ -116,7 +116,10 @@ export default async function InsightsPage() {
             />
             <ul className="grid gap-4 sm:grid-cols-2">
               {visiblePatterns.map((pattern, index) => (
-                <li key={index} className="rounded-xl border border-line bg-surface-sunken p-4">
+                <li
+                  key={index}
+                  className="rounded-[var(--radius-card)] border border-line bg-surface-sunken p-4"
+                >
                   <h3 className="font-semibold">{pattern.label}</h3>
                   <p className="mt-1 text-sm text-ink-muted">
                     {pattern.size} {pattern.size === 1 ? 'day' : 'days'} in the last 30

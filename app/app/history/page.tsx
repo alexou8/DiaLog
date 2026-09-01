@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma';
 import { pageGlucose, RECORD_TYPES, isRecordType, type RecordType } from '@/lib/db/health-records';
 import { classifyGlucose } from '@/lib/domain/thresholds';
 import { formatGlucose, unitLabel } from '@/lib/domain/units';
-import { ButtonLink, Card, EmptyState } from '@/components/ui';
+import { ButtonLink, Card, EmptyState, PageHeader } from '@/components/ui';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DeleteRecordButton } from './DeleteRecordButton';
@@ -68,15 +68,15 @@ export default async function HistoryPage({
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">History</h1>
-          <p className="mt-1 text-ink-muted">Browse and manage everything you have logged.</p>
-        </div>
-        <ButtonLink href="/app/settings" variant="secondary">
-          Export your data
-        </ButtonLink>
-      </header>
+      <PageHeader
+        title="History"
+        description="Browse and manage everything you have logged."
+        action={
+          <ButtonLink href="/app/settings" variant="secondary">
+            Export your data
+          </ButtonLink>
+        }
+      />
 
       <nav aria-label="Record type" className="-mx-1 overflow-x-auto pb-1">
         <ul className="flex min-w-max gap-1 px-1">

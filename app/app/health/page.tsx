@@ -1,7 +1,15 @@
 import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { prisma } from '@/lib/db/prisma';
-import { Badge, ButtonLink, Callout, Card, CardHeader, EmptyState, Icon } from '@/components/ui';
+import {
+  Badge,
+  ButtonLink,
+  Callout,
+  Card,
+  CardHeader,
+  EmptyState,
+  PageHeader,
+} from '@/components/ui';
 import { DeleteRecordButton } from './DeleteRecordButton';
 
 export const metadata: Metadata = { title: 'Health' };
@@ -82,17 +90,13 @@ export default async function HealthPage({
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Health</h1>
-        <p className="mt-1 text-ink-muted">Everything else you track, in one place.</p>
-      </header>
+      <PageHeader title="Health" description="Everything else you track, in one place." />
 
       <div aria-live="polite">
         {addedMessage ? (
-          <p className="rounded-xl border border-positive/40 bg-positive-soft p-3 text-sm font-medium text-positive">
-            <Icon name="ok" className="shrink-0" />
+          <Callout tone="positive" icon="ok" role="status">
             {addedMessage}
-          </p>
+          </Callout>
         ) : null}
       </div>
 

@@ -49,7 +49,7 @@ export function GoogleButton({
     <a
       href={`/api/auth/google/start${query ? `?${query}` : ''}`}
       className={clsx(
-        'dl-target inline-flex items-center justify-center gap-3 rounded-xl border-2 border-line-strong bg-surface px-5 py-2.5 text-base font-semibold text-ink transition-colors hover:border-brand hover:text-brand-ink',
+        'dl-target inline-flex items-center justify-center gap-3 rounded-[var(--radius-control)] border-2 border-line-strong bg-surface px-5 py-2.5 text-base font-semibold text-ink transition-colors hover:border-brand hover:text-brand-ink',
         className,
       )}
     >

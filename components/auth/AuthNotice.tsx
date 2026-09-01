@@ -1,4 +1,4 @@
-import { Icon } from '@/components/ui';
+import { Callout } from '@/components/ui';
 import { oauthMessage } from '@/lib/auth/oauth/link';
 
 /**
@@ -10,12 +10,10 @@ export function AuthNotice({ code }: { code?: string | string[] }) {
   const message = oauthMessage(Array.isArray(code) ? code[0] : code);
   if (!message) return null;
   return (
-    <p
-      role="alert"
-      className="mt-6 rounded-xl border border-critical/40 bg-critical-soft p-3 text-sm font-medium text-critical"
-    >
-      <Icon name="caution" className="shrink-0" />
-      {message}
-    </p>
+    <div className="mt-6">
+      <Callout tone="critical" icon="caution" role="alert">
+        {message}
+      </Callout>
+    </div>
   );
 }

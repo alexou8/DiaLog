@@ -40,7 +40,13 @@ async function asGoogleUser(
  * The page's own error banner. Scoped to the paragraph because Next renders a
  * permanently empty `role="alert"` route announcer on every page.
  */
-const notice = (page: Page) => page.locator('p[role="alert"]');
+// Scoped to <main> and matched on the ARIA role rather than the tag. The
+// notice is rendered by the shared Callout primitive, so which element carries
+// role="alert" is an implementation detail. The scope is load-bearing: Next.js
+// renders its own empty route-announcer div with role="alert" at the end of
+// the document, so an unscoped [role="alert"] matches two nodes and trips
+// Playwright's strict mode.
+const notice = (page: Page) => page.locator('main [role="alert"]');
 
 const googleEmail = (label: string) => uniqueEmail(label).replace('@dialog.test', '@gmail.test');
 

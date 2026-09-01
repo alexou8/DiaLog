@@ -93,7 +93,7 @@ export function ImportPanel() {
               accept=".csv,.tsv,.txt,.json,.xml,.xlsx,.xls"
               aria-describedby="import-file-hint"
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-              className="w-full rounded-xl border-2 border-dashed border-line-strong bg-surface-sunken p-4 text-base file:mr-4 file:rounded-lg file:border-0 file:bg-brand file:px-4 file:py-2 file:font-semibold file:text-white"
+              className="w-full rounded-[var(--radius-card)] border-2 border-dashed border-line-strong bg-surface-sunken p-4 text-base file:mr-4 file:rounded-[var(--radius-control)] file:border-0 file:bg-brand file:px-4 file:py-2 file:font-semibold file:text-white"
             />
             {file ? (
               <p className="mt-2 text-sm" aria-live="polite">

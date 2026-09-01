@@ -39,6 +39,34 @@ describe('malformed / corrupt files', () => {
 
   it('parses malformed XML leniently (fast-xml-parser is forgiving) without throwing', () => {
     expect(() => parseXmlText('<records><record type="glucose"</records>')).not.toThrow();
+
+    // "Billion laughs": a few hundred bytes of nested DOCTYPE entities that
+    // expand to gigabytes during parsing. The MAX_FILE_BYTES ceiling cannot
+    // catch this because the blow-up happens after the size check passes, so
+    // parseXmlText rejects any DOCTYPE internal subset outright.
+    const bomb = [
+      '<?xml version="1.0"?>',
+      '<!DOCTYPE lolz [',
+      '  <!ENTITY lol "lol">',
+      '  <!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">',
+      '  <!ENTITY lol2 "&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;">',
+      ']>',
+      '<lolz>&lol2;</lolz>',
+    ].join('\n');
+    expect(() => parseXmlText(bomb)).toThrow(/DOCTYPE internal subset/);
+
+    // A plain DOCTYPE with no internal subset defines no entities, so it is
+    // harmless and must still parse.
+    expect(() =>
+      parseXmlText('<!DOCTYPE HealthData><HealthData><Record value="120"/></HealthData>'),
+    ).not.toThrow();
+
+    // Predefined entities must keep working -- Apple Health sourceName
+    // attributes really do contain "&amp;".
+    const parsed = parseXmlText(
+      '<HealthData><Record sourceName="Dexcom &amp; Friends" value="120"/></HealthData>',
+    ) as { HealthData: { Record: Record<string, string> } };
+    expect(parsed.HealthData.Record['@_sourceName']).toBe('Dexcom & Friends');
   });
 
   it('a CSV with only a header row (no data rows) yields zero total rows', async () => {
