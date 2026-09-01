@@ -198,14 +198,22 @@ export function Callout({
   tone = 'info',
   title,
   icon,
+  role,
 }: {
   children: ReactNode;
   tone?: Tone;
   title?: string;
   icon?: IconProp;
+  /**
+   * Overrides Alert's default `role="note"`. Pass "status" for a transient
+   * confirmation (e.g. "Saved.") that should be announced without
+   * interrupting, matching the `role="status"` these call sites used before
+   * they were unified onto this component.
+   */
+  role?: 'note' | 'status' | 'alert';
 }) {
   return (
-    <Alert tone={tone}>
+    <Alert tone={tone} role={role}>
       {renderIcon(icon)}
       {title ? <AlertTitle>{title}</AlertTitle> : null}
       <AlertDescription>{children}</AlertDescription>

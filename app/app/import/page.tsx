@@ -101,7 +101,7 @@ export default async function ImportPage() {
           ) : (
             <ul className="space-y-3">
               {batches.map((batch) => (
-                <li key={batch.id} className="rounded-xl border border-line p-4">
+                <li key={batch.id} className="rounded-[var(--radius-card)] border border-line p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="font-semibold">{batch.filename}</p>
@@ -117,7 +117,7 @@ export default async function ImportPage() {
                       </p>
                     </div>
                     <details>
-                      <summary className="dl-target cursor-pointer rounded-xl border-2 border-critical px-4 py-2 text-sm font-semibold text-critical">
+                      <summary className="dl-target cursor-pointer rounded-[var(--radius-control)] border-2 border-critical px-4 py-2 text-sm font-semibold text-critical">
                         Undo this import
                       </summary>
                       <form

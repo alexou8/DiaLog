@@ -595,7 +595,13 @@ model AuditEvent {
   detail    String?
   createdAt DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // SetNull, not Cascade: userId is nullable precisely so a security event
+  // outlives the account it names. Under Cascade, deleting an account also
+  // deleted the `auth.account_delete` event that recorded the deletion — the
+  // audit trail erased itself exactly when it mattered most. The row is
+  // retained with a null userId, so it is no longer personal data but the
+  // action is still on the record.
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
 }

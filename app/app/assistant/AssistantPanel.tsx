@@ -93,7 +93,7 @@ export function AssistantPanel({ defaultDetail }: { defaultDetail: DetailLevel }
                   <input type="hidden" name="detailLevel" value={defaultDetail.toLowerCase()} />
                   <button
                     type="submit"
-                    className="dl-target rounded-full border border-line-strong px-3 py-2 text-sm hover:border-brand hover:text-brand-ink"
+                    className="dl-target rounded-[var(--radius-control)] border border-line-strong px-3 py-2 text-sm hover:border-brand hover:text-brand-ink"
                   >
                     {suggestion}
                   </button>
@@ -128,7 +128,7 @@ export function AssistantPanel({ defaultDetail }: { defaultDetail: DetailLevel }
             ) : null}
 
             {state.answer.suggestedQuestionsForClinician.length > 0 ? (
-              <div className="mt-5 rounded-xl border border-line bg-surface-sunken p-4">
+              <div className="mt-5 rounded-[var(--radius-card)] border border-line bg-surface-sunken p-4">
                 <h3 className="font-semibold">Worth raising with your healthcare professional</h3>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-muted">
                   {state.answer.suggestedQuestionsForClinician.map((question, index) => (

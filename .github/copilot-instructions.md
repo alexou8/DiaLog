@@ -1,0 +1,10 @@
+# Copilot instructions
+
+Follow [`AGENTS.md`](../AGENTS.md) in the repository root. It is the
+tool-neutral engineering contract for this repository: commands, layout,
+invariants, CI policy, testing, verification, and security and data-handling
+rules.
+
+This repository handles personal health data. Before changing code, read the
+**Invariants** section of `AGENTS.md` — it encodes past bugs and safety
+decisions, and a rule that looks over-cautious there is deliberate.

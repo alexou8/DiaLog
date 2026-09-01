@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { prisma } from '@/lib/db/prisma';
 import { dayKeyInZone } from '@/lib/domain/time';
-import { Badge, ButtonLink, Card, CardHeader, EmptyState, Icon } from '@/components/ui';
+import { Badge, ButtonLink, Card, CardHeader, EmptyState, Icon, PageHeader } from '@/components/ui';
 import { BarChart, type Bar } from '@/components/charts/BarChart';
 import { DeleteRecordButton } from './DeleteRecordButton';
 
@@ -46,9 +46,7 @@ export default async function MealsPage() {
   if (meals.length === 0) {
     return (
       <div className="space-y-6">
-        <header>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Meals</h1>
-        </header>
+        <PageHeader title="Meals" />
         <EmptyState
           title="No meals logged yet"
           icon="meals"
@@ -101,15 +99,15 @@ export default async function MealsPage() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Meals</h1>
-          <p className="mt-1 text-ink-muted">Your recent meals, grouped by day.</p>
-        </div>
-        <ButtonLink href="/app/meals/new">
-          <Icon name="add" /> Log a meal
-        </ButtonLink>
-      </header>
+      <PageHeader
+        title="Meals"
+        description="Your recent meals, grouped by day."
+        action={
+          <ButtonLink href="/app/meals/new">
+            <Icon name="add" /> Log a meal
+          </ButtonLink>
+        }
+      />
 
       {hasChartData ? (
         <section aria-labelledby="meal-chart-heading">

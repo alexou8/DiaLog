@@ -92,17 +92,23 @@ export async function askAssistantAction(
 
   // Conversations are stored so the user can look back at what they asked.
   // The evidence used is stored alongside, so an old answer can still be audited.
-  const conversation = await prisma.aIConversation
-    .upsert({
-      where: { id: formData.get('conversationId')?.toString() ?? '__none__' },
-      create: { userId: user.id, title: parsed.data.question.slice(0, 80) },
-      update: {},
-    })
-    .catch(() =>
-      prisma.aIConversation.create({
-        data: { userId: user.id, title: parsed.data.question.slice(0, 80) },
-      }),
-    );
+  // The conversation id comes from the client, so it is never trusted as a
+  // sole key. An `upsert` keyed on `{ id }` alone would match — and append
+  // messages to — a conversation owned by somebody else, which is exactly the
+  // ownership rule lib/db/health-records.ts exists to enforce for every other
+  // record type. Resolve the id scoped to the signed-in user and fall back to
+  // a fresh conversation when it does not match, rather than writing into a
+  // row we do not own.
+  const requestedId = formData.get('conversationId')?.toString();
+  const title = parsed.data.question.slice(0, 80);
+  const existing = requestedId
+    ? await prisma.aIConversation.findFirst({
+        where: { id: requestedId, userId: user.id },
+        select: { id: true },
+      })
+    : null;
+  const conversation =
+    existing ?? (await prisma.aIConversation.create({ data: { userId: user.id, title } }));
 
   await prisma.aIMessage.createMany({
     data: [

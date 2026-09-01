@@ -189,6 +189,8 @@ export async function deleteAllRecordsAction(
     symptom,
     mood,
     note,
+    conversations,
+    importBatches,
   ] = await prisma.$transaction([
     prisma.glucoseReading.deleteMany({ where: { userId: user.id } }),
     prisma.meal.deleteMany({ where: { userId: user.id } }),
@@ -201,6 +203,15 @@ export async function deleteAllRecordsAction(
     prisma.symptomEntry.deleteMany({ where: { userId: user.id } }),
     prisma.moodEntry.deleteMany({ where: { userId: user.id } }),
     prisma.noteEntry.deleteMany({ where: { userId: user.id } }),
+    // Health data that is derived from records rather than being one: an AI
+    // conversation stores the question, the answer and the evidence findings
+    // behind it, and an ImportBatch's issues keep the raw rejected rows
+    // (ImportIssue.rawRow) of a failed import. Both cascade from their parent,
+    // and both are health data the user reasonably expects "delete all my
+    // records" to erase — leaving them behind meant a wiped account still held
+    // free-text health discussion and raw imported rows.
+    prisma.aIConversation.deleteMany({ where: { userId: user.id } }),
+    prisma.importBatch.deleteMany({ where: { userId: user.id } }),
   ]);
 
   const total =
@@ -214,7 +225,9 @@ export async function deleteAllRecordsAction(
     hydration.count +
     symptom.count +
     mood.count +
-    note.count;
+    note.count +
+    conversations.count +
+    importBatches.count;
 
   revalidatePath('/app', 'layout');
 

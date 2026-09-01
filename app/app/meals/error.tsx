@@ -17,7 +17,7 @@ export default function MealsError({
       <button
         type="button"
         onClick={reset}
-        className="dl-target mt-3 rounded-xl border-2 border-line-strong px-4 py-2 text-sm font-semibold hover:border-brand"
+        className="dl-target mt-3 rounded-[var(--radius-control)] border-2 border-line-strong px-4 py-2 text-sm font-semibold hover:border-brand"
       >
         Try again
       </button>
