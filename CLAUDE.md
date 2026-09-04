@@ -92,6 +92,28 @@ codex login                    # or: codex login --device-auth  (remote/headless
 codex login status             # verify
 ```
 
+On Claude Code for web the container is ephemeral — `node_modules`, globally
+installed CLIs and `~/.codex` are all wiped between sessions — so
+`.claude/hooks/session-start.sh` rebuilds them. To keep Codex signed in to your
+ChatGPT plan without logging in every session, run `codex login` once on your
+own machine, then set one variable in your Claude Code **environment**
+settings:
+
+```bash
+base64 -w0 ~/.codex/auth.json   # paste as CODEX_AUTH_JSON_B64
+```
+
+The hook restores that file at `0600` and Codex refreshes its own access token
+from it. Without the variable nothing breaks; the hook just says Codex is
+unauthenticated and delegation is unavailable until you run
+`codex login --device-auth`.
+
+That variable is a long-lived credential readable by anything running in the
+environment, and it dies when you sign out everywhere or revoke the token —
+re-run the `base64` line to refresh it. It is not a documented Codex interface,
+so treat a format change as possible. Never echo it, commit it, or paste it
+into a transcript.
+
 Then `/codex:setup` inside Claude Code. Do **not** pass
 `--enable-review-gate`: review is a decision Claude makes per change, not an
 automatic loop that spends usage on every stop. Enable it only if asked.
