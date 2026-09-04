@@ -22,6 +22,13 @@ _when to reach for which_, and does not duplicate the skills' own
 | `prisma-cli`                  | Migrations, `generate`, seeding, studio.                                                                       | Recommended                  |
 | `find-skills`                 | Before hand-rolling a capability that probably already exists as a skill.                                      | Optional                     |
 
+The `codex@openai-codex` plugin (declared in `.claude/settings.json`) ships
+three more — `codex-cli-runtime`, `codex-result-handling`, and
+`gpt-5-4-prompting`. They are not vendored under `.claude/skills/`: they arrive
+with the plugin and are updated by updating it. They govern how Claude talks to
+Codex, not how DiaLog is built, so they sit outside the table above and below
+everything in the precedence order.
+
 ## Precedence
 
 When several skills apply to one task, resolve in this order:
