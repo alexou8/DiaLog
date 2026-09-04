@@ -6,9 +6,9 @@ can work from this file alone.
 
 **This is the single source of truth for how to work here.** Claude Code users
 additionally get [CLAUDE.md](CLAUDE.md), which covers only Claude-specific
-orchestration (subagents, model selection, skills) and does not repeat
-anything below. Agents that read `AGENTS.md` are not missing anything
-essential.
+orchestration (Codex delegation, subagents, model selection, skills) and does
+not repeat anything below. Agents that read `AGENTS.md` are not missing
+anything essential.
 
 DiaLog is an accessible glucose and metabolic health tracking app: Next.js 15
 (App Router), React 19, TypeScript, Tailwind v4, Prisma + Postgres, with a
@@ -35,6 +35,14 @@ npm run db:seed          # tsx prisma/seed.ts
 
 `postinstall` runs `prisma generate`, so a fresh `npm ci` leaves a usable
 client. After editing `prisma/schema.prisma`, re-run `prisma generate`.
+
+Run these through `npm run`, never a bare `npx prettier` / `npx eslint` /
+`npx tsc`. Without `node_modules` installed, `npx` silently fetches the latest
+release instead of the pinned one, and its output disagrees with CI: Prettier
+3.8 pads Markdown table columns containing `↔` differently from the pinned
+3.6.2, so `npx prettier --write` reports files as unformatted, "fixes" them,
+and leaves the tree red under `npm ci`. Run `npm ci` first if `node_modules`
+is missing.
 
 While iterating, run the narrowest check that proves the change — a single
 vitest file beats the whole suite. Run the full suite once before handing work
@@ -206,6 +214,29 @@ pages. Use `countRecordRows()` from `tests/e2e/records.ts`.
   workflows, `public/sw.js`, seeds, and string-based references first.
 - **Never weaken a security boundary to simplify code.** Security beats
   cleanliness, every time.
+
+## Working as a delegated implementation agent
+
+Much of the work here is dispatched by an orchestrating agent that owns
+planning, review, and repository integration. If you were handed a bounded task
+rather than talking to the user directly:
+
+- **Report, do not just finish.** Return what you changed and why, the files
+  touched, the design decisions and assumptions you made, anything you
+  discovered about the repository that the brief got wrong, the exact
+  verification commands you ran and their exact output, and what you could not
+  verify. "Done." is not a report.
+- **Surface conflicts instead of working around them.** If the task conflicts
+  with the repository, would violate an invariant above, rests on a wrong
+  assumption, duplicates an abstraction that already exists, or hides a
+  security or health-data problem, say so and stop rather than implementing it
+  quietly. Repository evidence outranks the brief. You are expected to push
+  back, and the orchestrator decides.
+- **Do not commit, push, merge, rewrite history, or open pull requests.** The
+  orchestrator owns repository integration so that one reviewer sees one
+  coherent diff.
+- **Do not widen scope silently.** Stay inside the files you were given; if the
+  fix genuinely requires more, report that instead of expanding on your own.
 
 ## Destructive and high-risk changes
 

@@ -159,7 +159,7 @@ and [docs/SECURITY.md](docs/SECURITY.md).
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                   | Environment, migrations, deploy procedure.                      |
 | [docs/COMPLIANCE.md](docs/COMPLIANCE.md)                   | Regulatory posture, standards referenced, and known gaps.       |
 | [AGENTS.md](AGENTS.md)                                     | Engineering contract: invariants, CI policy, verification.      |
-| [CLAUDE.md](CLAUDE.md) · [SKILLS.md](SKILLS.md)            | Claude Code orchestration and the vendored agent skills.        |
+| [CLAUDE.md](CLAUDE.md) · [SKILLS.md](SKILLS.md)            | Claude ↔ Codex orchestration and the agent skills.             |
 
 ## Project structure
 
