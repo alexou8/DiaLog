@@ -116,6 +116,14 @@ export default defineConfig({
         GOOGLE_CLIENT_SECRET: 'e2e-client-secret',
         GOOGLE_OIDC_TEST_ISSUER: 'http://127.0.0.1:3210',
         NEXT_PUBLIC_APP_URL: 'http://localhost:3100',
+        // Recovery mail is captured in the spec process by a loopback receiver.
+        // This exercises the HTTP transport's own code path rather than the
+        // console provider, but the receiver is a local stub — no real mail
+        // provider has ever been exercised by this suite.
+        EMAIL_PROVIDER: 'http',
+        EMAIL_HTTP_URL: 'http://127.0.0.1:3211/mail',
+        EMAIL_HTTP_TOKEN: 'e2e-mail-relay-key',
+        EMAIL_FROM: 'recovery@dialog.test',
       },
     },
   ],

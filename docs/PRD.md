@@ -61,10 +61,19 @@ implementing route, action, or dependency):
 - No care-team sharing, multi-user accounts, or clinician-facing views — the
   schema has no sharing, invite, or role model (`prisma/schema.prisma`
   contains only a single-owner `User` → records relationship).
-- No account-recovery / password-reset flow (see §8 — a real gap, not a
-  deliberate non-goal).
 
 ## 4. Major workflows
+
+### Password recovery
+
+From sign-in, “Forgot your password?” opens `/forgot-password`. Valid email
+submissions receive the same neutral confirmation regardless of account
+existence or Google-only status. Password accounts receive a 30-minute link;
+requesting another invalidates prior links. The email enters through a
+redirect-only route before rendering `/reset-password`, keeping the raw token
+out of page response bodies. The reset route validates the password policy server-side, and the form posts
+natively to the reset route. A successful reset consumes the token and revokes
+all existing sessions atomically, then asks the user to sign in again.
 
 ### Onboarding
 
@@ -168,7 +177,7 @@ logged to `AuditEvent` before the row that would identify the actor is gone.
 | Own email/password auth (bcrypt)                                                                             | Implemented                                                                                                                                                         | `lib/actions/auth.ts`, `lib/auth/password.ts`                                                                                                                        |
 | Google OAuth sign-in                                                                                         | Implemented                                                                                                                                                         | `app/api/auth/google/{start,callback,disconnect}/route.ts`                                                                                                           |
 | Session revocation ("sign out everywhere")                                                                   | Implemented                                                                                                                                                         | `User.tokenVersion`, `app/api/auth/sessions/revoke/route.ts`                                                                                                         |
-| Password reset / "forgot password"                                                                           | **Not built**                                                                                                                                                       | `PasswordResetToken` model exists in `prisma/schema.prisma:85` but no route, action, or email-sending code references it anywhere in `app/` or `lib/`                |
+| Password reset / "forgot password"                                                                           | Implemented for password accounts; production requires a mail relay                                                                                                 | `lib/auth/password-reset.ts`, `lib/email/`, `/forgot-password`, `/reset-password`, `/api/auth/password/reset`                                                        |
 | Rate limiting on auth/import/AI actions                                                                      | Implemented                                                                                                                                                         | `lib/auth/rate-limit.ts`, `RATE_LIMITS`, called from `lib/actions/auth.ts`, `lib/actions/import.ts`, `lib/actions/assistant.ts`, `lib/actions/preferences.ts`        |
 | Audit log                                                                                                    | Implemented                                                                                                                                                         | `AuditEvent` model, `lib/auth/audit.ts`, called from export, account deletion, and auth flows                                                                        |
 | Data deletion (records-only, and full account)                                                               | Implemented                                                                                                                                                         | `lib/actions/preferences.ts`                                                                                                                                         |
@@ -266,18 +275,22 @@ health data — so the app opens instantly offline to a dedicated offline page
 
 ## 8. Known limitations
 
-- **No password-reset / account-recovery flow.** A `PasswordResetToken`
-  Prisma model exists (`prisma/schema.prisma:85`) but nothing in `app/` or
-  `lib/` creates, emails, verifies, or consumes such a token. A user who
-  forgets their password today has no self-service recovery path. This is a
-  genuine gap, not a documented non-goal.
+- **Recovery depends on mailbox control and configured delivery.** Password
+  accounts can request single-use, 30-minute reset links; Google-only accounts
+  continue with Google. There is no email verification concept: mistyped or
+  reassigned addresses and compromised mailboxes remain account-takeover risks.
+  The configured mail relay must be trusted with recovery links. Delivery is
+  deferred through Next's `after()` lifecycle, with no durable outbox; transport
+  failure requires a new request.
+  See `docs/SECURITY.md` and `docs/DEPLOYMENT.md`.
 - **`Insight` schema model is unused.** `prisma/schema.prisma:539` defines an
   `Insight` table with zero application read or write sites; all insight
   cards are computed per-request in memory (`lib/analytics/insights.ts`) and
   never persisted under this model. Dead schema surface, not a bug, but worth
   tracking before it's mistaken for the persistence layer.
 - **No push notifications, reminders, or background jobs** — analytics and
-  all other work runs synchronously in the request path.
+  analytics runs synchronously in the request path; recovery mail uses Next's
+  `after()` lifecycle without an independent worker or durable queue.
 - **No care-team sharing or clinician-facing views.**
 - **No multi-user accounts** — one login maps to exactly one person's data.
 - **French translation is chrome-only** — page bodies are English-only; the
@@ -298,8 +311,8 @@ health data — so the app opens instantly offline to a dedicated offline page
 None of the items below are built, scheduled, or committed to. They are
 directions the current architecture does not preclude, not a roadmap.
 
-- A real password-reset flow using the existing (currently unused)
-  `PasswordResetToken` model as its foundation.
+- Email verification and durable recovery-mail delivery, with explicit
+  migration decisions for existing unverified account addresses.
 - Persisting computed insights via the existing (currently unused) `Insight`
   model, enabling history/trend-of-insights views instead of recomputing on
   every page load.

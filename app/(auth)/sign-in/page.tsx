@@ -6,13 +6,14 @@ import { SignInForm } from './SignInForm';
 import { AuthNotice } from '@/components/auth/AuthNotice';
 import { AuthDivider, GoogleButton } from '@/components/auth/GoogleButton';
 import { isGoogleEnabled } from '@/lib/auth/oauth/google';
+import { Callout } from '@/components/ui';
 
 export const metadata: Metadata = { title: 'Sign in', robots: { index: false } };
 
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; email?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; email?: string; next?: string; password?: string }>;
 }) {
   // Verified here rather than in middleware: only a database read can tell a
   // live session from a revoked one, and bouncing a revoked cookie away from
@@ -30,7 +31,19 @@ export default async function SignInPage({
 
       <AuthNotice code={params.error} />
 
+      {params.password === 'reset' ? (
+        <Callout tone="positive" icon="ok" role="status">
+          Your password has been reset. Sign in with your new password.
+        </Callout>
+      ) : null}
+
       <SignInForm defaultEmail={params.email} />
+
+      <p className="mt-4 text-center">
+        <Link href="/forgot-password" className="font-semibold underline underline-offset-4">
+          Forgot your password?
+        </Link>
+      </p>
 
       {isGoogleEnabled() ? (
         <>
