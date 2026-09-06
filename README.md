@@ -1,10 +1,27 @@
 # DiaLog
 
-DiaLog is a personal glucose and metabolic health record: a Next.js web app for
-logging glucose readings, meals, activity, sleep, medications and other health
-events, importing them from device and vendor exports, and surfacing
-statistically-graded patterns in your own data — with an optional assistant
-that explains those patterns in plain language.
+[![CI](https://github.com/alexou8/DiaLog/actions/workflows/ci.yml/badge.svg)](https://github.com/alexou8/DiaLog/actions/workflows/ci.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-155E69)](LICENSE)
+
+**A personal glucose record that tells you what your own data actually
+supports — and says "not enough data yet" when it doesn't.**
+
+Log or import your readings, meals, activity and sleep; DiaLog grades every
+pattern it finds by how much of your history backs it, and explains it in plain
+language. Built accessibility-first, for people aged 20 to 80.
+
+![The DiaLog dashboard: time in range, recent readings, and a graded insight](docs/screenshots/dashboard.png)
+
+- **Evidence-graded analytics** — every finding carries the sample size behind
+  it, and thin data is reported as thin rather than rounded up into a claim.
+- **A privacy boundary in code** — the AI layer never receives a raw health
+  record, only a pre-aggregated evidence bundle.
+- **Imports that survive real files** — six vendor connectors plus three
+  generic fallbacks, preview-then-commit, and content-addressed deduplication
+  that makes re-importing the same export a no-op.
+- **Accessibility as a test, not a promise** — `@axe-core/playwright` runs over
+  twelve public and authenticated routes on every CI run, and every chart ships
+  a real `<table>` alternative.
 
 > **DiaLog is not a medical device.** It does not diagnose any condition, does
 > not recommend or adjust medication doses, and does not replace a healthcare
@@ -12,7 +29,47 @@ that explains those patterns in plain language.
 > supports it, and it says "not enough data yet" when that is the honest
 > answer. See [Medical disclaimer](#medical-disclaimer).
 
-## Screenshots
+## Why this project is technically interesting
+
+<img src="docs/brand/architecture.svg" alt="DiaLog architecture: routes, then Server Actions and route handlers, then services, then the pure domain, import and analytics modules, then Prisma and PostgreSQL. Analytics output crosses a privacy boundary into an evidence bundle before the AI layer." width="100%">
+
+Four constraints shaped most of the code, and each is enforced somewhere you
+can go and read:
+
+- **An AI feature that cannot leak health data.** `lib/ai/` is only ever handed
+  an `AnalyticsResult` / `EvidenceBundle` — pre-aggregated and evidence-graded.
+  Raw records never cross that line, so the local provider and an external one
+  see exactly the same shape of input.
+- **A safety filter that is deliberately over-eager.** The medical-safety
+  regexes in `lib/ai/guardrails.ts` over-match on purpose: a false rejection
+  falls back to a safe template, a false negative is a dosing instruction
+  reaching a patient. That asymmetry is written into the tests.
+- **Session revocation you cannot accidentally undo.** Bumping
+  `User.tokenVersion` is what kills outstanding cookies, and it can only happen
+  in a route handler — `tests/unit/auth/session-revocation.test.ts` fails the
+  build if a Server Action ever writes that column. The rule exists because an
+  earlier version produced an infinite redirect loop that locked out exactly
+  the users who had just revoked their sessions.
+- **Imports that are idempotent by construction.** A `dedupeKey` derived from
+  the record's content means re-importing the same export is a no-op, and every
+  unparseable row produces a `RowIssue` rather than being silently dropped.
+
+Full reasoning, including the alternatives rejected:
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
+[docs/CASE_STUDY.md](docs/CASE_STUDY.md).
+
+## Evidence
+
+| Area          | Where to verify it                                                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Security      | `tests/integration/authorization.test.ts`, `api-security.test.ts`, `auth-credential-routes.test.ts`; threat model in `docs/SECURITY.md` |
+| Accessibility | `tests/e2e/accessibility.spec.ts` runs axe over twelve routes; `docs/ACCESSIBILITY.md` lists the known gaps                             |
+| Reliability   | Import idempotency and malformed-file handling in `tests/unit/import/`; `/api/health` readiness endpoint                                |
+| Data safety   | Export and deletion lifecycle in `lib/actions/preferences.ts`; per-model deletion decisions in `docs/DATA.md`                           |
+| AI safety     | `tests/unit/ai/` covers the evidence-bundle boundary, schema validation and the dosing/diagnosis guardrails                             |
+
+<details>
+<summary><strong>More screenshots</strong> — logging, insights, reports, import, settings, dark theme and mobile</summary>
 
 |                                                               |                                                            |
 | ------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -21,6 +78,8 @@ that explains those patterns in plain language.
 | ![Insights](docs/screenshots/insights.png)                    | ![Reports](docs/screenshots/reports.png)                   |
 | ![Data import](docs/screenshots/import.png)                   | ![Settings](docs/screenshots/settings.png)                 |
 | ![Dashboard, dark theme](docs/screenshots/dashboard-dark.png) | ![Mobile dashboard](docs/screenshots/mobile-dashboard.png) |
+
+</details>
 
 ## What it does
 
@@ -146,20 +205,22 @@ and [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Documentation
 
-| Document                                                   | What it covers                                                  |
-| ---------------------------------------------------------- | --------------------------------------------------------------- |
-| [docs/PRD.md](docs/PRD.md)                                 | The product: workflows, feature set with status, limitations.   |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)               | System boundaries, layers, request lifecycle, design decisions. |
-| [docs/DATA.md](docs/DATA.md)                               | Canonical data model: entities, ownership, lifecycle, deletion. |
-| [docs/SECURITY.md](docs/SECURITY.md)                       | Threat model, controls, residual risks.                         |
-| [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md)             | WCAG 2.2 implementation and known gaps.                         |
-| [docs/AI_ARCHITECTURE.md](docs/AI_ARCHITECTURE.md)         | Provider abstraction, guardrails, evidence grading.             |
-| [docs/DEVICE_INTEGRATIONS.md](docs/DEVICE_INTEGRATIONS.md) | What is real per vendor, and what is deliberately not built.    |
-| [docs/ML_PIPELINE.md](docs/ML_PIPELINE.md)                 | The offline Python research pipeline. Not deployed.             |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                   | Environment, migrations, deploy procedure.                      |
-| [docs/COMPLIANCE.md](docs/COMPLIANCE.md)                   | Regulatory posture, standards referenced, and known gaps.       |
-| [AGENTS.md](AGENTS.md)                                     | Engineering contract: invariants, CI policy, verification.      |
-| [CLAUDE.md](CLAUDE.md) · [SKILLS.md](SKILLS.md)            | Claude ↔ Codex orchestration and the agent skills.             |
+| Document                                                         | What it covers                                                  |
+| ---------------------------------------------------------------- | --------------------------------------------------------------- |
+| [docs/PRD.md](docs/PRD.md)                                       | The product: workflows, feature set with status, limitations.   |
+| [docs/CASE_STUDY.md](docs/CASE_STUDY.md)                         | Why it is built this way: decisions, rejected alternatives.     |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                     | System boundaries, layers, request lifecycle, design decisions. |
+| [docs/DATA.md](docs/DATA.md)                                     | Canonical data model: entities, ownership, lifecycle, deletion. |
+| [docs/SECURITY.md](docs/SECURITY.md)                             | Threat model, controls, residual risks.                         |
+| [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md)                   | WCAG 2.2 implementation and known gaps.                         |
+| [docs/AI_ARCHITECTURE.md](docs/AI_ARCHITECTURE.md)               | Provider abstraction, guardrails, evidence grading.             |
+| [docs/DEVICE_INTEGRATIONS.md](docs/DEVICE_INTEGRATIONS.md)       | What is real per vendor, and what is deliberately not built.    |
+| [docs/ML_PIPELINE.md](docs/ML_PIPELINE.md)                       | The offline Python research pipeline. Not deployed.             |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                         | Environment, migrations, deploy procedure.                      |
+| [docs/COMPLIANCE.md](docs/COMPLIANCE.md)                         | Regulatory posture, standards referenced, and known gaps.       |
+| [AGENTS.md](AGENTS.md)                                           | Engineering contract: invariants, CI policy, verification.      |
+| [CLAUDE.md](CLAUDE.md) · [SKILLS.md](SKILLS.md)                  | Claude ↔ Codex orchestration and the agent skills.             |
+| [docs/RESUME_PORTFOLIO_NOTES.md](docs/RESUME_PORTFOLIO_NOTES.md) | Reusable project descriptions, with evidence for each claim.    |
 
 ## Project structure
 

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="ogt ogd">
+  <title id="ogt">DiaLog</title>
+  <desc id="ogd">DiaLog: your glucose data, finally in plain language. Evidence-graded patterns from your own readings.</desc>
+
+  <!-- Warm paper canvas, matching the canvas token. Deliberately not clinical
+       white: the whole product avoids reading as a hospital chart. -->
+  <rect width="1200" height="630" fill="#FBFAF6"/>
+
+  <!-- Brand lockup. The mark is public/logo-mark.svg on its 128 grid, scaled
+       to 72px (0.5625) and translated, so the two can never drift apart. -->
+  <g transform="translate(72 64) scale(0.5625)">
+    <rect width="128" height="128" rx="34" fill="#155E69"/>
+    <path d="M36 39c0-6.627 5.373-12 12-12h32c6.627 0 12 5.373 12 12v33c0 6.627-5.373 12-12 12H67L49 98V84H48c-6.627 0-12-5.373-12-12V39z" fill="none" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M46 65h10l8-13 9 24 9-17 8 8h9" fill="none" stroke="#fff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="164" y="117" font-family="Inter, 'Liberation Sans', Helvetica, Arial, sans-serif" font-size="42" font-weight="700" letter-spacing="-1.4">
+    <tspan fill="#172126">Dia</tspan><tspan fill="#155E69">Log</tspan>
+  </text>
+
+  <text x="72" y="272" font-family="Inter, 'Liberation Sans', Helvetica, Arial, sans-serif" font-size="60" font-weight="700" letter-spacing="-2" fill="#172126">Your glucose data,</text>
+  <text x="72" y="346" font-family="Inter, 'Liberation Sans', Helvetica, Arial, sans-serif" font-size="60" font-weight="700" letter-spacing="-2" fill="#172126">finally in plain language.</text>
+
+  <text x="72" y="404" font-family="Inter, 'Liberation Sans', Helvetica, Arial, sans-serif" font-size="26" fill="#5B6169">Evidence-graded patterns from your own readings. Never a diagnosis, never a dose.</text>
+
+  <rect x="0" y="454" width="1200" height="176" fill="#F5F3ED"/>
+  <rect x="0" y="454" width="1200" height="1" fill="#E3DFD6"/>
+
+  <!-- Proof points, set as plain text with a brand bullet rather than pills:
+       the type is doing the work and a row of boxes would read as chrome. -->
+  <g font-family="Inter, 'Liberation Sans', Helvetica, Arial, sans-serif" font-size="23" fill="#155E69">
+    <circle cx="80" cy="535" r="5" fill="#155E69"/><text x="98" y="543">Evidence-graded</text>
+    <circle cx="316" cy="535" r="5" fill="#155E69"/><text x="334" y="543">WCAG 2.2 AA</text>
+    <circle cx="522" cy="535" r="5" fill="#155E69"/><text x="540" y="543">Local-first assistant</text>
+  </g>
+
+  <!-- A glucose trace with its in-range band: the one piece of product
+       imagery, drawn rather than screenshotted so it can never go stale. -->
+  <g transform="translate(800 486)">
+    <rect x="0" y="28" width="328" height="42" rx="6" fill="#E8F2F3"/>
+    <path d="M0 74 L41 58 L82 66 L123 40 L164 48 L205 22 L246 36 L287 28 L328 44"
+          fill="none" stroke="#155E69" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="328" cy="44" r="6.5" fill="#155E69"/>
+  </g>
+</svg>

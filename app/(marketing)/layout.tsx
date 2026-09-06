@@ -17,7 +17,12 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         Skip to main content
       </a>
       <header className="dl-safe-top border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-3">
+        {/* Wraps, and the buttons tighten, below ~400px. Without both, the
+            logo plus the two account buttons measured 445px wide and the whole
+            marketing site scrolled sideways on a 360px phone. The min-h-11
+            floor is untouched, so the 44px touch target survives the smaller
+            padding. */}
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3">
           <Link href="/" className="dl-target flex items-center gap-2 text-lg font-bold">
             <LogoMark size={32} />
             DiaLog
@@ -25,12 +30,18 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <nav aria-label="Account">
             <ul className="flex items-center gap-2">
               <li>
-                <ButtonLink href="/sign-in" variant="ghost">
+                <ButtonLink
+                  href="/sign-in"
+                  variant="ghost"
+                  className="px-3 text-sm sm:px-5 sm:text-base"
+                >
                   Sign in
                 </ButtonLink>
               </li>
               <li>
-                <ButtonLink href="/sign-up">Create account</ButtonLink>
+                <ButtonLink href="/sign-up" className="px-3 text-sm sm:px-5 sm:text-base">
+                  Create account
+                </ButtonLink>
               </li>
             </ul>
           </nav>
