@@ -25,6 +25,85 @@ Sessions are stateless, signed JWT cookies (`lib/auth/session.ts`), not a server
 - Sign-in (`lib/actions/auth.ts`) always runs `bcrypt.compare()` even when no account matches the email, against a fixed dummy hash — so a nonexistent account and a wrong password take a similar amount of time, mitigating email enumeration via timing.
 - Sign-up **does** return a specific "an account with that email already exists" error rather than a generic message — a deliberate, documented tradeoff (`lib/actions/auth.ts`'s comment: an attacker can already learn this by attempting to sign up, so vagueness here mostly punishes real users who forgot they have an account).
 
+## Password recovery
+
+`lib/auth/password-reset.ts`, `lib/auth/password-reset-token.ts`,
+`app/api/auth/password/reset/route.ts`, and `lib/email/` implement recovery for
+accounts that already have a password. Google-only accounts retain Google
+sign-in; recovery never sets their first password.
+
+- `/forgot-password` returns the same confirmation for existing, unknown, and
+  Google-only accounts. Email throttling and delivery failures also remain
+  neutral. Invalid email syntax, IP throttling, and deployment configuration
+  failures can be reported without consulting account existence. Unlike the
+  existing sign-up/sign-in responses, recovery must not become a mailbox-abuse
+  oracle. Audits, token issuance and delivery run in Next's `after()` callback
+  for every account state, so the neutral response never waits for those
+  account-dependent operations. Configuration checks and the initial indexed
+  database lookup remain on the response path; cache/load effects in that lookup
+  can still vary, so this is not a claim of cryptographic constant-time lookup.
+  `after()` keeps the task in Next's request lifecycle; a floating promise could
+  be killed as soon as a serverless response returns and silently lose mail.
+- Tokens contain 32 cryptographically random bytes encoded as base64url; only
+  their SHA-256 digest is persisted. They expire after 30 minutes. Issuance and
+  consumption lock the same account row. Issuance invalidates previous unused
+  links; consumption conditionally sets `usedAt`, changes the bcrypt password,
+  and increments `tokenVersion` in one transaction. Concurrent submissions can
+  succeed only once. No account id submitted by the browser selects the owner.
+- The emailed URL enters through `GET /api/auth/password/reset?token=…`, which
+  verifies the raw token and redirects to `/reset-password?proof=…`. Next embeds
+  page URLs in RSC responses, so this redirect-only entry is necessary to keep
+  raw tokens out of response bodies. The form carries a signed, owner-bound
+  proof with a separate `password-reset` audience and the original expiry.
+  Possession of a database digest alone cannot forge that proof. A GET never
+  consumes a link, so ordinary email link scanners do not invalidate it.
+- The server component revalidates the proof against the database; the native
+  form POST validates it again. POST requires an explicit same-origin `Origin`
+  header, applies the existing password policy, and returns a 303 outcome.
+  Success clears this browser's session, revokes every old session, and sends
+  the user to sign in; it does not auto-sign-in. Recovery remains reachable
+  with revoked or unverifiable cookies and fails closed without `AUTH_SECRET`.
+- Requests are limited to 10 per IP per 15 minutes and 3 per normalized-email
+  HMAC-SHA-256 key per hour; submissions have a separate 10/IP/15-minute budget.
+  Keys contain no raw email. These inherit the existing limiter's per-process
+  limitation and trusted-proxy/IP-header assumptions. Email keys use a separate,
+  domain-separated HMAC function keyed by `AUTH_SECRET`, so a leaked bucket store
+  cannot be tested against an email wordlist without that secret. A full process
+  compromise that also exposes the secret defeats this protection. Persisted
+  reset-token hashes remain bare SHA-256 and existing tokens stay compatible.
+- Audits use `auth.password_reset_requested`, `auth.password_reset_completed`,
+  and `auth.password_reset_failed`, with no token, proof, password or email in
+  detail. Raw tokens never enter Prisma arguments or error messages. Console
+  mail prints URLs only under the explicit development guard; tests capture
+  mail in process memory. Production console delivery refuses to run. Relay
+  failures emit a fixed operator signal, never a request/response body.
+- Reset credentials are not health data: they survive `deleteAllRecordsAction`.
+  The existing `PasswordResetToken.user` cascade deletes them with the account.
+
+**Residual trust:** the product has no email-verification concept or
+`emailVerified` field. Recovery proves present mailbox control, not that the
+address originally belonged to the person who entered health data. A mistyped,
+reassigned, shared, or compromised mailbox can expose the corresponding
+password account. The mail relay and mailbox providers can read bearer links
+and must be trusted. Proofs are also bearer credentials: exclude recovery URL
+queries from proxy/APM/access logs, disable mail click tracking, and never
+collect recovery pages in analytics. Redirects use `no-referrer`, and so does
+the forgot-password page, whose URL carries nothing sensitive. The
+**reset** page deliberately uses `strict-origin` instead: Chrome derives a form
+submission's `Origin` header from the document's referrer policy, so
+`no-referrer` there made the browser send `Origin: null` and the reset route —
+which requires `Origin` — rejected every legitimate submission as
+`cross_origin`. `strict-origin` sends the bare origin and never the path, so the
+proof in that page's query string still never leaves in a `Referer`. The e2e
+suite covers this end to end; a browser is the only place the interaction is
+visible.
+redirects are `no-store` and pages are dynamic. Browser/mail history remains a
+residual exposure. Delivery runs after the response within Next's request
+lifecycle, with no durable outbox or automatic retry; a transport failure
+invalidates that token and the user must request a new link after the limit
+permits it. Superseded/expired token rows are retained
+until account deletion; deployments may add a retention job later.
+
 ## Federated sign-in (Google)
 
 `lib/auth/oauth/*` and `app/api/auth/google/callback/route.ts`. Entirely optional — `googleConfig()` returns `null` and the app runs unaffected when `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` are unset (`.env.example`).
@@ -33,7 +112,7 @@ Sessions are stateless, signed JWT cookies (`lib/auth/session.ts`), not a server
 - **Minimal scope, no token retention.** The authorize request asks for `openid email profile` only — never Gmail, Drive, or contacts. No health data leaves the deployment as part of this flow, and no Google access or refresh token is persisted anywhere: `verifyIdToken()` (`lib/auth/oauth/google.ts`) reads the ID token once, in memory, to extract `sub`/`email`/`email_verified`/`name`, and nothing from Google is written to the database beyond those fields.
 - **PKCE + state + nonce in one signed cookie.** The attempt (`state`, PKCE `verifier`, OIDC `nonce`, `mode`, and post-sign-in `next`) is sealed into a single signed, HttpOnly cookie (`OAUTH_COOKIE`, `lib/auth/oauth/state.ts`) rather than several plaintext ones, so the callback validates the whole attempt — CSRF state match, PKCE code exchange, nonce replay — in one place. The cookie uses the authorization-code + PKCE (S256) flow and expires after `OAUTH_MAX_AGE_S` (10 minutes) and is single-use: the callback clears it on every response, success or failure.
 - **ID token verification.** `verifyIdToken()` checks the signature against Google's live JWKS (`https://www.googleapis.com/oauth2/v3/certs`), and checks issuer, audience (the configured client id), and that the token's `nonce` matches the one minted for this attempt. Only a token that survives all of these is trusted; the callback treats every other input on the request — query parameters included — as attacker-controlled.
-- **Deliberate non-linking-by-email policy.** A Google identity is never auto-linked to an existing DiaLog account by matching email, even when the email is verified. `resolveGoogleSignIn()` treats an email collision as `blocked` with `email_in_use` regardless of whether the existing account has a password or was itself created passwordlessly; `resolveGoogleLink()` only ever attaches a Google identity to the account already proven by an authenticated session. The only path to linking is: sign in with the password, then link from Settings. This is intentional, not an oversight — if a matching email were enough to merge accounts, whoever gained control of a person's Google account (a compromised, reused, or simply re-registered address) would silently inherit that person's entire health record. Requiring proof of the DiaLog password first means a Google account alone is never sufficient to reach someone else's data.
+- **Deliberate non-linking-by-email policy.** A Google identity is never auto-linked to an existing DiaLog account by matching email, even when the email is verified. `resolveGoogleSignIn()` treats an email collision as `blocked` with `email_in_use` regardless of whether the existing account has a password or was itself created passwordlessly; `resolveGoogleLink()` only ever attaches a Google identity to the account already proven by an authenticated session. The only path to linking is: sign in with the password, then link from Settings. This is intentional, not an oversight — if a matching email were enough to merge accounts, whoever gained control of a person's Google account (a compromised, reused, or simply re-registered address) would silently inherit that person's entire health record. Google identity assertions alone never link accounts. Password recovery is a separate mailbox-control path for password accounts, with the unverified-address risks described above.
 
 ## Settings mutations that revoke the current session
 

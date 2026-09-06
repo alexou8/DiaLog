@@ -11,6 +11,66 @@
 
 See the README's [Quick start](../README.md#quick-start) for the same steps with more explanation, and [Environment variables](../README.md#environment-variables) for the full table.
 
+## Password recovery mail
+
+Recovery requires a usable `AUTH_SECRET` and `NEXT_PUBLIC_APP_URL`, which is
+the trusted public origin used in mailed links. The origin is never derived
+from a request's Host header. Use HTTPS; HTTP is accepted only on loopback for
+local development/testing.
+
+Configure these settings before enabling production recovery:
+
+| Variable              | Meaning                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| `EMAIL_PROVIDER`      | `http` for a real mail relay; default `console` is development/test only            |
+| `EMAIL_HTTP_URL`      | Authenticated relay endpoint; HTTPS for remote hosts, HTTP allowed only on loopback |
+| `EMAIL_HTTP_TOKEN`    | Secret sent as `Authorization: Bearer …` to the relay                               |
+| `EMAIL_FROM`          | Sender address authorized by your relay                                             |
+| `NEXT_PUBLIC_APP_URL` | Public app origin used to build reset links                                         |
+
+**The HTTP transport has never been exercised against a real mail provider.**
+The only thing that has ever received a message from it is the loopback receiver
+the e2e suite runs on `127.0.0.1:3211`. Treat the first production send as
+unverified, and confirm delivery with a dedicated non-health-data account before
+relying on recovery.
+
+The built-in HTTP transport is a concrete, vendor-independent relay client,
+not a direct Resend/SendGrid/SMTP integration. Provision a relay that accepts
+`POST` JSON `{ "from": "…", "to": "…", "subject": "…", "text": "…" }`
+and sends that message through your chosen mail service. A 2xx response means
+accepted for delivery; non-2xx, network errors, redirects, or the 10-second
+deadline are failures. Configure relay authentication, sender/domain
+verification, delivery monitoring and SPF/DKIM/DMARC at that service. No mail
+dependency is added to the application. Never expose this relay anonymously.
+
+`console` prints a reset URL to stdout **only** when `NODE_ENV ===
+'development'`. Under `test`, it exposes a bounded in-memory capture through
+`takeCapturedEmails()`; it never prints. Under production it reports itself
+unavailable and throws a typed failure if invoked. Unknown providers and
+missing configuration fail closed before account lookup, and the request form
+shows recovery unavailable. A runtime delivery failure keeps the public
+confirmation neutral to avoid account enumeration, invalidates its token, and
+emits a fixed operator error plus a failure audit. Monitor those signals:
+delivery uses Next 15's `after()` lifecycle, not a detached promise. The host
+must support Next's `waitUntil` lifecycle and allow sufficient function duration
+for the transaction and the relay's 10-second deadline. There is no durable
+outbox or automatic retry; a process crash or host deadline can still interrupt
+work even though the response has already been sent.
+
+Trust the mail transport as an account-recovery credential processor. Disable
+click tracking and mail-body logging. Exclude query strings for
+`/api/auth/password/reset` and `/reset-password` from platform/proxy/APM logs;
+both emailed tokens and signed form proofs are bearer credentials. Do not
+record recovery pages in analytics. Mailbox control is sufficient to recover
+a password account, and existing email addresses have never been verified;
+see [Security](SECURITY.md#password-recovery) for the residual risks.
+
+No database migration is needed: this uses the existing `PasswordResetToken`
+table and account-deletion cascade. Configure the relay first, deploy the
+application, and verify delivery with a dedicated non-health-data account.
+Rolling the application back removes recovery UI but does not require a schema
+rollback; outstanding links expire after 30 minutes.
+
 ## Database migrations
 
 Prisma Migrate is the only schema-change mechanism used in this repository (`prisma/migrations/`, currently one migration: `20260824201633_init`).
@@ -55,7 +115,9 @@ Beyond that endpoint, this repository does not wire up any monitoring, error tra
 
 ## Background jobs
 
-There are none. Every expensive operation — the full analytics engine (`lib/analytics/engine.ts`'s `runAnalytics()`: summary stats, associations, anomaly detection, trend detection, clustering, feature importance), file import parsing, and every AI call — runs synchronously inside the request that triggered it (a page render or a Server Action). There is no queue, no worker process, and no scheduled/cron job anywhere in this codebase.
+There is no independent queue, worker process or scheduled/cron job. Recovery
+mail uses Next's `after()` callback after the response and remains bounded by the
+host request lifecycle. Every other expensive operation — the full analytics engine (`lib/analytics/engine.ts`'s `runAnalytics()`: summary stats, associations, anomaly detection, trend detection, clustering, feature importance), file import parsing, and every AI call — runs synchronously inside the request that triggered it (a page render or a Server Action). Apart from that `after()` callback there is no queue, no worker process, and no scheduled/cron job anywhere in this codebase.
 
 This is fine at the data volumes a single user's health log produces (the analytics window defaults to 30–90 days of records, not years of raw CGM data), but it is a real constraint to know about before scaling:
 

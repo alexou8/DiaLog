@@ -51,6 +51,9 @@ export const RATE_LIMITS = {
   // more than ten of these in a quarter of an hour.
   oauthStart: { limit: 30, windowMs: 15 * 60_000 },
   signUp: { limit: 5, windowMs: 60 * 60_000 },
+  passwordResetIp: { limit: 10, windowMs: 15 * 60_000 },
+  passwordResetEmail: { limit: 3, windowMs: 60 * 60_000 },
+  passwordResetSubmit: { limit: 10, windowMs: 15 * 60_000 },
   import: { limit: 20, windowMs: 60 * 60_000 },
   ai: { limit: 30, windowMs: 60 * 60_000 },
   write: { limit: 240, windowMs: 60 * 60_000 },

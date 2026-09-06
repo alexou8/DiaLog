@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ButtonLink, Card, Icon, Logo } from '@/components/ui';
+import { HeroVisual } from './_hero-visual';
 
 export const metadata: Metadata = {
   title: 'DiaLog: understand your glucose data',
@@ -39,28 +40,40 @@ export default function LandingPage() {
             sits beside the word "DiaLog" in a header, where the descriptor
             would be too small to read. */}
         <Logo className="mb-8" />
-        <p className="mb-3 inline-block rounded-full border border-brand/30 bg-brand-soft px-3 py-1 text-sm font-semibold text-brand-ink">
-          For prediabetes, type 2 diabetes, and anyone tracking their glucose
-        </p>
-        <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
-          Your glucose data, finally in plain language.
-        </h1>
-        <p className="mt-5 max-w-2xl text-lg text-ink-muted sm:text-xl">
-          DiaLog collects your readings, meals, activity and sleep in one place, works out what is
-          actually going on, and explains it the way a person would, without jargon, alarms, or
-          twenty charts you have to interpret yourself.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <ButtonLink href="/sign-up" className="text-lg">
-            Create your account
-          </ButtonLink>
-          <ButtonLink href="/about" variant="secondary" className="text-lg">
-            See how it works
-          </ButtonLink>
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
+          <div>
+            <p className="mb-3 inline-block rounded-full border border-brand/30 bg-brand-soft px-3 py-1 text-sm font-semibold text-brand-ink">
+              For prediabetes, type 2 diabetes, and anyone tracking their glucose
+            </p>
+            <h1 className="max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
+              Your glucose data, finally in plain language.
+            </h1>
+            <p className="mt-5 max-w-2xl text-lg text-ink-muted sm:text-xl">
+              DiaLog collects your readings, meals, activity and sleep in one place, works out what
+              is actually going on, and explains it the way a person would, without jargon, alarms,
+              or twenty charts you have to interpret yourself.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <ButtonLink href="/sign-up" className="text-lg">
+                Create your account
+              </ButtonLink>
+              <ButtonLink href="/about" variant="secondary" className="text-lg">
+                See how it works
+              </ButtonLink>
+            </div>
+            <p className="mt-5 text-sm text-ink-muted">
+              Free and open source. Works in mmol/L or mg/dL. Installs to your phone&apos;s home
+              screen.
+            </p>
+          </div>
+          <div>
+            <HeroVisual />
+            <p className="dl-meta mt-3 text-ink-muted">
+              An example of what an insight looks like. On your own account, the numbers and the
+              evidence grade are your own.
+            </p>
+          </div>
         </div>
-        <p className="mt-5 text-sm text-ink-muted">
-          Free and open source. Works in mmol/L or mg/dL. Installs to your phone&apos;s home screen.
-        </p>
       </section>
 
       <section aria-labelledby="what" className="border-y border-line bg-surface">
@@ -111,9 +124,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section aria-labelledby="access" className="border-t border-line bg-surface-sunken">
+      <div className="border-t border-line bg-surface-sunken">
         <div className="mx-auto grid max-w-5xl gap-8 px-5 py-14 sm:grid-cols-2">
-          <div>
+          <section aria-labelledby="access">
             <h2 id="access" className="text-2xl font-bold sm:text-3xl">
               Built to be readable
             </h2>
@@ -127,9 +140,11 @@ export default function LandingPage() {
                 Read our accessibility commitment
               </Link>
             </p>
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold sm:text-3xl">Your data stays yours</h2>
+          </section>
+          <section aria-labelledby="privacy">
+            <h2 id="privacy" className="text-2xl font-bold sm:text-3xl">
+              Your data stays yours
+            </h2>
             <p className="mt-4 text-ink-muted">
               Health records are stored in your own account and never sold or used for advertising.
               The assistant runs on a local, no-network explanation engine by default, so nothing is
@@ -140,7 +155,25 @@ export default function LandingPage() {
                 Read the privacy notice
               </Link>
             </p>
-          </div>
+          </section>
+        </div>
+      </div>
+
+      <section aria-labelledby="start" className="mx-auto max-w-5xl px-5 py-14 text-center">
+        <h2 id="start" className="text-2xl font-bold sm:text-3xl">
+          Start with the readings you already have
+        </h2>
+        <p className="dl-measure mx-auto mt-4 text-ink-muted">
+          Import an export from your meter software, or add a handful of readings by hand. DiaLog
+          will tell you honestly when it does not yet have enough to say anything useful.
+        </p>
+        <div className="mt-7 flex flex-wrap justify-center gap-3">
+          <ButtonLink href="/sign-up" className="text-lg">
+            Create your account
+          </ButtonLink>
+          <ButtonLink href="/help" variant="secondary" className="text-lg">
+            Read the help guide
+          </ButtonLink>
         </div>
       </section>
     </>

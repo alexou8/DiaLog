@@ -26,6 +26,14 @@ export const signInSchema = z.object({
   password: z.string().min(1, 'Please enter your password.'),
 });
 
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+export const passwordResetTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+export const resetPasswordSchema = z.object({
+  proof: z.string().min(1).max(2048),
+  newPassword: z.string(),
+  confirmPassword: z.string(),
+});
+
 /** A date-time entered as a local wall-clock value from a form control. */
 export const localDateTimeSchema = z
   .string()
