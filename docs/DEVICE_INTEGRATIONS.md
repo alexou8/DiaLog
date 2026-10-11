@@ -29,7 +29,13 @@ before relying on anything below for a production integration decision.
 - **Verdict**: file import only, and even that column layout is unverified.
   `lib/import/connectors/abbott-optium-neo.ts` is honestly implemented as a
   thin wrapper around the generic CSV connector rather than a fabricated
-  fixed layout.
+  fixed layout. On top of generic-csv it only: recognises the Abbott report
+  preamble, skips that preamble to the first row that names a glucose and a
+  date/timestamp column, accepts a `Result` glucose column, and turns any row
+  mentioning "ketone" into an `UNSUPPORTED_ROW` issue — the meter also
+  measures blood beta-ketones in mmol/L, which would otherwise read as a
+  plausible-looking glucose value. `tests/fixtures/import/abbott-optium-neo.csv`
+  is a representative layout we wrote, not a captured export.
 
 Sources: general Abbott partner/developer pages surfaced in search did not
 include a Optium Neo file spec; see LibreView section below for the
@@ -231,7 +237,16 @@ unit="..." startDate="..." endDate="..." value="..." .../>` elements (plus
   `HKQuantityTypeIdentifierBloodGlucose`,
   `HKQuantityTypeIdentifierDietaryCarbohydrates`,
   `HKQuantityTypeIdentifierBodyMass`, `HKCategoryTypeIdentifierSleepAnalysis`.
-  Exports can be very large (hundreds of MB for a multi-year history).
+  Exports can be very large (hundreds of MB for a multi-year history), well
+  over DiaLog's 20 MB import limit (`lib/import/limits.ts`), so a multi-year
+  `export.xml` currently has to be trimmed to a shorter period before upload.
+- **DTD header**: real `export.xml` files begin with an inline DTD,
+  `<!DOCTYPE HealthData [ <!ELEMENT …> <!ATTLIST …> ]>`, of element and
+  attribute declarations with no `<!ENTITY>`. The XML parser accepts a DOCTYPE
+  internal subset only when it declares no entities and names no external
+  `SYSTEM`/`PUBLIC` DTD, and strips it before parsing, so Apple's header
+  imports while entity-expansion ("billion laughs") files are still refused.
+  `tests/fixtures/import/apple-health-export.xml` carries such a header.
 - **Verdict**: file import — see `lib/import/connectors/apple-health.ts`.
   There is no live "Apple Health API" a server-side app like DiaLog can call
   directly; on-device access is via Apple's `HealthKit` framework from a

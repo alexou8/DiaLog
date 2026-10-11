@@ -9,18 +9,33 @@
  * cannot verify, this connector is deliberately a THIN WRAPPER around
  * `generic-csv`: it only adds (a) recognition of the Abbott header preamble
  * text so the importer can label the file as "from an Abbott meter" and
- * surface Abbott-specific export instructions, and (b) a couple of
- * additional column-name aliases reported in user-facing Abbott
- * documentation ("Result", "Glucose (mg/dL)"). All the actual parsing is
- * generic-csv's tolerant column matching. If Abbott's real export layout
+ * surface Abbott-specific export instructions, (b) skipping that preamble to
+ * the real header row, (c) the "Result" column-name alias reported in
+ * user-facing Abbott documentation, and (d) refusing blood-ketone rows. All
+ * the actual parsing is generic-csv's tolerant column matching. If Abbott's real export layout
  * differs, generic-csv's column detection still degrades gracefully to
  * per-row UNSUPPORTED_ROW/MISSING_VALUE issues rather than silent
  * misimport.
  */
-import { parseGenericCsv } from './generic-csv';
+import { findHeaderRow, parseGenericCsv, type GenericCsvLayout } from './generic-csv';
 import type { DeviceConnector, ParseOptions, ParseResult, ParsedFile } from '../types';
 
 const PREAMBLE_MARKERS = ['freestyle optium', 'abbott diabetes care', 'optium neo'];
+
+/** "Result" is the column name reported in Abbott's user documentation. */
+const GLUCOSE_ALIASES = ['result', 'glucose result'] as const;
+
+/**
+ * The Optium Neo also measures blood beta-ketones, in mmol/L — the same unit
+ * as glucose, and a ketone of 1.5 is a plausible-looking glucose of 1.5
+ * mmol/L. Read as glucose it would be a silently wrong reading, so any row
+ * that says "ketone" anywhere becomes an UNSUPPORTED_ROW issue instead.
+ */
+function rejectKetoneRow(row: string[]): string | null {
+  return row.some((cell) => /ketone/i.test(cell))
+    ? 'Blood ketone results are not glucose readings, so this row was not imported.'
+    : null;
+}
 
 function textHead(sample: ParsedFile): string {
   if (sample.rows)
@@ -55,6 +70,23 @@ export const abbottOptiumNeoConnector: DeviceConnector = {
   },
 
   parse(file: ParsedFile, options: ParseOptions): ParseResult {
-    return parseGenericCsv(file, options);
+    const rows = file.rows ?? [];
+    // The export starts with a few lines of device/report preamble before
+    // the header; generic-csv alone would take the first preamble line as the
+    // header and reject every row. Fall back to row 0 when no header is found
+    // so the user still gets per-row issues rather than nothing.
+    const headerRowIndex = Math.max(0, findHeaderRow(rows, GLUCOSE_ALIASES));
+    const layout: GenericCsvLayout = {
+      headerRowIndex,
+      glucoseAliases: GLUCOSE_ALIASES,
+      rejectRow: rejectKetoneRow,
+    };
+    const result = parseGenericCsv(file, options, layout);
+    if (headerRowIndex > 0) {
+      result.warnings.push(
+        `Skipped ${headerRowIndex} line${headerRowIndex === 1 ? '' : 's'} of report header before the column names.`,
+      );
+    }
+    return result;
   },
 };

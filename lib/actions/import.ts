@@ -10,6 +10,8 @@ import {
   prepareImport,
   undoImport,
 } from '@/lib/services/import-service';
+import { MAX_IMPORT_BYTES, fileTooLargeMessage } from '@/lib/import/limits';
+import { previewDetail } from '@/lib/import/preview';
 import type { ImportSummary } from '@/lib/import/summary';
 
 export interface ImportState {
@@ -29,6 +31,11 @@ async function readUpload(formData: FormData) {
   const file = formData.get('file');
   if (!(file instanceof File) || file.size === 0) {
     throw new ImportError('Please choose a file to import.');
+  }
+  // Checked before arrayBuffer() so an oversized upload is refused without
+  // buffering it, with the same limit and wording the service uses.
+  if (file.size > MAX_IMPORT_BYTES) {
+    throw new ImportError(fileTooLargeMessage());
   }
   const lower = file.name.toLowerCase();
   if (!ALLOWED_EXTENSIONS.some((extension) => lower.endsWith(extension))) {
@@ -91,16 +98,7 @@ export async function analyzeImportAction(
       preview: prepared.preview.map((record) => ({
         kind: record.kind,
         when: describe(record, user.profile.timezone, user.profile.locale),
-        detail:
-          record.kind === 'glucose'
-            ? `${Math.round(record.valueMgdl)} mg/dL (stored value)`
-            : record.kind === 'meal'
-              ? record.description
-              : record.kind === 'medication'
-                ? record.name
-                : record.kind === 'exercise'
-                  ? `${record.activity}, ${record.durationMin} min`
-                  : 'Not recorded',
+        detail: previewDetail(record, user.profile.glucoseUnit, user.profile.locale),
       })),
     };
   } catch (error) {

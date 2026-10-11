@@ -1,10 +1,12 @@
 /**
  * Value normalisation shared by connectors: glucose unit inference/conversion
- * and plausibility checks (via lib/domain/units.ts), and free-text context
- * mapping to the GlucoseContext enum.
+ * and plausibility checks (via lib/domain/units.ts), free-text context
+ * mapping to the GlucoseContext enum, and the storage-constraint checks that
+ * keep unstorable numbers from reaching Prisma.
  */
 import { inferGlucoseUnit, isPlausibleGlucose, toMgdl } from '@/lib/domain/units';
 import type { GlucoseContext, GlucoseUnit } from '@prisma/client';
+import type { NormalizedRecord, ParseResult, RowIssue, RowIssueCode } from './types';
 
 export { inferGlucoseUnit };
 
@@ -89,4 +91,116 @@ export function detectFileGlucoseUnit(
 ): GlucoseUnit | null {
   if (explicit) return explicit;
   return inferGlucoseUnit(values);
+}
+
+// ------------------------------------------------- storage constraints
+
+/** Postgres `integer` (int4) range — what Prisma `Int` columns map to. */
+export const INT4_MIN = -2_147_483_648;
+export const INT4_MAX = 2_147_483_647;
+
+/**
+ * The `Int` columns each record kind writes (see prisma/schema.prisma). Every
+ * one of them is a count or a duration, so negatives are rejected too.
+ * tests/unit/import/storage-constraints.test.ts reads the schema and fails if
+ * an importable model gains an Int or Float column missing from these lists.
+ * (Medication `dose` is a String column, and blood pressure, hydration,
+ * symptom and mood are not importable kinds, so none of them belong here.)
+ */
+export const INT_FIELDS = {
+  exercise: ['durationMin', 'steps'],
+  sleep: ['durationMin', 'quality'],
+} as const satisfies Partial<Record<NormalizedRecord['kind'], readonly string[]>>;
+
+/** Numeric `Float` columns, which only need to be finite. */
+export const FLOAT_FIELDS = {
+  glucose: ['valueMgdl'],
+  meal: ['carbsG', 'proteinG', 'fatG', 'fiberG', 'calories'],
+  exercise: ['distanceKm'],
+  weight: ['weightKg'],
+} as const satisfies Partial<Record<NormalizedRecord['kind'], readonly string[]>>;
+
+export interface StorageIssue {
+  code: Extract<RowIssueCode, 'INVALID_VALUE' | 'OUT_OF_RANGE'>;
+  message: string;
+}
+
+/** Checks one value destined for an `Int` column. Null/undefined (optional column) passes. */
+export function checkStorableInt(value: unknown, field: string): StorageIssue | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+    return { code: 'INVALID_VALUE', message: `${field} must be a whole number.` };
+  }
+  if (value < 0 || value > INT4_MAX) {
+    return { code: 'OUT_OF_RANGE', message: `${field} is outside the range DiaLog can store.` };
+  }
+  return null;
+}
+
+/**
+ * Why this exists: generic XML/JSON pass user-supplied numbers straight into
+ * `Int` columns. `durationMin="12.5"` or `steps="3000000000"` survived the
+ * preview, then Prisma (Float for Int) or Postgres (int4 overflow) rejected
+ * the whole commit transaction at write time — one bad row failed every row.
+ * A value that cannot be stored is a row problem, so it becomes a RowIssue
+ * before anything reaches the database. Messages name the field, never the
+ * value.
+ */
+export function storageIssueFor(record: NormalizedRecord): StorageIssue | null {
+  const fields = record as unknown as Record<string, unknown>;
+  for (const field of (INT_FIELDS as Partial<Record<string, readonly string[]>>)[record.kind] ??
+    []) {
+    const issue = checkStorableInt(fields[field], field);
+    if (issue) return issue;
+  }
+  for (const field of (FLOAT_FIELDS as Partial<Record<string, readonly string[]>>)[record.kind] ??
+    []) {
+    const value = fields[field];
+    if (value === null || value === undefined) continue;
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return { code: 'INVALID_VALUE', message: `${field} is not a valid number.` };
+    }
+  }
+  return null;
+}
+
+/**
+ * Per-row form for connectors: pushes the record when it is storable,
+ * otherwise records a RowIssue with the real row number.
+ */
+export function pushIfStorable(
+  records: NormalizedRecord[],
+  issues: RowIssue[],
+  record: NormalizedRecord,
+  rowNumber: number,
+  rawRow?: string,
+): void {
+  const issue = storageIssueFor(record);
+  if (issue) issues.push({ rowNumber, ...issue, ...(rawRow === undefined ? {} : { rawRow }) });
+  else records.push(record);
+}
+
+/**
+ * Backstop applied to every connector's output by the import service, so a
+ * connector that forgets the per-row check still cannot send an unstorable
+ * value to Prisma. Records carry no row number, so these issues use row 0
+ * ("row unknown") — connectors should prefer `pushIfStorable`.
+ */
+export function enforceStorageConstraints(result: ParseResult): ParseResult {
+  const records: NormalizedRecord[] = [];
+  const extraIssues: RowIssue[] = [];
+  for (const record of result.records) {
+    const issue = storageIssueFor(record);
+    if (issue) {
+      extraIssues.push({
+        rowNumber: 0,
+        code: issue.code,
+        message: `A ${record.kind} record could not be stored: ${issue.message}`,
+      });
+    } else {
+      records.push(record);
+    }
+  }
+  if (extraIssues.length === 0) return result;
+  return { ...result, records, issues: [...result.issues, ...extraIssues] };
 }

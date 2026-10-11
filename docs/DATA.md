@@ -175,9 +175,43 @@ stuck `PENDING` with its rows written — a status inconsistency, not data loss.
 `undoImport` verifies batch ownership first, then deletes the rows
 transactionally.
 
-XML input is parsed with a hard rejection of any `DOCTYPE` internal subset:
-entity-expansion bombs blow up _after_ the file-size check passes, so
-`MAX_FILE_BYTES` cannot bound them. None of the supported formats uses a DTD.
+Before parsing, `prepareImport` derives every record's `dedupeKey` and asks the
+database only for those keys (`dedupeKey IN (...)` in chunks of 1,000, served by
+the `@@unique([userId, dedupeKey])` index) rather than loading every key the user
+has. Every connector's output also passes `enforceStorageConstraints`
+(`lib/import/normalize.ts`): a value that cannot be stored in an `Int` column
+(fractional, negative, or outside Postgres int4) becomes a `RowIssue` instead of
+failing the whole commit.
+
+#### Import limits
+
+All limits live in `lib/import/limits.ts`, so the parser, service, Server Action
+and UI copy agree:
+
+| Limit                         | Value                        | Why                                                                                               |
+| ----------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| `MAX_IMPORT_BYTES`            | 20 MB (`MAX_IMPORT_LABEL`)   | Upload ceiling; must match `serverActions.bodySizeLimit` in `next.config.ts`.                     |
+| `MAX_JSON_BYTES`              | 20 MB                        | `JSON.parse` costs memory on top of the string.                                                   |
+| `MAX_XLSX_UNCOMPRESSED_BYTES` | 80 MB (4 × the upload limit) | Every zip entry is inflated with a bounded `maxOutputLength` before ExcelJS sees the file.        |
+| `MAX_XLSX_CELLS`              | 500,000                      | Worksheet `<c>` elements are counted during that inflate, so ExcelJS never models more than this. |
+| XLSX text budget              | 80 MB of cell text           | One shared string referenced by many cells cannot amplify into gigabytes once rows are joined.    |
+| `MAX_XLSX_ENTRIES`            | 1,000 zip entries            | Real workbooks have a few dozen.                                                                  |
+
+An over-limit or unsafe file raises a typed `ImportLimitError`
+(`FILE_TOO_LARGE`, `WORKBOOK_TOO_LARGE`, `UNSAFE_XML`), which `prepareImport`
+turns into a specific message for the user instead of a generic "could not
+read that file". ExcelJS is imported dynamically, so CSV, JSON and XML imports
+never load it.
+
+XML input rejects any `DOCTYPE` internal subset that declares an entity
+(`<!ENTITY`, case-insensitive, after removing comments) or names an external
+DTD (`SYSTEM`/`PUBLIC`): entity-expansion bombs blow up _after_ the file-size
+check passes, so the size ceiling cannot bound them. An entity-free subset is
+accepted and removed before fast-xml-parser runs, because real Apple Health
+`export.xml` files open with `<!DOCTYPE HealthData [ <!ELEMENT …> <!ATTLIST … > ]>`
+— the earlier "reject any internal subset" rule refused every real Apple Health
+export. The DOCTYPE is located with a scanner that tracks quotes, comments and
+the `[`…`]` subset, so a quoted `>` cannot hide the subset from the check.
 
 ### Export
 

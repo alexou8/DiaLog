@@ -14,7 +14,7 @@
  * its own dedicated connector (apple-health.ts) because its shape and
  * identifiers are fixed by Apple.
  */
-import { mapGlucoseContext, normalizeGlucoseValue } from '../normalize';
+import { mapGlucoseContext, normalizeGlucoseValue, pushIfStorable } from '../normalize';
 import { parseTimestamp } from '../parse';
 import { inferGlucoseUnit } from '@/lib/domain/units';
 import type {
@@ -243,16 +243,22 @@ export const genericXmlConnector: DeviceConnector = {
             });
             return;
           }
-          out.push({
-            kind: 'exercise',
-            takenAt: ts.date,
-            activity,
-            durationMin,
-            distanceKm: num(attr(el, 'distanceKm')) ?? null,
-            steps: num(attr(el, 'steps')) ?? null,
-            externalId: attr(el, 'id'),
-            raw,
-          });
+          pushIfStorable(
+            out,
+            issues,
+            {
+              kind: 'exercise',
+              takenAt: ts.date,
+              activity,
+              durationMin,
+              distanceKm: num(attr(el, 'distanceKm')) ?? null,
+              steps: num(attr(el, 'steps')) ?? null,
+              externalId: attr(el, 'id'),
+              raw,
+            },
+            rowNumber,
+            rawRow,
+          );
           return;
         }
         default:

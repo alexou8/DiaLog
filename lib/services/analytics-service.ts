@@ -6,6 +6,7 @@
  * raw records go into `runAnalytics`, and only graded findings and aggregate
  * numbers come out into the bundle that the assistant is allowed to see.
  */
+import { cache } from 'react';
 import type { GlucoseUnit, Profile } from '@prisma/client';
 import { runAnalytics, type AnalyticsResult } from '@/lib/analytics/engine';
 import { buildInsights, type InsightCard } from '@/lib/analytics/insights';
@@ -24,10 +25,51 @@ export function defaultWindow(days = 30, now = new Date()): AnalyticsWindow {
   return { from: daysAgo(days, now), to: now };
 }
 
-export async function analyzeUser(
+const MINUTE_MS = 60_000;
+
+/**
+ * Analyse one user's window, computed at most once per request.
+ *
+ * The dashboard now renders its sections as separate Suspense children, and
+ * more than one of them needs the same analysis; without this each would reload
+ * the window's readings and re-run the whole engine. `React.cache` keys on
+ * argument identity, and a `{ from, to }` object is new on every call, so the
+ * key is the user, the (request-scoped, hence shared) profile and the window
+ * edges as whole minutes. `defaultWindow()` stamps `to` with the call time, so
+ * two sections calling it a few milliseconds apart would otherwise never match.
+ * The window is widened to the enclosing minutes (`from` rounded down, `to`
+ * rounded up) rather than narrowed, so a reading saved a few seconds ago is
+ * never excluded from the numbers on the page that follows the save.
+ *
+ * Outside a React request (the integration suite) `cache` is a pass-through.
+ */
+const analyzeWindow = cache(
+  async (userId: string, profile: Profile, fromMinute: number, toMinute: number) => {
+    const window = {
+      from: new Date(fromMinute * MINUTE_MS),
+      to: new Date(toMinute * MINUTE_MS),
+    };
+    return computeAnalysis(userId, profile, window);
+  },
+);
+
+export function analyzeUser(
   userId: string,
   profile: Profile,
   window: AnalyticsWindow = defaultWindow(),
+): Promise<{ result: AnalyticsResult; input: AnalyticsInput }> {
+  return analyzeWindow(
+    userId,
+    profile,
+    Math.floor(window.from.getTime() / MINUTE_MS),
+    Math.ceil(window.to.getTime() / MINUTE_MS),
+  );
+}
+
+async function computeAnalysis(
+  userId: string,
+  profile: Profile,
+  window: AnalyticsWindow,
 ): Promise<{ result: AnalyticsResult; input: AnalyticsInput }> {
   const data = await loadAnalyticsWindow({ userId, from: window.from, to: window.to });
 

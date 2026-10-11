@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseCsv, parseFile, parseJsonText, parseXmlText } from '@/lib/import/parse';
+import { ImportLimitError, MAX_IMPORT_BYTES, MAX_IMPORT_LABEL } from '@/lib/import/limits';
+import {
+  detectDelimiter,
+  parseCsv,
+  parseFile,
+  parseJsonText,
+  parseXmlText,
+} from '@/lib/import/parse';
 import { genericCsvConnector } from '@/lib/import/connectors/generic-csv';
 import { genericJsonConnector } from '@/lib/import/connectors/generic-json';
 import { dedupeRecords } from '@/lib/import/dedupe';
@@ -41,9 +48,10 @@ describe('malformed / corrupt files', () => {
     expect(() => parseXmlText('<records><record type="glucose"</records>')).not.toThrow();
 
     // "Billion laughs": a few hundred bytes of nested DOCTYPE entities that
-    // expand to gigabytes during parsing. The MAX_FILE_BYTES ceiling cannot
-    // catch this because the blow-up happens after the size check passes, so
-    // parseXmlText rejects any DOCTYPE internal subset outright.
+    // expand to gigabytes during parsing. The upload ceiling cannot catch
+    // this because the blow-up happens after the size check passes, so
+    // parseXmlText rejects any internal subset that declares entities (see
+    // xml-doctype.test.ts for the accepted Apple Health DTD case).
     const bomb = [
       '<?xml version="1.0"?>',
       '<!DOCTYPE lolz [',
@@ -79,7 +87,7 @@ describe('malformed / corrupt files', () => {
   });
 
   it('rejects a JSON payload larger than the size guard', () => {
-    const huge = JSON.stringify({ data: 'x'.repeat(60 * 1024 * 1024) });
+    const huge = JSON.stringify({ data: 'x'.repeat(MAX_IMPORT_BYTES + 1) });
     expect(() => parseJsonText(huge)).toThrow(/too large/);
   });
 });
@@ -137,8 +145,31 @@ describe('end-to-end parseFile', () => {
     expect(parsed.xml).toBeDefined();
   });
 
-  it('rejects a file larger than the max size guard', async () => {
-    const big = Buffer.alloc(101 * 1024 * 1024, 'a');
-    await expect(parseFile('big.csv', 'text/csv', big)).rejects.toThrow(/too large/);
+  it('rejects a file larger than the max size guard with a typed error', async () => {
+    const big = Buffer.alloc(MAX_IMPORT_BYTES + 1, 'a');
+    const error = await parseFile('big.csv', 'text/csv', big).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ImportLimitError);
+    expect((error as ImportLimitError).reason).toBe('FILE_TOO_LARGE');
+    expect((error as Error).message).toMatch(/too large/);
+    // A string over the limit (counted in UTF-8 bytes) is refused the same way.
+    await expect(
+      parseFile('big.csv', 'text/csv', 'é'.repeat(MAX_IMPORT_BYTES / 2 + 1)),
+    ).rejects.toBeInstanceOf(ImportLimitError);
+  });
+});
+
+describe('import limits', () => {
+  it('is 20 MB and labelled to match', () => {
+    expect(MAX_IMPORT_BYTES).toBe(20 * 1024 * 1024);
+    expect(MAX_IMPORT_LABEL).toBe('20 MB');
+  });
+});
+
+describe('delimiter detection on large files', () => {
+  it('samples only the head of the file, ignoring a cut-off final sample line', () => {
+    const header = 'timestamp;glucose\n';
+    const row = '2026-01-10 08:00;110\n';
+    const big = header + row.repeat(200_000); // ~4 MB
+    expect(detectDelimiter(big)).toBe(';');
   });
 });

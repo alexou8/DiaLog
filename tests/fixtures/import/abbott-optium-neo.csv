@@ -1,0 +1,15 @@
+FreeStyle Optium Neo
+Abbott Diabetes Care - Meter Report
+Exported,01/02/2026 09:15
+Serial Number,XAAA000-00000
+
+Date,Time,Result,Unit,Test Type,Notes
+13/01/2026,07:42,5.8,mmol/L,Glucose,Before breakfast
+13/01/2026,10:05,8.9,mmol/L,Glucose,After breakfast
+13/01/2026,12:30,6.4,mmol/L,Glucose,Before lunch
+14/01/2026,07:38,6.1,mmol/L,Glucose,Fasting
+14/01/2026,21:50,7.2,mmol/L,Glucose,Bedtime
+14/01/2026,22:10,1.5,mmol/L,Blood Ketone,
+15/01/2026,07:40,HI,mmol/L,Glucose,
+15/01/2026,08:00,,mmol/L,Glucose,Control solution skipped
+15/01/2026,25:00,6.0,mmol/L,Glucose,

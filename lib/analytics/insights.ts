@@ -67,7 +67,7 @@ function trendToInsight(result: AnalyticsResult): InsightCard | null {
   if (trend.classification === 'not-enough-data') return null;
 
   const titleByClass: Record<string, string> = {
-    improving: 'Your average glucose has been trending down',
+    falling: 'Your average glucose has been trending down',
     stable: 'Your average glucose has been steady',
     'more-variable': 'Your glucose has been more variable lately',
     rising: 'Your average glucose has been trending up',
@@ -84,7 +84,7 @@ function trendToInsight(result: AnalyticsResult): InsightCard | null {
       ? `Your average glucose over this period has stayed fairly steady, without a clear upward or downward trend.`
       : trend.classification === 'more-variable'
         ? `Your day-to-day glucose swings have been trending wider over this period.`
-        : `Your average daily glucose has been trending ${trend.classification === 'improving' ? 'down' : 'up'}, by ${changeText} over the period.`;
+        : `Your average daily glucose has been trending ${trend.classification === 'falling' ? 'down' : 'up'}, by ${changeText} over the period.`;
 
   return {
     kind: 'trend',
