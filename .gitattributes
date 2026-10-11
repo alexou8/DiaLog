@@ -1,0 +1,9 @@
+# Normalise line endings so Prettier (endOfLine: lf) agrees between Windows
+# checkouts and CI. Without this, core.autocrlf=true converts every file to
+# CRLF and `npm run format:check` reports hundreds of false positives.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.jpg binary
+*.webp binary
+*.woff2 binary
