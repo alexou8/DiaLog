@@ -6,7 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "dialog-ml"
 version = "0.1.0"
 description = "DiaLog offline research / model-development pipeline (not deployed)."
-requires-python = ">=3.10"
+# The pinned numpy/pandas/scikit-learn in requirements.txt need >=3.10 and ship
+# wheels up to 3.13 only (no 3.14). Of that range CI runs 3.11 and 3.13 was
+# verified by hand; 3.10 and 3.12 are untested, so they are not claimed.
+requires-python = ">=3.11,<3.14"
 
 [tool.setuptools.packages.find]
 include = ["src*"]

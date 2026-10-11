@@ -3,8 +3,9 @@ import type { Metadata } from 'next';
 import { requireUser } from '@/lib/auth/current-user';
 import { getDictionary } from '@/lib/i18n/dictionaries';
 import { signOutAction } from '@/lib/actions/auth';
-import { BottomNav, SideNav } from '@/components/AppNav';
-import { ButtonLink, Icon, LogoMark } from '@/components/ui';
+import { AddEntryButton, BottomNav, SideNav } from '@/components/AppNav';
+import { AccountPreferences } from '@/components/AccountPreferences';
+import { Icon, LogoMark } from '@/components/ui';
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
@@ -13,10 +14,19 @@ export const metadata: Metadata = {
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const dict = getDictionary(user.profile.locale);
+  // Only the chrome strings come from the dictionary; see SideNav's dictLang.
+  const chromeLang = user.profile.locale.startsWith('fr') ? 'fr-CA' : undefined;
 
   return (
-    <div className="min-h-dvh">
-      <a href="#main" className="dl-skip-link">
+    // `data-app-shell` is what the scroll-padding rule in globals.css keys
+    // on, so focused controls are never scrolled under the sticky header or
+    // the fixed bottom bar.
+    <div className="min-h-dvh" data-app-shell="">
+      <AccountPreferences
+        largeText={user.profile.largeText}
+        reduceMotion={user.profile.reduceMotion}
+      />
+      <a href="#main" className="dl-skip-link" lang={chromeLang}>
         {dict.nav.skipToContent}
       </a>
 
@@ -29,10 +39,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <LogoMark size={30} />
             DiaLog
           </Link>
-          <div className="flex items-center gap-2">
-            <ButtonLink href="/app/glucose/new" className="px-4 py-2 text-sm sm:text-base">
-              <Icon name="add" /> {dict.nav.add}
-            </ButtonLink>
+          <div className="flex items-center gap-2" lang={chromeLang}>
+            <AddEntryButton label={dict.nav.add} />
             <form action={signOutAction}>
               <button
                 type="submit"

@@ -39,6 +39,13 @@ export interface WelchTTestResult {
   mean2: number;
   n1: number;
   n2: number;
+  /**
+   * 95% confidence interval for `mean1 - mean2` (Welch). An interval that
+   * spans 0 is the same statement as p >= 0.05, expressed in mg/dL so a
+   * reader can see how large the difference might plausibly be.
+   */
+  ciLow: number;
+  ciHigh: number;
 }
 
 function isFiniteNumber(x: number): boolean {
@@ -439,6 +446,29 @@ export function tDistributionTwoSidedPValue(t: number, df: number): number {
 }
 
 /**
+ * Two-sided critical value of Student's t: the |t| at which the two-sided
+ * p-value equals `alpha`. Found by bisection on the p-value function (which
+ * falls monotonically in |t|), so it needs no separate inverse-beta code.
+ * Returns null when df is unusable.
+ */
+export function tCriticalTwoSided(df: number, alpha = 0.05): number | null {
+  if (!isFiniteNumber(df) || df <= 0 || !(alpha > 0 && alpha < 1)) return null;
+  let lo = 0;
+  let hi = 1;
+  // Widen until the bracket holds the answer (df=1, alpha=0.05 needs ~12.7).
+  while (tDistributionTwoSidedPValue(hi, df) > alpha) {
+    hi *= 2;
+    if (hi > 1e6) return null;
+  }
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (tDistributionTwoSidedPValue(mid, df) > alpha) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/**
  * Welch's t-test for two independent samples with possibly unequal
  * variances. Returns null below n=2 in either group.
  */
@@ -461,13 +491,28 @@ export function welchTTest(xs: readonly number[], ys: readonly number[]): WelchT
   const t = (m1 - m2) / se;
   const df = (se2 * se2) / ((v1 / n1) ** 2 / (n1 - 1) + (v2 / n2) ** 2 / (n2 - 1));
   const pValue = tDistributionTwoSidedPValue(t, df);
-  return { t, df, pValue, mean1: m1, mean2: m2, n1, n2 };
+  const tCrit = tCriticalTwoSided(df);
+  if (tCrit === null) return null;
+  const diff = m1 - m2;
+  return {
+    t,
+    df,
+    pValue,
+    mean1: m1,
+    mean2: m2,
+    n1,
+    n2,
+    ciLow: diff - tCrit * se,
+    ciHigh: diff + tCrit * se,
+  };
 }
 
 /**
- * Cohen's d using the pooled standard deviation of the two samples
- * (the standard "equal weight" pooling, not sample-size weighted — this
- * matches the most common textbook definition).
+ * Cohen's d using the pooled standard deviation of the two samples, pooled
+ * the standard textbook way: each group's variance weighted by its degrees
+ * of freedom (n - 1), so a larger group contributes more to the pooled SD.
+ * (An earlier comment here called it "not sample-size weighted", which the
+ * formula below never was.)
  */
 export function cohensD(xs: readonly number[], ys: readonly number[]): number | null {
   const x = cleanArray(xs);

@@ -87,3 +87,38 @@ describe('dedupeRecords', () => {
     expect(records).toHaveLength(1);
   });
 });
+
+describe('dedupeKeyedRecords', () => {
+  it('splits pre-keyed records exactly as dedupeRecords does, without changing keys', async () => {
+    const { dedupeKeyedRecords, dedupeRecords, keyRecord } = await import('@/lib/import/dedupe');
+    const at = new Date('2026-01-10T08:00:00Z');
+    const records = [
+      {
+        kind: 'glucose' as const,
+        takenAt: at,
+        valueMgdl: 110,
+        context: 'UNKNOWN' as const,
+        raw: {},
+      },
+      {
+        kind: 'glucose' as const,
+        takenAt: at,
+        valueMgdl: 110,
+        context: 'UNKNOWN' as const,
+        raw: {},
+      },
+      {
+        kind: 'glucose' as const,
+        takenAt: at,
+        valueMgdl: 120,
+        context: 'UNKNOWN' as const,
+        raw: {},
+      },
+    ];
+    const existing = [keyRecord(records[2]!).dedupeKey];
+    const a = dedupeRecords(records, existing);
+    const b = dedupeKeyedRecords(records.map(keyRecord), existing);
+    expect(b.fresh.map((k) => k.dedupeKey)).toEqual(a.fresh.map((k) => k.dedupeKey));
+    expect(b.duplicates).toHaveLength(2);
+  });
+});

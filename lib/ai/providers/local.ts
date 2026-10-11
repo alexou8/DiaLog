@@ -14,19 +14,13 @@
 import type { AIProvider, CompletionRequest, CompletionResult } from '../provider';
 import type { EvidenceBundle, Finding } from '../types';
 import type { ConfidenceLevel } from '../schemas';
+import { EVIDENCE_TO_CONFIDENCE } from '../guardrails';
 
 const EVIDENCE_RANK: Record<Finding['evidenceLevel'], number> = {
   CONSISTENT: 3,
   EMERGING: 2,
   EARLY: 1,
   INSUFFICIENT: 0,
-};
-
-const EVIDENCE_TO_CONFIDENCE: Record<Finding['evidenceLevel'], ConfidenceLevel> = {
-  CONSISTENT: 'high',
-  EMERGING: 'moderate',
-  EARLY: 'low',
-  INSUFFICIENT: 'insufficient',
 };
 
 /** Very small stopword list, enough to keep keyword overlap meaningful. */
@@ -80,12 +74,98 @@ const STOPWORDS = new Set([
   'than',
 ]);
 
+/**
+ * Letters and digits in any script. The old `[^a-z0-9]` filter erased every
+ * accented or non-Latin character, so "glycémie" became "glyc mie" and a
+ * question in another language silently scored zero (review L4).
+ */
 function tokenize(text: string): string[] {
   return text
+    .normalize('NFKC')
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter((w) => w.length > 1 && !STOPWORDS.has(w));
+}
+
+/** Common function words of the languages users most often write in besides English. */
+const NON_ENGLISH_MARKERS = new Set([
+  // French
+  'le',
+  'la',
+  'les',
+  'des',
+  'est',
+  'mon',
+  'ma',
+  'mes',
+  'pourquoi',
+  'quand',
+  'après',
+  'avant',
+  'avec',
+  'sans',
+  'mais',
+  'que',
+  'qui',
+  'quoi',
+  'glycémie',
+  'sucre',
+  'repas',
+  'quel',
+  'quelle',
+  // Spanish / Portuguese
+  'el',
+  'los',
+  'las',
+  'mi',
+  'mis',
+  'por',
+  'qué',
+  'cuando',
+  'después',
+  'antes',
+  'con',
+  'sin',
+  'glucosa',
+  'azúcar',
+  'glucemia',
+  'meu',
+  'minha',
+  'depois',
+  'açúcar',
+  'não',
+  'é',
+  // German
+  'der',
+  'die',
+  'das',
+  'mein',
+  'meine',
+  'warum',
+  'wann',
+  'nach',
+  'vor',
+  'mit',
+  'ohne',
+  'ist',
+  'blutzucker',
+  'zucker',
+]);
+
+/**
+ * True when the question is probably not English: any letter outside the
+ * Latin script, or at least two function words from the list above. Only
+ * used to pick a general summary over "not enough evidence", so a wrong
+ * guess costs a less targeted answer, never an unsafe one.
+ */
+function looksNonEnglish(question: string): boolean {
+  if (/(?!\p{Script=Latin})\p{L}/u.test(question)) return true;
+  const words = question
+    .normalize('NFKC')
+    .toLowerCase()
+    .split(/[^\p{L}]+/u);
+  return words.filter((w) => NON_ENGLISH_MARKERS.has(w)).length >= 2;
 }
 
 /** Score a finding's relevance to a question by keyword overlap over kind + statement + basis. */
@@ -215,6 +295,11 @@ function buildAssistantAnswer(question: string, bundle: EvidenceBundle): unknown
   const usable = relevant.filter((f) => f.evidenceLevel !== 'INSUFFICIENT');
 
   if (usable.length === 0) {
+    // Keyword matching only understands English. Rather than tell someone
+    // who asked in another language that there is "not enough evidence"
+    // (untrue, and confusing), give the general summary of what the data
+    // does show, and say why.
+    if (looksNonEnglish(question)) return buildGeneralSummaryAnswer(bundle);
     return buildNotEnoughDataAnswer(bundle);
   }
 
@@ -245,6 +330,28 @@ function buildAssistantAnswer(question: string, bundle: EvidenceBundle): unknown
       .filter((f) => f.evidenceLevel === 'EMERGING' || f.evidenceLevel === 'CONSISTENT')
       .slice(0, 3)
       .map(clinicianQuestion),
+    notEnoughData: false,
+  };
+}
+
+const ENGLISH_ONLY_NOTE =
+  'I can only read questions in English for now, so here is a general summary of what your data shows.';
+
+function buildGeneralSummaryAnswer(bundle: EvidenceBundle): unknown {
+  const usable = bundle.findings
+    .filter((f) => f.evidenceLevel !== 'INSUFFICIENT')
+    .sort((a, b) => EVIDENCE_RANK[b.evidenceLevel] - EVIDENCE_RANK[a.evidenceLevel])
+    .slice(0, 3);
+  if (usable.length === 0) return buildNotEnoughDataAnswer(bundle);
+  return {
+    shortAnswer: ENGLISH_ONLY_NOTE,
+    detail: [
+      ...usable.map(formatFindingLine),
+      'This reflects what your own data shows. It is not medical advice or a clinical assessment.',
+    ],
+    citedFindingIds: usable.map((f) => f.id),
+    confidence: overallConfidence(usable),
+    suggestedQuestionsForClinician: [],
     notEnoughData: false,
   };
 }
@@ -355,8 +462,17 @@ export class LocalProvider implements AIProvider {
     const task = detectTask(req);
     const question = lastUserMessage(req);
 
+    // Meal and note parsing never carry an evidence bundle, so they are
+    // dispatched before the bundle check. They used to fall into the
+    // "no bundle" branch, return an AssistantAnswer shape, fail the pipeline's
+    // schema check and be called a second time, so every local quick-log
+    // reported `usedFallback: true` and hid real fallbacks (review M5).
     let json: unknown;
-    if (!bundle) {
+    if (task === 'meal') {
+      json = buildMealParse(question);
+    } else if (task === 'note') {
+      json = buildNoteStructure(question);
+    } else if (!bundle) {
       // No bundle could be recovered — safest possible fallback.
       json = {
         shortAnswer: "I don't have enough evidence from your data to answer that yet.",
@@ -366,12 +482,8 @@ export class LocalProvider implements AIProvider {
         suggestedQuestionsForClinician: [],
         notEnoughData: true,
       };
-    } else if (task === 'meal') {
-      json = buildMealParse(question);
     } else if (task === 'narrative') {
       json = buildWeeklyNarrative(bundle);
-    } else if (task === 'note') {
-      json = buildNoteStructure(question);
     } else {
       json = buildAssistantAnswer(question, bundle);
     }
@@ -382,4 +494,4 @@ export class LocalProvider implements AIProvider {
 
 // Re-exported for tests that want to exercise the relevance ranking directly
 // without going through the full `complete()` marker-extraction plumbing.
-export const __internal = { pickRelevantFindings, overallConfidence, tokenize };
+export const __internal = { pickRelevantFindings, overallConfidence, tokenize, looksNonEnglish };

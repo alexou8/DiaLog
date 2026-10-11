@@ -5,7 +5,7 @@ import path from 'node:path';
 // works in any environment without a Postgres instance. The real-database
 // integration/security suite lives in tests/integration/** and is run
 // separately via vitest.integration.config.ts — see the `test:integration`
-// command documented there and in tests/integration/README.md.
+// command documented there and in tests/integration/setup-env.ts.
 export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname, '.') } },
   test: {

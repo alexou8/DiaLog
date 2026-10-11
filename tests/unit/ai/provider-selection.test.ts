@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getProvider } from '@/lib/ai/provider';
+import { enforceExternalConsent, getProvider, resolveProviderForUser } from '@/lib/ai/provider';
 
 const ENV_KEYS = ['AI_PROVIDER', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY'] as const;
 type EnvKey = (typeof ENV_KEYS)[number];
@@ -70,5 +70,29 @@ describe('getProvider', () => {
   it('falls back to local when preferred is a known id but unavailable', () => {
     const provider = getProvider('openai');
     expect(provider.id).toBe('local');
+  });
+});
+
+describe('resolveProviderForUser (consent gate)', () => {
+  it('returns local for AI_PROVIDER=anthropic when the user has not consented', () => {
+    process.env.AI_PROVIDER = 'anthropic';
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const provider = resolveProviderForUser({
+      preferred: process.env.AI_PROVIDER,
+      externalConsent: false,
+    });
+    expect(provider.id).toBe('local');
+    expect(provider.isExternal).toBe(false);
+  });
+
+  it('returns the external provider once the user has consented', () => {
+    process.env.OPENAI_API_KEY = 'sk-oa-test';
+    const provider = resolveProviderForUser({ preferred: 'openai', externalConsent: true });
+    expect(provider.id).toBe('openai');
+  });
+
+  it('enforceExternalConsent leaves a non-external provider alone', () => {
+    const local = getProvider('local');
+    expect(enforceExternalConsent(local, false)).toBe(local);
   });
 });

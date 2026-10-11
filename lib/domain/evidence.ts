@@ -44,6 +44,56 @@ export function gradeEvidence(
   return 'INSUFFICIENT';
 }
 
+const LEVEL_ORDER: readonly EvidenceLevel[] = ['INSUFFICIENT', 'EARLY', 'EMERGING', 'CONSISTENT'];
+
+function minLevel(a: EvidenceLevel, b: EvidenceLevel): EvidenceLevel {
+  return LEVEL_ORDER.indexOf(a) <= LEVEL_ORDER.indexOf(b) ? a : b;
+}
+
+/** Two-sided significance level below which a group difference counts as more than noise. */
+export const COMPARISON_ALPHA = 0.05;
+
+/** |Cohen's d| below this is conventionally a negligible effect. */
+export const MIN_MEANINGFUL_EFFECT_SIZE = 0.2;
+
+export interface ComparisonEvidence {
+  /** Size of each group being compared. */
+  nA: number;
+  nB: number;
+  /** Two-sided p-value for the difference, or null when no test could run. */
+  pValue: number | null;
+  /** Standardised effect size (Cohen's d), or null when undefined. */
+  effectSize: number | null;
+}
+
+/**
+ * Grades a two-group comparison.
+ *
+ * `gradeEvidence(nA + nB)` used to label a comparison "Consistent pattern"
+ * at n=40 even when one group had 2 observations, and regardless of whether
+ * the difference was distinguishable from noise — p=0.9 could still read as
+ * a consistent pattern, which is exactly the overclaiming this module exists
+ * to prevent. Now:
+ *   - the sample size graded is `2 × min(nA, nB)`: a comparison is only as
+ *     strong as its smaller group, so 38 vs 2 grades like 2 vs 2, not 40;
+ *   - the level is capped at EARLY unless the difference is both
+ *     statistically distinguishable (p < COMPARISON_ALPHA, i.e. its 95%
+ *     confidence interval excludes zero) and not negligible in size
+ *     (|d| >= MIN_MEANINGFUL_EFFECT_SIZE).
+ */
+export function gradeComparisonEvidence(
+  comparison: ComparisonEvidence,
+  analysis: keyof typeof EVIDENCE_THRESHOLDS | string,
+): EvidenceLevel {
+  const smaller = Math.min(comparison.nA, comparison.nB);
+  const bySize = gradeEvidence(2 * smaller, analysis);
+  if (bySize === 'INSUFFICIENT') return bySize;
+  const distinguishable = comparison.pValue !== null && comparison.pValue < COMPARISON_ALPHA;
+  const meaningful =
+    comparison.effectSize !== null && Math.abs(comparison.effectSize) >= MIN_MEANINGFUL_EFFECT_SIZE;
+  return distinguishable && meaningful ? bySize : minLevel(bySize, 'EARLY');
+}
+
 export const EVIDENCE_LABELS: Record<EvidenceLevel, { label: string; description: string }> = {
   INSUFFICIENT: {
     label: 'Not enough data yet',

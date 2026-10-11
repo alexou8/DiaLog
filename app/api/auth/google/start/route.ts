@@ -11,6 +11,8 @@ import {
 } from '@/lib/auth/oauth/google';
 import { OAUTH_COOKIE, OAUTH_MAX_AGE_S, safeNext, sealAttempt } from '@/lib/auth/oauth/state';
 import { readSessionCookie } from '@/lib/auth/session';
+import { isDemoEmail } from '@/lib/auth/demo';
+import { prisma } from '@/lib/db/prisma';
 import { RATE_LIMITS, pruneRateLimits, rateLimit } from '@/lib/auth/rate-limit';
 
 export const runtime = 'nodejs';
@@ -33,6 +35,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // unauthenticated visitor could burn the flow and land on Settings.
   const session = await readSessionCookie();
   if (linking && !session) return bounce(request, '/sign-in', 'invalid_state');
+
+  // The shared demo account may not gain a sign-in method: a visitor's Google
+  // account linked to it would be a backdoor that outlives the session. The
+  // callback refuses too; refusing here as well spares a pointless trip to
+  // Google and back.
+  if (linking && session) {
+    const owner = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { email: true },
+    });
+    if (isDemoEmail(owner?.email)) return bounce(request, '/app/settings', 'demo_read_only');
+  }
 
   pruneRateLimits();
   const ip =

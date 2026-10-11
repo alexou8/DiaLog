@@ -103,6 +103,15 @@ test.describe('logging records', () => {
     // found two.
     const rows = recordRows(page);
     const before = await countRecordRows(page, '/app/history?type=glucose');
+    // The history list is paged (app/app/history/page.tsx, PAGE_SIZE = 20), so
+    // `before` is capped at one page. Once the shared account holds 20 or more
+    // glucose rows, saving one more cannot raise the first page's row count —
+    // it pushes the oldest row onto the next page — and `before + 1` could
+    // never be satisfied. The expected count is therefore capped the same way,
+    // and the new row is identified by what the page now leads with rather than
+    // by the length of the list.
+    const HISTORY_PAGE_SIZE = 20;
+    const firstRowBefore = before > 0 ? await rows.first().textContent() : null;
 
     await page.goto('/app/glucose/new');
     // A value unique to this attempt. Dedupe keys are content hashes over
@@ -119,14 +128,25 @@ test.describe('logging records', () => {
     await expect(page).toHaveURL(/\/app\/glucose\?added=1/);
 
     await page.goto('/app/history?type=glucose');
-    await expect(rows).toHaveCount(before + 1);
+    await expect(rows).toHaveCount(Math.min(before + 1, HISTORY_PAGE_SIZE));
 
-    // Newest first, so the reading just saved is the first row.
+    // Newest first, so the reading just saved is the first row. It must be a
+    // different row from the one the page led with before the save: with a full
+    // page the count alone cannot show that anything was added.
     const row = rows.first();
+    if (firstRowBefore !== null) {
+      await expect(row).not.toHaveText(firstRowBefore);
+    }
+    // The saved row's full text (time to the minute plus this attempt's value)
+    // identifies it after the delete, when a full page refills to the same
+    // count from the next page and the count alone proves nothing.
+    const savedRowText = (await row.textContent()) ?? '';
+    expect(savedRowText).toContain(value);
 
-    // Each row's trigger carries a per-row accessible name, so this resolves
-    // to one button even though every row has a "Delete".
-    const trigger = row.getByRole('button', { name: 'Delete this record' });
+    // Each row's trigger carries a per-row accessible name ("Delete glucose
+    // reading, <when>, <value> <unit>"), so a screen-reader user listing
+    // buttons can tell the rows apart; scoped to the row, this resolves to one.
+    const trigger = row.getByRole('button', { name: /^Delete glucose reading/ });
     await trigger.click();
 
     // The dialog is portalled to the end of <body>, so it is addressed on the
@@ -145,7 +165,7 @@ test.describe('logging records', () => {
     await confirm.getByRole('button', { name: 'Keep it' }).click();
     await expect(confirm).toBeHidden();
     await expect(trigger).toBeFocused();
-    await expect(rows).toHaveCount(before + 1);
+    await expect(rows).toHaveCount(Math.min(before + 1, HISTORY_PAGE_SIZE));
 
     await trigger.click();
     await confirm.getByRole('button', { name: 'Yes, delete' }).click();
@@ -153,6 +173,14 @@ test.describe('logging records', () => {
     // from the server, and a reload proves that rather than the client router
     // cache's view of the list.
     await page.reload();
+    // The list has rendered again (leading with the row it led with before
+    // the save, or showing the empty state) before anything is counted.
+    if (firstRowBefore !== null) {
+      await expect(rows.first()).toHaveText(firstRowBefore);
+    } else {
+      await expect(page.getByText(/No .+ records yet/)).toBeVisible();
+    }
+    await expect(rows.filter({ hasText: savedRowText })).toHaveCount(0);
     await expect(rows).toHaveCount(before);
   });
 });

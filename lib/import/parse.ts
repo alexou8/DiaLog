@@ -7,17 +7,35 @@
  * connector's column layout — that interpretation lives in
  * `lib/import/connectors/*`.
  */
-import ExcelJS from 'exceljs';
+import { inflateRawSync } from 'node:zlib';
+import type ExcelJS from 'exceljs';
 import { XMLParser } from 'fast-xml-parser';
+import { timeZoneOffsetMinutes, zonedPartsToUtc } from '@/lib/domain/time';
+import {
+  ImportLimitError,
+  MAX_IMPORT_BYTES,
+  MAX_XLSX_CELLS,
+  MAX_XLSX_ENTRIES,
+  MAX_XLSX_UNCOMPRESSED_BYTES,
+  fileTooLargeMessage,
+} from './limits';
 import type { DateOrder, ParsedFile } from './types';
 
 // ------------------------------------------------------------- size guards
 
-/** Hard ceiling on any file this module will attempt to parse in memory. */
-export const MAX_FILE_BYTES = 100 * 1024 * 1024; // 100 MB
+/**
+ * Hard ceiling on any file this module will attempt to parse in memory.
+ * Kept as an alias so existing imports keep working; the value lives in
+ * ./limits so the UI, action and service agree on it.
+ */
+export const MAX_FILE_BYTES = MAX_IMPORT_BYTES;
 
-/** Ceiling specifically for JSON.parse, which is O(n) memory on top of the string. */
-export const MAX_JSON_BYTES = 50 * 1024 * 1024; // 50 MB
+/**
+ * Ceiling specifically for JSON.parse, which is O(n) memory on top of the
+ * string. No looser than the upload ceiling — it used to be 50 MB, which the
+ * 20 MB upload ceiling made unreachable.
+ */
+export const MAX_JSON_BYTES = MAX_IMPORT_BYTES;
 
 // ------------------------------------------------------------------- BOM
 
@@ -31,15 +49,24 @@ export function stripBom(text: string): string {
 const CANDIDATE_DELIMITERS = [',', ';', '\t', '|'] as const;
 
 /**
+ * Only the head of the file is sampled. Splitting the whole text to read ten
+ * lines allocated one string per line of the file (~300k for a 20 MB CSV)
+ * just to throw all but ten away.
+ */
+const DELIMITER_SAMPLE_CHARS = 64 * 1024;
+
+/**
  * Auto-detects the CSV delimiter by counting occurrences of each candidate
  * outside of quoted spans across the first few lines and picking the most
  * consistent, most frequent one. Defaults to comma.
  */
 export function detectDelimiter(text: string): string {
-  const sampleLines = text
-    .split(/\r\n|\r|\n/)
-    .slice(0, 10)
-    .filter((l) => l.length > 0);
+  const truncated = text.length > DELIMITER_SAMPLE_CHARS;
+  let lines = text.slice(0, DELIMITER_SAMPLE_CHARS).split(/\r\n|\r|\n/);
+  // The last line of a truncated sample is cut part-way; its delimiter count
+  // would fail the consistency check, so drop it.
+  if (truncated && lines.length > 1) lines = lines.slice(0, -1);
+  const sampleLines = lines.slice(0, 10).filter((l) => l.length > 0);
   if (sampleLines.length === 0) return ',';
 
   let best: string = ',';
@@ -160,19 +187,177 @@ export function parseCsv(input: string, delimiter?: string): string[][] {
 
 // --------------------------------------------------------------- XLSX
 
+/**
+ * An XLSX file is a zip, and the upload ceiling only bounds its compressed
+ * size: a deflated worksheet of repeated cells compresses ~1000:1, so a 1 MB
+ * upload could inflate to a gigabyte inside ExcelJS and kill the function.
+ * Three budgets close that, all enforced before or while ExcelJS reads it:
+ *
+ *  1. Every zip entry is actually inflated with zlib's `maxOutputLength`
+ *     against one shared byte budget. The sizes declared in the zip
+ *     directory are attacker-controlled, so they are not trusted — the
+ *     bounded inflate itself is what stops.
+ *  2. While each worksheet is inflated, its `<c>` cell elements are counted
+ *     against a cell budget, so ExcelJS never builds an object model for
+ *     more cells than that.
+ *  3. Converting cells to strings is bounded by total string length. One
+ *     shared string can be referenced by every cell, so a few KB of XML can
+ *     stand for gigabytes of text once connectors join rows.
+ *
+ * ExcelJS's streaming reader was tried and rejected: it depends on zip entry
+ * order (it crashes on workbooks ExcelJS itself writes, which put
+ * workbook.xml last) and spills out-of-order sheets to temp files on disk.
+ */
+export interface XlsxBudget {
+  maxUncompressedBytes: number;
+  maxCells: number;
+  maxEntries: number;
+}
+
+const DEFAULT_XLSX_BUDGET: XlsxBudget = {
+  maxUncompressedBytes: MAX_XLSX_UNCOMPRESSED_BYTES,
+  maxCells: MAX_XLSX_CELLS,
+  maxEntries: MAX_XLSX_ENTRIES,
+};
+
+function workbookTooLarge(): ImportLimitError {
+  return new ImportLimitError(
+    'WORKBOOK_TOO_LARGE',
+    'That spreadsheet expands to more data than DiaLog can import at once. Please export a shorter date range, or save it as CSV.',
+  );
+}
+
+const EOCD_SIGNATURE = 0x06054b50;
+const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
+const LOCAL_HEADER_SIGNATURE = 0x04034b50;
+const WORKSHEET_ENTRY = /^xl\/worksheets\/[^/]+\.xml$/;
+
+/** Counts `<c ` / `<c>` / `<c/` (cell elements) in worksheet XML bytes. */
+function countCellElements(xml: Buffer): number {
+  let count = 0;
+  for (let i = xml.indexOf('<c'); i >= 0; i = xml.indexOf('<c', i + 2)) {
+    const next = xml[i + 2];
+    // space, tab, CR, LF, '>' or '/': excludes <col>, <cols>, <cfRule> etc.
+    if (next === 0x20 || next === 0x09 || next === 0x0d || next === 0x0a) count++;
+    else if (next === 0x3e || next === 0x2f) count++;
+  }
+  return count;
+}
+
+/**
+ * Walks the zip central directory and inflates every entry against a shared
+ * byte budget, counting worksheet cells against the cell budget. Throws
+ * ImportLimitError when a budget is exceeded, and a plain Error when the
+ * file is not a readable zip.
+ */
+export function assertXlsxWithinBudget(
+  buf: Buffer,
+  budget: XlsxBudget = DEFAULT_XLSX_BUDGET,
+): void {
+  // The end-of-central-directory record is 22 bytes plus a comment of up to
+  // 64 KB, so search backwards from the end within that window.
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 0xffff); i--) {
+    if (buf.readUInt32LE(i) === EOCD_SIGNATURE) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error('Not a zip archive.');
+
+  const entryCount = buf.readUInt16LE(eocd + 10);
+  const directoryOffset = buf.readUInt32LE(eocd + 16);
+  // ZIP64 markers. No spreadsheet within the upload ceiling needs ZIP64.
+  if (entryCount === 0xffff || directoryOffset === 0xffffffff) throw workbookTooLarge();
+  if (entryCount > budget.maxEntries) throw workbookTooLarge();
+
+  let remaining = budget.maxUncompressedBytes;
+  let cells = 0;
+  let p = directoryOffset;
+  for (let n = 0; n < entryCount; n++) {
+    if (p + 46 > buf.length || buf.readUInt32LE(p) !== CENTRAL_DIRECTORY_SIGNATURE) {
+      throw new Error('Corrupt zip central directory.');
+    }
+    const flags = buf.readUInt16LE(p + 8);
+    const method = buf.readUInt16LE(p + 10);
+    const compressedSize = buf.readUInt32LE(p + 20);
+    const nameLength = buf.readUInt16LE(p + 28);
+    const extraLength = buf.readUInt16LE(p + 30);
+    const commentLength = buf.readUInt16LE(p + 32);
+    const localOffset = buf.readUInt32LE(p + 42);
+    const name = buf.toString('utf8', p + 46, p + 46 + nameLength);
+    p += 46 + nameLength + extraLength + commentLength;
+
+    if (flags & 0x1) throw new Error('Encrypted zip entries are not supported.');
+    if (compressedSize === 0xffffffff || localOffset === 0xffffffff) throw workbookTooLarge();
+    if (localOffset + 30 > buf.length || buf.readUInt32LE(localOffset) !== LOCAL_HEADER_SIGNATURE) {
+      throw new Error('Corrupt zip local header.');
+    }
+    const dataStart =
+      localOffset + 30 + buf.readUInt16LE(localOffset + 26) + buf.readUInt16LE(localOffset + 28);
+    const dataEnd = dataStart + compressedSize;
+    if (dataEnd > buf.length) throw new Error('Truncated zip entry.');
+    const data = buf.subarray(dataStart, dataEnd);
+
+    let inflated: Buffer;
+    if (method === 0) {
+      inflated = data;
+    } else if (method === 8) {
+      try {
+        // +1 so that "exactly fills the budget" and "exceeds it" differ.
+        inflated = inflateRawSync(data, { maxOutputLength: remaining + 1 });
+      } catch (error) {
+        if ((error as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE') throw workbookTooLarge();
+        throw new Error('Corrupt zip entry.');
+      }
+    } else {
+      throw new Error('Unsupported zip compression method.');
+    }
+    if (inflated.length > remaining) throw workbookTooLarge();
+    remaining -= inflated.length;
+    if (WORKSHEET_ENTRY.test(name)) {
+      cells += countCellElements(inflated);
+      if (cells > budget.maxCells) throw workbookTooLarge();
+    }
+  }
+}
+
+type ExcelJsModule = typeof import('exceljs');
+
+/**
+ * ExcelJS is loaded only when a spreadsheet is actually imported, so the
+ * CSV, JSON and XML paths (and every cold start of the import route) never
+ * pay for loading it.
+ */
+async function loadExcelJs(): Promise<ExcelJsModule> {
+  const mod = (await import('exceljs')) as ExcelJsModule & { default?: ExcelJsModule };
+  return mod.default ?? mod;
+}
+
 /** Parses an XLSX workbook's first worksheet into a row-major grid of strings. */
-export async function parseXlsx(buffer: ArrayBuffer | Buffer): Promise<string[][]> {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer as ExcelJS.Buffer);
+export async function parseXlsx(
+  buffer: ArrayBuffer | Buffer,
+  budgetOverrides: Partial<XlsxBudget> = {},
+): Promise<string[][]> {
+  const budget: XlsxBudget = { ...DEFAULT_XLSX_BUDGET, ...budgetOverrides };
+  const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  assertXlsxWithinBudget(buf, budget);
+
+  const ExcelJs = await loadExcelJs();
+  const workbook = new ExcelJs.Workbook();
+  await workbook.xlsx.load(buf as unknown as ExcelJS.Buffer);
   const sheet = workbook.worksheets[0];
   if (!sheet) return [];
   const rows: string[][] = [];
+  let textLength = 0;
   sheet.eachRow({ includeEmpty: false }, (row) => {
     const cells: string[] = [];
     // ExcelJS rows are 1-indexed and sparse; walk to the declared cell count.
     for (let c = 1; c <= row.cellCount; c++) {
-      const cell = row.getCell(c);
-      cells.push(cellToString(cell.value));
+      const text = cellToString(row.getCell(c).value);
+      textLength += text.length;
+      if (textLength > budget.maxUncompressedBytes) throw workbookTooLarge();
+      cells.push(text);
     }
     rows.push(cells);
   });
@@ -198,27 +383,174 @@ function cellToString(value: ExcelJS.CellValue): string {
 /**
  * XML entity expansion ("billion laughs") is a decompression-bomb attack: a
  * few kilobytes of nested DOCTYPE entity definitions expand to gigabytes
- * during parsing, so the MAX_FILE_BYTES ceiling below does not bound it — the
- * blow-up happens after the size check passes. fast-xml-parser has carried a
- * series of advisories for exactly this (GHSA-jmr7-xgp7-cmfj and its
- * incomplete fixes), so the pinned version is only half the defence.
+ * during parsing, so the upload size ceiling does not bound it — the blow-up
+ * happens after the size check passes. fast-xml-parser has carried a series
+ * of advisories for exactly this (GHSA-jmr7-xgp7-cmfj and its incomplete
+ * fixes), so the pinned version is only half the defence.
  *
- * None of the formats DiaLog imports uses a DTD: Apple Health's export.xml,
- * LibreView and the generic-XML fallback are all plain element trees. So we
- * reject any internal subset outright rather than relying on the parser's
- * expansion limits. This keeps standard predefined entities (`&amp;`, which
- * does appear in Apple Health `sourceName` attributes) working, which
- * `processEntities: false` would have broken.
+ * DELIBERATE RELAXATION of the AGENTS.md "Import" invariant: this used to
+ * reject any DOCTYPE internal subset. Real Apple Health export.xml files
+ * begin with `<!DOCTYPE HealthData [ <!ELEMENT ...> <!ATTLIST ...> ]>` — an
+ * internal subset with element and attribute declarations but no entities —
+ * so that rule rejected every real Apple Health import. The rule is now: a
+ * DOCTYPE is accepted only when its internal subset declares no `<!ENTITY`
+ * (checked after stripping comments) and it names no external
+ * `SYSTEM`/`PUBLIC` DTD. The accepted DOCTYPE is then removed before
+ * fast-xml-parser sees the text, so the parser never reads a DTD at all;
+ * element and attribute declarations mean nothing to an import.
+ *
+ * The DOCTYPE is found with a scanner that tracks quotes, comments and the
+ * `[`...`]` subset, not a regex: `/<!DOCTYPE[^>[]*\[/` stopped at the `>` in
+ * `SYSTEM "a>b"` and missed the subset that followed, while the parser (which
+ * does track quotes) read it.
+ *
+ * `processEntities` is deliberately left at its default: with the DTD gone it
+ * only decodes the five predefined entities, and `&amp;` really does appear in
+ * Apple Health `sourceName` attributes. Turning it off would store
+ * "Dexcom &amp; Friends" verbatim.
  */
-const DOCTYPE_WITH_INTERNAL_SUBSET = /<!DOCTYPE[^>[]*\[/i;
+function unsafeXml(message: string): ImportLimitError {
+  return new ImportLimitError('UNSAFE_XML', message);
+}
 
-export function parseXmlText(text: string): unknown {
-  if (DOCTYPE_WITH_INTERNAL_SUBSET.test(text)) {
-    throw new Error(
-      'XML file declares a DOCTYPE internal subset (custom entities), which is not ' +
-        'supported and is rejected because it can be used to exhaust memory during parsing.',
+function startsWithIgnoreCase(text: string, i: number, token: string): boolean {
+  return text.slice(i, i + token.length).toUpperCase() === token;
+}
+
+/** Index of a DOCTYPE in the prolog (after BOM, whitespace, PIs, comments), or -1. */
+function findPrologDoctype(text: string): number {
+  let i = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  for (;;) {
+    while (i < text.length && /\s/.test(text[i] as string)) i++;
+    if (text.startsWith('<?', i)) {
+      const close = text.indexOf('?>', i + 2);
+      if (close < 0) return -1;
+      i = close + 2;
+    } else if (text.startsWith('<!--', i)) {
+      const close = text.indexOf('-->', i + 4);
+      if (close < 0) return -1;
+      i = close + 3;
+    } else if (startsWithIgnoreCase(text, i, '<!DOCTYPE')) {
+      return i;
+    } else {
+      return -1;
+    }
+  }
+}
+
+interface DoctypeSpan {
+  start: number;
+  end: number;
+  /** Text between `<!DOCTYPE` and the subset (or the closing `>`). */
+  header: string;
+  /** The internal subset with comments removed, or null when there is none. */
+  subset: string | null;
+}
+
+function scanDoctype(text: string, start: number): DoctypeSpan {
+  let i = start + '<!DOCTYPE'.length;
+  let quote: string | null = null;
+  let depth = 0;
+  let headerEnd = -1;
+  let subsetStart = -1;
+  let subsetEnd = -1;
+  const subsetComments: [number, number][] = [];
+  while (i < text.length) {
+    const c = text[i] as string;
+    if (quote) {
+      if (c === quote) quote = null;
+      i++;
+      continue;
+    }
+    if (depth > 0 && text.startsWith('<!--', i)) {
+      const close = text.indexOf('-->', i + 4);
+      if (close < 0) break;
+      subsetComments.push([i, close + 3]);
+      i = close + 3;
+      continue;
+    }
+    if (depth > 0 && text.startsWith('<?', i)) {
+      const close = text.indexOf('?>', i + 2);
+      if (close < 0) break;
+      i = close + 2;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+    } else if (c === '[') {
+      if (depth === 0) {
+        headerEnd = i;
+        subsetStart = i + 1;
+      }
+      depth++;
+    } else if (c === ']') {
+      depth--;
+      if (depth < 0) throw unsafeXml('XML file has a malformed DOCTYPE declaration.');
+      if (depth === 0) subsetEnd = i;
+    } else if (c === '>' && depth === 0) {
+      let subset: string | null = null;
+      if (subsetStart >= 0) {
+        // Rebuild the subset without its comments, so a commented-out
+        // declaration neither hides a real one nor counts as one.
+        let cursor = subsetStart;
+        subset = '';
+        for (const [from, to] of subsetComments) {
+          subset += text.slice(cursor, from);
+          cursor = to;
+        }
+        subset += text.slice(cursor, subsetEnd);
+      }
+      return {
+        start,
+        end: i + 1,
+        header: text.slice(start + '<!DOCTYPE'.length, headerEnd >= 0 ? headerEnd : i),
+        subset,
+      };
+    }
+    i++;
+  }
+  throw unsafeXml('XML file has an unterminated DOCTYPE declaration.');
+}
+
+/**
+ * Applies the DOCTYPE policy above and returns the text with an accepted
+ * DOCTYPE removed. Newlines inside it are kept so parser line numbers still
+ * match the file.
+ */
+export function stripSafeDoctype(text: string): string {
+  let out = text;
+  const start = findPrologDoctype(text);
+  if (start >= 0) {
+    const span = scanDoctype(text, start);
+    // Only a root element name may follow `<!DOCTYPE`; anything else is an
+    // external identifier (SYSTEM "..." or PUBLIC "..." "...").
+    if (!/^\s+[^\s"'[\]>]+\s*$/.test(span.header)) {
+      throw unsafeXml(
+        'XML file references an external DTD in its DOCTYPE, which is not supported.',
+      );
+    }
+    if (span.subset !== null && /<!ENTITY/i.test(span.subset)) {
+      throw unsafeXml(
+        'XML file declares entities in its DOCTYPE internal subset, which is not supported ' +
+          'and is rejected because it can be used to exhaust memory during parsing.',
+      );
+    }
+    const keptNewlines = text.slice(span.start, span.end).replace(/[^\n]/g, '');
+    out = text.slice(0, span.start) + keptNewlines + text.slice(span.end);
+  }
+  // Anything DTD-like left over was outside the prolog, where the scanner
+  // looked — refuse it rather than let the parser interpret it.
+  if (/<!DOCTYPE/i.test(out) || /<!ENTITY/i.test(out)) {
+    throw unsafeXml(
+      'XML file has a DOCTYPE or entity declaration DiaLog cannot check (outside the prolog), ' +
+        'so it is rejected.',
     );
   }
+  return out;
+}
+
+export function parseXmlText(text: string): unknown {
+  const safe = stripSafeDoctype(text);
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
@@ -227,7 +559,7 @@ export function parseXmlText(text: string): unknown {
     trimValues: true,
     allowBooleanAttributes: true,
   });
-  return parser.parse(text) as unknown;
+  return parser.parse(safe) as unknown;
 }
 
 // --------------------------------------------------------------- JSON
@@ -235,7 +567,10 @@ export function parseXmlText(text: string): unknown {
 export function parseJsonText(text: string): unknown {
   const byteLength = Buffer.byteLength(text, 'utf8');
   if (byteLength > MAX_JSON_BYTES) {
-    throw new Error(`JSON file too large to parse (${byteLength} bytes > ${MAX_JSON_BYTES} bytes)`);
+    throw new ImportLimitError(
+      'FILE_TOO_LARGE',
+      `JSON file too large to parse (${byteLength} bytes > ${MAX_JSON_BYTES} bytes)`,
+    );
   }
   return JSON.parse(text) as unknown;
 }
@@ -272,6 +607,9 @@ export function detectFormat(
 /**
  * Builds a `ParsedFile` from raw bytes/text, dispatching to the right
  * low-level parser. XLSX requires a Buffer; everything else accepts text.
+ *
+ * Throws ImportLimitError when a size or safety limit refuses the file, and a
+ * plain Error when the file is simply unreadable.
  */
 export async function parseFile(
   filename: string,
@@ -279,8 +617,12 @@ export async function parseFile(
   content: Buffer | string,
 ): Promise<ParsedFile> {
   const isBuffer = Buffer.isBuffer(content);
-  if (isBuffer && content.length > MAX_FILE_BYTES) {
-    throw new Error(`File too large (${content.length} bytes > ${MAX_FILE_BYTES} bytes)`);
+  const byteLength = isBuffer ? content.length : Buffer.byteLength(content, 'utf8');
+  if (byteLength > MAX_FILE_BYTES) {
+    throw new ImportLimitError(
+      'FILE_TOO_LARGE',
+      `File too large (${byteLength} bytes > ${MAX_FILE_BYTES} bytes). ${fileTooLargeMessage()}`,
+    );
   }
   const format = detectFormat(
     filename,
@@ -295,11 +637,6 @@ export async function parseFile(
   }
 
   const text = isBuffer ? content.toString('utf8') : content;
-  if (Buffer.byteLength(text, 'utf8') > MAX_FILE_BYTES) {
-    throw new Error(
-      `File too large (${Buffer.byteLength(text, 'utf8')} bytes > ${MAX_FILE_BYTES} bytes)`,
-    );
-  }
 
   if (format === 'xml') {
     return { filename, mimeType, text, xml: parseXmlText(stripBom(text)) };
@@ -307,9 +644,11 @@ export async function parseFile(
   if (format === 'json') {
     return { filename, mimeType, text, json: parseJsonText(stripBom(text)) };
   }
-  // csv / unknown: parse as CSV, tolerant fallback.
+  // csv / unknown: parse as CSV, tolerant fallback. The raw text is not kept
+  // alongside the rows: no connector reads it once rows exist, and holding
+  // both kept every CSV in memory twice.
   const rows = parseCsv(text);
-  return { filename, mimeType, text, rows };
+  return { filename, mimeType, rows };
 }
 
 // ------------------------------------------------------------ timestamps
@@ -344,39 +683,31 @@ function excelSerialToDate(serial: number): Date {
 }
 
 /**
- * Computes the UTC offset (in minutes, east-positive) of an IANA timezone at
- * a given instant, using only Intl — no timezone database dependency.
+ * UTC offset (in minutes, east-positive) of an IANA timezone at a given
+ * instant. Delegates to lib/domain/time so import and manual entry share one
+ * cached, DST-correct implementation. An unknown zone throws RangeError: the
+ * old copy silently returned 0, importing every row of a mis-set profile at
+ * UTC. prepareImport validates the zone up front so users get a clear error.
  */
 export function tzOffsetMinutes(date: Date, timeZone: string): number {
-  if (timeZone === 'UTC' || timeZone === 'Etc/UTC') return 0;
-  try {
-    const dtf = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-    const parts = dtf.formatToParts(date);
-    const get = (type: string): number => Number(parts.find((p) => p.type === type)?.value ?? '0');
-    const asUtc = Date.UTC(
-      get('year'),
-      get('month') - 1,
-      get('day'),
-      get('hour') === 24 ? 0 : get('hour'),
-      get('minute'),
-      get('second'),
-    );
-    return Math.round((asUtc - date.getTime()) / 60000);
-  } catch {
-    return 0;
-  }
+  return timeZoneOffsetMinutes(date, timeZone);
 }
 
-/** Interprets a "local" y/m/d/h/mi/s tuple in the given timezone and returns the corresponding UTC instant. */
+/**
+ * Rejects calendar-impossible components instead of letting Date.UTC roll
+ * them over — "2026-02-30" used to import silently as 2 March.
+ */
+function isValidDateTime(y: number, mo: number, d: number, h: number, mi: number, s: number) {
+  if (mo < 1 || mo > 12 || d < 1 || h > 23 || mi > 59 || s > 59) return false;
+  const daysInMonth = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  return d <= daysInMonth;
+}
+
+/**
+ * Interprets a "local" y/m/d/h/mi/s tuple in the given timezone and returns
+ * the corresponding UTC instant, or null for an impossible date. DST gaps and
+ * repeated hours follow the policy in lib/domain/time `zonedWallClockToUtcMs`.
+ */
 function localToUtc(
   y: number,
   mo: number,
@@ -385,12 +716,9 @@ function localToUtc(
   mi: number,
   s: number,
   timezone: string,
-): Date {
-  if (timezone === 'UTC') return new Date(Date.UTC(y, mo - 1, d, h, mi, s));
-  // First guess treating the tuple as UTC, then correct using the zone's offset at that instant.
-  const guess = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
-  const offset = tzOffsetMinutes(guess, timezone);
-  return new Date(guess.getTime() - offset * 60000);
+): Date | null {
+  if (!isValidDateTime(y, mo, d, h, mi, s)) return null;
+  return zonedPartsToUtc(y, mo, d, h, mi, s, timezone);
 }
 
 /**
@@ -490,6 +818,7 @@ function parseStringTimestamp(raw: string, timezone: string, dateOrder?: DateOrd
     const Mi = Number(mi);
     const S = s ? Number(s) : 0;
     if (offset) {
+      if (!isValidDateTime(Y, Mo, D, H, Mi, S)) return null;
       if (offset === 'Z') return new Date(Date.UTC(Y, Mo - 1, D, H, Mi, S));
       const sign = offset.startsWith('-') ? -1 : 1;
       const clean = offset.slice(1).replace(':', '');
@@ -538,7 +867,7 @@ function resolveAmbiguousDayFirst(
   m: RegExpExecArray,
   dateOrder: DateOrder | undefined,
   timezone: string,
-): Date {
+): Date | null {
   const [, a, b, y, h, mi, s, ampm] = m;
   const order = dateOrder ?? 'MDY';
   const A = Number(a);

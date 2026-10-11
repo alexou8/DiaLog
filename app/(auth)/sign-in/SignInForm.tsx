@@ -1,30 +1,27 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { signInAction, type ActionState } from '@/lib/actions/auth';
-import { Button } from '@/components/ui';
-import { Field, FormStatus, TextInput } from '@/components/ui/form';
+import { ActionForm, Field, SubmitButton, TextInput } from '@/components/ui/form';
 
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Signing in…' : 'Sign in'}
-    </Button>
-  );
-}
-
-export function SignInForm({ defaultEmail }: { defaultEmail?: string }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(signInAction, null);
+export function SignInForm({ defaultEmail, next }: { defaultEmail?: string; next?: string }) {
+  const [state, action, pending] = useActionState<ActionState | null, FormData>(signInAction, null);
 
   return (
-    <form action={action} className="mt-6" noValidate>
-      <FormStatus
-        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
-      />
+    <ActionForm
+      action={action}
+      state={state}
+      pending={pending}
+      className="mt-6"
+      labels={{ email: 'Email address', password: 'Password' }}
+    >
+      {/* Where to land after signing in: a deep link, or a PWA shortcut such
+          as "Add a glucose reading". The Google button already forwarded it;
+          email sign-in dropped it and always landed on Home. The value is
+          only ever a hint: the server re-checks it is a same-origin path. */}
+      {next ? <input type="hidden" name="next" value={next} /> : null}
 
-      <Field label="Email address" required error={state?.errors?.email}>
+      <Field label="Email address" required name="email">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -40,7 +37,7 @@ export function SignInForm({ defaultEmail }: { defaultEmail?: string }) {
         )}
       </Field>
 
-      <Field label="Password" required error={state?.errors?.password}>
+      <Field label="Password" required name="password">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -54,7 +51,9 @@ export function SignInForm({ defaultEmail }: { defaultEmail?: string }) {
         )}
       </Field>
 
-      <Submit />
-    </form>
+      <SubmitButton className="w-full" pendingLabel="Signing in…">
+        Sign in
+      </SubmitButton>
+    </ActionForm>
   );
 }

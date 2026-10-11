@@ -79,12 +79,23 @@ export function dedupeRecords(
   records: readonly NormalizedRecord[],
   existingKeys: ReadonlySet<string> | Iterable<string> = [],
 ): DedupeResult {
+  return dedupeKeyedRecords(records.map(keyRecord), existingKeys);
+}
+
+/**
+ * Same as `dedupeRecords` for records whose keys were already computed — the
+ * import service keys a file once, uses the keys to look up only the matching
+ * stored rows, then splits without hashing every record a second time.
+ */
+export function dedupeKeyedRecords(
+  keyedRecords: readonly KeyedRecord[],
+  existingKeys: ReadonlySet<string> | Iterable<string> = [],
+): DedupeResult {
   const seen = new Set<string>(existingKeys);
   const fresh: KeyedRecord[] = [];
   const duplicates: KeyedRecord[] = [];
 
-  for (const record of records) {
-    const keyed = keyRecord(record);
+  for (const keyed of keyedRecords) {
     if (seen.has(keyed.dedupeKey)) {
       duplicates.push(keyed);
     } else {

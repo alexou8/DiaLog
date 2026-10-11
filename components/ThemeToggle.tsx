@@ -10,8 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { applyThemePreference, readThemePreference, type ThemePreference } from './theme';
 
-type Theme = 'light' | 'dark' | 'system';
+type Theme = ThemePreference;
 
 /**
  * Colour scheme is a device-level choice, so it lives in localStorage rather
@@ -29,20 +30,15 @@ export function ThemeToggle() {
   const id = useId();
 
   useEffect(() => {
-    const stored = localStorage.getItem('dialog-theme');
-    if (stored === 'light' || stored === 'dark' || stored === 'system') setTheme(stored);
+    setTheme(readThemePreference());
   }, []);
 
+  // Following OS changes while "Match my device" is chosen is handled once,
+  // for every page, by the listener in THEME_SCRIPT; it reads the stored
+  // preference on each change, so it picks up whatever is chosen here.
   function apply(next: Theme) {
     setTheme(next);
-    localStorage.setItem('dialog-theme', next);
-    const resolved =
-      next === 'system'
-        ? window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light'
-        : next;
-    document.documentElement.dataset.theme = resolved;
+    applyThemePreference(next);
   }
 
   return (

@@ -6,6 +6,7 @@ import { SignInForm } from './SignInForm';
 import { AuthNotice } from '@/components/auth/AuthNotice';
 import { AuthDivider, GoogleButton } from '@/components/auth/GoogleButton';
 import { isGoogleEnabled } from '@/lib/auth/oauth/google';
+import { safeNext } from '@/lib/auth/oauth/state';
 import { Callout } from '@/components/ui';
 
 export const metadata: Metadata = { title: 'Sign in', robots: { index: false } };
@@ -13,7 +14,13 @@ export const metadata: Metadata = { title: 'Sign in', robots: { index: false } }
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; email?: string; next?: string; password?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    email?: string;
+    next?: string;
+    password?: string;
+    unlinked?: string;
+  }>;
 }) {
   // Verified here rather than in middleware: only a database read can tell a
   // live session from a revoked one, and bouncing a revoked cookie away from
@@ -21,6 +28,8 @@ export default async function SignInPage({
   if (await getCurrentUser()) redirect('/app');
 
   const params = await searchParams;
+  // Same-origin path or nothing; the Google button applies the same check.
+  const next = params.next ? safeNext(params.next, '/app') : '/app';
 
   return (
     <>
@@ -37,7 +46,17 @@ export default async function SignInPage({
         </Callout>
       ) : null}
 
-      <SignInForm defaultEmail={params.email} />
+      {params.unlinked === 'google' ? (
+        // Set by a password reset that removed a linked Google identity: the
+        // reset proves control of the email, not of the Google account, so
+        // the link is dropped. Saying so stops a later "Sign in with Google"
+        // from looking like a lost account.
+        <Callout tone="info" icon="info" role="status">
+          Your Google sign-in was disconnected for safety. You can reconnect it in Settings.
+        </Callout>
+      ) : null}
+
+      <SignInForm defaultEmail={params.email} next={next === '/app' ? undefined : next} />
 
       <p className="mt-4 text-center">
         <Link href="/forgot-password" className="font-semibold underline underline-offset-4">

@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ButtonLink, Card, Icon, Logo } from '@/components/ui';
+import { Suspense } from 'react';
 import { HeroVisual } from './_hero-visual';
+import { DeletedNotice } from './_deleted-notice';
 
 export const metadata: Metadata = {
-  title: 'DiaLog: understand your glucose data',
+  // Absolute: the root layout's template would otherwise append " · DiaLog"
+  // and print the brand twice in the tab and in search results.
+  title: { absolute: 'DiaLog: understand your glucose data' },
   description:
     'Bring your glucose readings, meals, activity and sleep together in one calm place, and see in plain language what your own data actually shows.',
 };
@@ -36,6 +40,12 @@ export default function LandingPage() {
   return (
     <>
       <section className="mx-auto max-w-5xl px-5 py-14 sm:py-20">
+        {/* Suspense because the notice reads the query string on the client;
+            that keeps this page static instead of rendering it per request
+            just to look for `?deleted=1`. */}
+        <Suspense fallback={null}>
+          <DeletedNotice />
+        </Suspense>
         {/* The one place the full lockup appears. Everywhere else the mark
             sits beside the word "DiaLog" in a header, where the descriptor
             would be too small to read. */}

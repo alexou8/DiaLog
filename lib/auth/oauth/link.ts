@@ -11,6 +11,7 @@
  * record. Linking always requires proving control of the DiaLog account first
  * by signing in with the password, then linking from Settings.
  */
+import { DEMO_READ_ONLY_MESSAGE } from '../demo';
 import type { GoogleIdentity } from './google';
 
 export type OAuthErrorCode =
@@ -21,7 +22,12 @@ export type OAuthErrorCode =
   | 'not_configured'
   | 'invalid_state'
   | 'access_denied'
-  | 'exchange_failed';
+  | 'exchange_failed'
+  // Not an OAuth failure as such: the shared demo account may not change how it
+  // signs in (see lib/auth/demo.ts). It travels on the same `?error=` channel
+  // because that is the one Settings already renders after a redirect, which
+  // is also how the password and sessions route handlers report it.
+  | 'demo_read_only';
 
 /** What the database knows before we decide. */
 export interface SignInSnapshot {
@@ -98,6 +104,7 @@ export const OAUTH_MESSAGES: Record<OAuthErrorCode, string> = {
   access_denied: 'Google sign-in was cancelled. You can try again or use your email and password.',
   exchange_failed:
     'We could not complete sign-in with Google just now. Please try again in a moment, or use your email and password.',
+  demo_read_only: DEMO_READ_ONLY_MESSAGE,
 };
 
 export function oauthMessage(code: string | null | undefined): string | null {

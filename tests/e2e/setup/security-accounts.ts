@@ -109,8 +109,20 @@ export async function provisionSecurityAccount(
   return { email, statePath };
 }
 
-/** The accounts account-security.spec.ts expects, one per test. */
-export const SECURITY_LABELS = ['rounds', 'refuse', 'revoke-password', 'revoke-sessions'] as const;
+/**
+ * The disposable password accounts, one per test that needs one:
+ * account-security.spec.ts uses the first four, and google-sso.spec.ts's
+ * "connect Google" test uses `google-link`. That test used to borrow the
+ * seeded demo account, which is now read-only for credentials (connecting a
+ * sign-in method is refused with `?error=demo_read_only`, lib/auth/demo.ts).
+ */
+export const SECURITY_LABELS = [
+  'rounds',
+  'refuse',
+  'revoke-password',
+  'revoke-sessions',
+  'google-link',
+] as const;
 
 export type SecurityLabel = (typeof SECURITY_LABELS)[number];
 

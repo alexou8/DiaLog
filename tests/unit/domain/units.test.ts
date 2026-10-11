@@ -6,6 +6,7 @@
  * normalisation tests, which never call toMgdl/fromMgdl themselves.
  */
 import { describe, expect, it } from 'vitest';
+import { classifyGlucose, normalizeTargetRange } from '@/lib/domain/thresholds';
 import {
   GLUCOSE_ENTRY_BOUNDS,
   MGDL_PER_MMOLL,
@@ -14,8 +15,11 @@ import {
   fromMgdl,
   inferGlucoseUnit,
   isPlausibleGlucose,
+  maxOf,
   mgdlToMmoll,
+  minOf,
   mmollToMgdl,
+  targetToMgdl,
   toMgdl,
   unitLabel,
   unitPrecision,
@@ -101,5 +105,84 @@ describe('inferGlucoseUnit', () => {
 
   it('returns null rather than guessing when there is nothing to go on', () => {
     expect(inferGlucoseUnit([])).toBeNull();
+  });
+});
+
+describe('large inputs', () => {
+  // `Math.max(...values)` throws RangeError past ~120k arguments; one CGM
+  // export of a few months exceeds that.
+  const big = Array.from({ length: 300_000 }, (_, i) => 70 + (i % 200));
+
+  it('infers the unit of a 300k-reading series without overflowing the stack', () => {
+    expect(inferGlucoseUnit(big)).toBe('MGDL');
+    expect(inferGlucoseUnit(big.map((v) => v / 18))).toBe('MMOLL');
+  });
+
+  it('finds min and max of a 300k array, ignoring non-finite values', () => {
+    expect(maxOf(big)).toBe(269);
+    expect(minOf(big)).toBe(70);
+    expect(maxOf([Number.NaN, 3, Infinity])).toBe(3);
+    expect(maxOf([])).toBeNull();
+  });
+});
+
+describe('equivalent entry bounds across units', () => {
+  it('derives the mmol/L bounds from the mg/dL bounds at display precision', () => {
+    const mg = GLUCOSE_ENTRY_BOUNDS.MGDL;
+    const mmol = GLUCOSE_ENTRY_BOUNDS.MMOLL;
+    // Each mmol/L bound is exactly how the mg/dL bound displays.
+    expect(formatGlucose(mg.min, 'MMOLL')).toBe(mmol.min.toFixed(1));
+    expect(formatGlucose(mg.max, 'MMOLL')).toBe(mmol.max.toFixed(1));
+    // ...and converts back to within one mmol/L display step of it.
+    expect(Math.abs(toMgdl(mmol.min, 'MMOLL') - mg.min)).toBeLessThan(MGDL_PER_MMOLL * 0.05);
+    expect(Math.abs(toMgdl(mmol.max, 'MMOLL') - mg.max)).toBeLessThan(MGDL_PER_MMOLL * 0.05);
+  });
+});
+
+describe('target range rounding', () => {
+  it('snaps a mmol/L target to whole mg/dL', () => {
+    expect(targetToMgdl(3.9, 'MMOLL')).toBe(70);
+    expect(targetToMgdl(10, 'MMOLL')).toBe(180);
+    expect(targetToMgdl(70, 'MGDL')).toBe(70);
+  });
+
+  it('classifies a reading equal to an unrounded stored target as in range', () => {
+    // 3.9 mmol/L used to be stored as 70.27 mg/dL, making 70 "below range".
+    const legacy = { lowMgdl: toMgdl(3.9, 'MMOLL'), highMgdl: toMgdl(10, 'MMOLL') };
+    expect(normalizeTargetRange(legacy)).toEqual({ lowMgdl: 70, highMgdl: 180 });
+    expect(classifyGlucose(70, legacy).id).toBe('in-range');
+    expect(classifyGlucose(69, legacy).id).toBe('low');
+  });
+
+  // Readings entered in mmol/L are stored unrounded (10.0 → 180.18 mg/dL).
+  // Compared raw against a whole-mg/dL target they fell just outside a bound
+  // they equal on screen, so both sides are compared at whole mg/dL.
+  it.each([
+    { reading: 4.2, low: 4.2, high: 10.0 },
+    { reading: 10.0, low: 3.9, high: 10.0 },
+    { reading: 9.0, low: 4.0, high: 9.0 },
+  ])('classifies a mmol/L reading of $reading equal to a target bound as in range', (c) => {
+    const range = {
+      lowMgdl: targetToMgdl(c.low, 'MMOLL'),
+      highMgdl: targetToMgdl(c.high, 'MMOLL'),
+    };
+    const unrounded = { lowMgdl: toMgdl(c.low, 'MMOLL'), highMgdl: toMgdl(c.high, 'MMOLL') };
+    expect(classifyGlucose(toMgdl(c.reading, 'MMOLL'), range).id).toBe('in-range');
+    expect(classifyGlucose(toMgdl(c.reading, 'MMOLL'), unrounded).id).toBe('in-range');
+  });
+
+  it.each([
+    { reading: 76, low: 76, high: 180 },
+    { reading: 180, low: 70, high: 180 },
+    { reading: 162, low: 72, high: 162 },
+  ])('classifies a mg/dL reading of $reading equal to a target bound as in range', (c) => {
+    const range = { lowMgdl: targetToMgdl(c.low, 'MGDL'), highMgdl: targetToMgdl(c.high, 'MGDL') };
+    expect(classifyGlucose(toMgdl(c.reading, 'MGDL'), range).id).toBe('in-range');
+  });
+
+  it('still classifies the next mmol/L display step past a bound as out of range', () => {
+    const range = { lowMgdl: targetToMgdl(4.2, 'MMOLL'), highMgdl: targetToMgdl(10.0, 'MMOLL') };
+    expect(classifyGlucose(toMgdl(4.1, 'MMOLL'), range).id).toBe('low');
+    expect(classifyGlucose(toMgdl(10.1, 'MMOLL'), range).id).toBe('above-range');
   });
 });

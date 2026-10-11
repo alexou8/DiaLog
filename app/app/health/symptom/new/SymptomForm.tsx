@@ -1,39 +1,41 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { addSymptomAction, type RecordActionState } from '@/lib/actions/records';
-import { Button } from '@/components/ui';
-import { Field, FormStatus, RadioCards, TextArea, TextInput } from '@/components/ui/form';
+import {
+  ActionForm,
+  Field,
+  RadioCards,
+  SubmitButton,
+  TextArea,
+  TextInput,
+} from '@/components/ui/form';
 
 const COMMON = ['Tired', 'Thirsty', 'Headache', 'Dizzy', 'Shaky', 'Blurred vision', 'Nausea'];
 
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full text-lg" disabled={pending}>
-      {pending ? 'Saving…' : 'Save'}
-    </Button>
-  );
-}
-
 export function SymptomForm({ defaultTime }: { defaultTime: string }) {
-  const [state, action] = useActionState<RecordActionState | null, FormData>(
+  const [state, action, pending] = useActionState<RecordActionState | null, FormData>(
     addSymptomAction,
     null,
   );
 
   return (
-    <form action={action} noValidate>
-      <FormStatus
-        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
-      />
-
+    <ActionForm
+      action={action}
+      state={state}
+      pending={pending}
+      labels={{
+        symptom: 'What did you notice?',
+        takenAt: 'When?',
+        note: 'Anything else worth remembering?',
+        severity: 'How strong was it?',
+      }}
+    >
       <Field
         label="What did you notice?"
         required
         hint="In your own words. The list offers a few common ones, but anything is fine."
-        error={state?.errors?.symptom}
+        name="symptom"
       >
         {({ id, describedBy, invalid }) => (
           <>
@@ -42,7 +44,7 @@ export function SymptomForm({ defaultTime }: { defaultTime: string }) {
               name="symptom"
               list="dl-common-symptoms"
               required
-              autoFocus
+              autoFocus={!state}
               maxLength={120}
               aria-describedby={describedBy}
               invalid={invalid}
@@ -56,7 +58,7 @@ export function SymptomForm({ defaultTime }: { defaultTime: string }) {
         )}
       </Field>
 
-      <Field label="When?" required error={state?.errors?.takenAt}>
+      <Field label="When?" required name="takenAt">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -84,7 +86,7 @@ export function SymptomForm({ defaultTime }: { defaultTime: string }) {
         ]}
       />
 
-      <Field label="Anything else worth remembering?" error={state?.errors?.note}>
+      <Field label="Anything else worth remembering?" name="note">
         {({ id, describedBy, invalid }) => (
           <TextArea
             id={id}
@@ -97,7 +99,7 @@ export function SymptomForm({ defaultTime }: { defaultTime: string }) {
         )}
       </Field>
 
-      <Submit />
-    </form>
+      <SubmitButton className="w-full text-lg">Save</SubmitButton>
+    </ActionForm>
   );
 }

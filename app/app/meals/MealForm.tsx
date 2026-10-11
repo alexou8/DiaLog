@@ -1,12 +1,11 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { addMealAction, type RecordActionState } from '@/lib/actions/records';
 import { toLocalInputValue } from '@/lib/domain/time';
-import { Button, Icon } from '@/components/ui';
-import { Field, FormStatus, Select, TextArea, TextInput } from '@/components/ui/form';
+import { Icon } from '@/components/ui';
+import { ActionForm, Field, Select, SubmitButton, TextArea, TextInput } from '@/components/ui/form';
 
 const MEAL_TYPES: { value: string; label: string }[] = [
   { value: 'BREAKFAST', label: 'Breakfast' },
@@ -16,33 +15,34 @@ const MEAL_TYPES: { value: string; label: string }[] = [
   { value: 'OTHER', label: 'Other' },
 ];
 
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending ? 'Saving…' : 'Save meal'}
-    </Button>
-  );
-}
-
 export function MealForm({ timezone }: { timezone: string }) {
-  const [state, action] = useActionState<RecordActionState | null, FormData>(addMealAction, null);
+  const [state, action, pending] = useActionState<RecordActionState | null, FormData>(
+    addMealAction,
+    null,
+  );
   const defaultTakenAt = toLocalInputValue(new Date(), timezone);
 
   return (
-    <form action={action} noValidate>
-      <FormStatus
-        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
-      />
-
+    <ActionForm
+      action={action}
+      state={state}
+      pending={pending}
+      labels={{
+        description: 'What did you eat?',
+        takenAt: 'When',
+        mealType: 'Meal type',
+        carbsG: 'Carbs',
+        proteinG: 'Protein',
+        fatG: 'Fat',
+        fiberG: 'Fibre',
+        calories: 'Calories',
+        portion: 'Portion',
+        note: 'Note',
+      }}
+    >
       <Callout />
 
-      <Field
-        label="What did you eat?"
-        required
-        error={state?.errors?.description}
-        htmlFor="description"
-      >
+      <Field label="What did you eat?" required name="description">
         {({ id, describedBy, invalid }) => (
           <TextArea
             id={id}
@@ -56,7 +56,7 @@ export function MealForm({ timezone }: { timezone: string }) {
         )}
       </Field>
 
-      <Field label="When" required error={state?.errors?.takenAt} htmlFor="takenAt">
+      <Field label="When" required name="takenAt">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -70,7 +70,7 @@ export function MealForm({ timezone }: { timezone: string }) {
         )}
       </Field>
 
-      <Field label="Meal type" error={state?.errors?.mealType} htmlFor="mealType">
+      <Field label="Meal type" name="mealType">
         {({ id, describedBy, invalid }) => (
           <Select
             id={id}
@@ -98,7 +98,7 @@ export function MealForm({ timezone }: { timezone: string }) {
             Leave any of these blank if you do not know them. Numbers are grams unless noted.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Carbs" error={state?.errors?.carbsG} htmlFor="carbsG" hint="grams">
+            <Field label="Carbs" name="carbsG" hint="grams">
               {({ id, describedBy, invalid }) => (
                 <TextInput
                   id={id}
@@ -112,7 +112,7 @@ export function MealForm({ timezone }: { timezone: string }) {
                 />
               )}
             </Field>
-            <Field label="Protein" error={state?.errors?.proteinG} htmlFor="proteinG" hint="grams">
+            <Field label="Protein" name="proteinG" hint="grams">
               {({ id, describedBy, invalid }) => (
                 <TextInput
                   id={id}
@@ -126,7 +126,7 @@ export function MealForm({ timezone }: { timezone: string }) {
                 />
               )}
             </Field>
-            <Field label="Fat" error={state?.errors?.fatG} htmlFor="fatG" hint="grams">
+            <Field label="Fat" name="fatG" hint="grams">
               {({ id, describedBy, invalid }) => (
                 <TextInput
                   id={id}
@@ -140,7 +140,7 @@ export function MealForm({ timezone }: { timezone: string }) {
                 />
               )}
             </Field>
-            <Field label="Fibre" error={state?.errors?.fiberG} htmlFor="fiberG" hint="grams">
+            <Field label="Fibre" name="fiberG" hint="grams">
               {({ id, describedBy, invalid }) => (
                 <TextInput
                   id={id}
@@ -154,7 +154,7 @@ export function MealForm({ timezone }: { timezone: string }) {
                 />
               )}
             </Field>
-            <Field label="Calories" error={state?.errors?.calories} htmlFor="calories">
+            <Field label="Calories" name="calories">
               {({ id, describedBy, invalid }) => (
                 <TextInput
                   id={id}
@@ -168,12 +168,7 @@ export function MealForm({ timezone }: { timezone: string }) {
                 />
               )}
             </Field>
-            <Field
-              label="Portion"
-              error={state?.errors?.portion}
-              htmlFor="portion"
-              hint="e.g. 1 bowl, 200 ml"
-            >
+            <Field label="Portion" name="portion" hint="e.g. 1 bowl, 200 ml">
               {({ id, describedBy, invalid }) => (
                 <TextInput
                   id={id}
@@ -185,7 +180,7 @@ export function MealForm({ timezone }: { timezone: string }) {
               )}
             </Field>
           </div>
-          <Field label="Note" error={state?.errors?.note} htmlFor="note">
+          <Field label="Note" name="note">
             {({ id, describedBy, invalid }) => (
               <TextArea
                 id={id}
@@ -201,8 +196,8 @@ export function MealForm({ timezone }: { timezone: string }) {
 
       <input type="hidden" name="estimateSource" value="USER_ENTERED" />
 
-      <Submit />
-    </form>
+      <SubmitButton className="w-full sm:w-auto">Save meal</SubmitButton>
+    </ActionForm>
   );
 }
 

@@ -3,7 +3,7 @@ import path from 'node:path';
 
 /**
  * Real-database integration + security suite. Not part of `npm test` — it
- * needs a live Postgres instance (see tests/integration/README.md) and runs
+ * needs a live Postgres instance (see tests/integration/setup-env.ts) and runs
  * strictly sequentially (fileParallelism: false, single fork) because every
  * test file shares one physical database and must not interleave with
  * another file's setup/teardown.

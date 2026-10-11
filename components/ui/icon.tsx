@@ -24,6 +24,7 @@ import {
   Cloud,
   Download,
   Droplet,
+  Ellipsis,
   FileText,
   Footprints,
   Gauge,
@@ -70,6 +71,7 @@ const ICONS = {
   import: Upload,
   settings: Settings,
   signOut: LogOut,
+  more: Ellipsis,
 
   // Health record types
   sleep: Moon,

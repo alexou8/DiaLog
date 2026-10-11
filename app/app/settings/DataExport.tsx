@@ -1,4 +1,4 @@
-import { EXPORT_RECORD_TYPES, EXPORT_ROW_LIMIT, exportLabel } from '@/lib/services/export-service';
+import { EXPORT_RECORD_TYPES, exportLabel } from '@/lib/services/export-service';
 import { ButtonLink, Card, Icon } from '@/components/ui';
 
 /**
@@ -13,8 +13,7 @@ export function DataExport({ totalRecords }: { totalRecords: number }) {
         Your export contains every reading, meal, activity, sleep, medication, weight, blood
         pressure, mood and note you have logged, plus your profile settings and the history of any
         files you imported. It never includes your password. Each file is generated fresh when you
-        download it and is capped at {EXPORT_ROW_LIMIT.toLocaleString()} rows per record type, the
-        file tells you if a type was cut off.
+        download it and contains every record, however many you have.
       </p>
 
       <div className="mt-5">

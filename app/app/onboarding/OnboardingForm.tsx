@@ -1,12 +1,19 @@
 'use client';
 
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useActionState, useEffect, useState } from 'react';
 import { completeOnboardingAction, skipOnboardingAction } from '@/lib/actions/onboarding';
-import type { ActionState } from '@/lib/actions/auth';
-import { Button, Card } from '@/components/ui';
-import { Checkbox, Field, FormStatus, RadioCards, Select, TextInput } from '@/components/ui/form';
-import { TIMEZONE_GROUPS } from '@/lib/timezones';
+import type { FormActionState } from '@/components/ui/form';
+import { Card } from '@/components/ui';
+import {
+  ActionForm,
+  Checkbox,
+  Field,
+  RadioCards,
+  Select,
+  SubmitButton,
+  TextInput,
+} from '@/components/ui/form';
+import { ALL_TIMEZONE_IDS, TIMEZONE_GROUPS } from '@/lib/timezones';
 
 const GOALS = [
   { value: 'understand', label: 'Understand my patterns' },
@@ -17,13 +24,13 @@ const GOALS = [
   { value: 'weight', label: 'Keep an eye on my weight' },
 ];
 
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full text-lg" disabled={pending}>
-      {pending ? 'Saving…' : 'Finish setup'}
-    </Button>
-  );
+/** The zone this device reports, or null where Intl cannot say. */
+function browserTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
 }
 
 export function OnboardingForm({
@@ -33,33 +40,56 @@ export function OnboardingForm({
   defaultName: string;
   defaultTimezone: string;
 }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(
+  const [state, action, pending] = useActionState<FormActionState | null, FormData>(
     completeOnboardingAction,
     null,
   );
 
-  // The browser knows the visitor's zone; offering it as the default saves a
-  // scroll through a long list for almost everyone.
-  const detected =
-    typeof Intl !== 'undefined'
-      ? Intl.DateTimeFormat().resolvedOptions().timeZone
-      : defaultTimezone;
+  // The server renders the profile's zone and the client's first render uses
+  // the same value, so hydration agrees. Reading the browser's zone during
+  // render used to run on the server too, where it is the *server's* zone
+  // (UTC on Vercel): a submit before hydration posted that, and every reading
+  // was then filed under the wrong day and time of day. The browser's zone is
+  // applied only after mount, here, and said out loud in the hint.
+  const submitted = state?.values?.timezone;
+  const [timezone, setTimezone] = useState(
+    typeof submitted === 'string' ? submitted : defaultTimezone,
+  );
+  const [detected, setDetected] = useState<string | null>(null);
+  // A zone the person already submitted (a no-JavaScript round trip) is
+  // their choice and outranks what the device reports.
+  const [hadSubmission] = useState(typeof submitted === 'string');
+
+  useEffect(() => {
+    const zone = browserTimeZone();
+    if (!zone) return;
+    setDetected(zone);
+    if (!hadSubmission) setTimezone(zone);
+  }, [hadSubmission]);
+
+  // A device zone outside the curated list is offered as its own option
+  // rather than letting the <select> silently fall back to its first entry.
+  const extraZone = [timezone, detected].find(
+    (zone): zone is string => !!zone && !ALL_TIMEZONE_IDS.includes(zone),
+  );
 
   return (
     <>
-      <form action={action} className="mt-8 space-y-6" noValidate>
-        <FormStatus
-          status={
-            state && !state.ok && state.message ? { ok: false, message: state.message } : null
-          }
-        />
-
+      <ActionForm
+        action={action}
+        state={state}
+        pending={pending}
+        className="mt-8 flex flex-col gap-6"
+        labels={{
+          displayName: 'What should we call you?',
+          glucoseUnit: 'Which unit do your readings use?',
+          condition: 'What brings you to DiaLog?',
+          timezone: 'Your time zone',
+          goals: 'What would you like to get out of this?',
+        }}
+      >
         <Card>
-          <Field
-            label="What should we call you?"
-            hint="Only used to greet you."
-            error={state?.errors?.displayName}
-          >
+          <Field label="What should we call you?" hint="Only used to greet you." name="displayName">
             {({ id, describedBy, invalid }) => (
               <TextInput
                 id={id}
@@ -107,15 +137,27 @@ export function OnboardingForm({
         <Card>
           <Field
             label="Your time zone"
-            hint="So that a reading at 8 in the morning is filed as the morning."
+            hint={
+              detected
+                ? `So that a reading at 8 in the morning is filed as the morning. This device reports ${detected}; change it if that is not where you live.`
+                : 'So that a reading at 8 in the morning is filed as the morning.'
+            }
+            name="timezone"
           >
-            {({ id, describedBy }) => (
+            {({ id, describedBy, invalid }) => (
               <Select
                 id={id}
                 name="timezone"
-                defaultValue={detected}
+                value={timezone}
+                onChange={(event) => setTimezone(event.target.value)}
                 aria-describedby={describedBy}
+                invalid={invalid}
               >
+                {extraZone ? (
+                  <optgroup label="This device">
+                    <option value={extraZone}>{extraZone.replace(/_/g, ' ')}</option>
+                  </optgroup>
+                ) : null}
                 {TIMEZONE_GROUPS.map((group) => (
                   <optgroup key={group.label} label={group.label}>
                     {group.zones.map((zone) => (
@@ -144,8 +186,8 @@ export function OnboardingForm({
           </fieldset>
         </Card>
 
-        <Submit />
-      </form>
+        <SubmitButton className="w-full text-lg">Finish setup</SubmitButton>
+      </ActionForm>
 
       <form action={skipOnboardingAction} className="mt-4 text-center">
         <button type="submit" className="dl-target text-ink-muted underline underline-offset-4">

@@ -18,7 +18,8 @@ import {
   timeOfDayBucket,
   weekdayInZone,
 } from '@/lib/domain/time';
-import type { TargetRange } from '@/lib/domain/thresholds';
+import { comparableMgdl, normalizeTargetRange, type TargetRange } from '@/lib/domain/thresholds';
+import { maxOf } from '@/lib/domain/units';
 import type { GlucoseContext } from '@prisma/client';
 import type { GlucosePoint } from './types';
 import {
@@ -110,9 +111,14 @@ function valuesOf(points: readonly GlucosePoint[]): number[] {
   return points.map((p) => p.valueMgdl);
 }
 
-function classifyBand(value: number, range: TargetRange): 'below' | 'in' | 'above' {
-  if (value < range.lowMgdl) return 'below';
-  if (value > range.highMgdl) return 'above';
+function classifyBand(value: number, targetRange: TargetRange): 'below' | 'in' | 'above' {
+  // Same whole-mg/dL snapping of both reading and range as classifyGlucose,
+  // so time-in-range and the per-reading band label can never disagree about
+  // a reading at the target.
+  const range = normalizeTargetRange(targetRange);
+  const v = comparableMgdl(value);
+  if (v < range.lowMgdl) return 'below';
+  if (v > range.highMgdl) return 'above';
   return 'in';
 }
 
@@ -326,7 +332,8 @@ export function summarizeGlucose(
     daysWithReadings: dayKeys.size,
     averageGapMinutes: mean(gaps),
     medianGapMinutes: median(gaps),
-    maxGapMinutes: gaps.length > 0 ? Math.max(...gaps) : null,
+    // maxOf, not Math.max(...gaps): spreading ~200k gaps overflows the call stack.
+    maxGapMinutes: maxOf(gaps),
     histogram: histogram(points),
     byHourOfDay: byHourOfDay(points, timezone),
     byWeekday: byWeekday(points, timezone),

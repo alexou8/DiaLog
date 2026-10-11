@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { prisma } from '@/lib/db/prisma';
 import { CONNECTORS } from '@/lib/import/connectors/registry';
+import { MAX_IMPORT_LABEL } from '@/lib/import/limits';
 import { undoImportAction } from '@/lib/actions/import';
 import { Button, Card, CardHeader, EmptyState, PageHeader, WhyThis } from '@/components/ui';
 import { ImportPanel } from './ImportPanel';
@@ -47,7 +48,7 @@ export default async function ImportPage() {
           <CardHeader
             id="formats"
             title="What DiaLog can read"
-            description="These are the formats DiaLog genuinely understands today. Where a manufacturer does not offer a way to export or connect, that is stated plainly rather than hidden behind a button that would not work."
+            description={`These are the formats DiaLog genuinely understands today, in files up to ${MAX_IMPORT_LABEL}. Where a manufacturer does not offer a way to export or connect, that is stated plainly rather than hidden behind a button that would not work.`}
           />
           <ul className="space-y-4">
             {CONNECTORS.map((connector) => (

@@ -181,7 +181,7 @@ describe('detectTrend', () => {
     expect(result.slopeMgdlPerDay).toBeGreaterThan(0);
   });
 
-  it('detects a clearly improving (falling) trend', () => {
+  it('detects a clearly falling trend', () => {
     const glucose: GlucosePoint[] = [];
     for (let day = 1; day <= 25; day++) {
       glucose.push(
@@ -189,8 +189,21 @@ describe('detectTrend', () => {
       );
     }
     const result = detectTrend(baseInput({ glucose }));
-    expect(result.classification).toBe('improving');
+    expect(result.classification).toBe('falling');
     expect(result.slopeMgdlPerDay).toBeLessThan(0);
+  });
+
+  it('measures the slope per calendar day, so gaps between logged days count', () => {
+    // Logged every third day, rising 3 mg/dL per logged day: 1 mg/dL per calendar day.
+    const glucose: GlucosePoint[] = [];
+    for (let i = 0; i < 15; i++) {
+      glucose.push(
+        glucoseAt(new Date(Date.UTC(2026, 0, 1 + i * 3, 12, 0, 0)).toISOString(), 100 + i * 3),
+      );
+    }
+    const result = detectTrend(baseInput({ glucose }));
+    expect(result.classification).toBe('rising');
+    expect(result.slopeMgdlPerDay).toBeCloseTo(1, 5);
   });
 
   it('classifies a flat, noiseless series as stable', () => {

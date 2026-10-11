@@ -4,8 +4,19 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/prisma';
 import { audit } from '@/lib/auth/audit';
-import { hashPassword, validatePassword, verifyPassword } from '@/lib/auth/password';
-import { RATE_LIMITS, pruneRateLimits, rateLimit } from '@/lib/auth/rate-limit';
+import {
+  dummyPasswordHash,
+  hashPassword,
+  validatePassword,
+  verifyPassword,
+} from '@/lib/auth/password';
+import {
+  RATE_LIMITS,
+  accountRateLimitKey,
+  pruneRateLimits,
+  rateLimit,
+  resetRateLimit,
+} from '@/lib/auth/rate-limit';
 import {
   clearSessionCookie,
   isSessionSecretConfigured,
@@ -14,6 +25,7 @@ import {
   signSession,
 } from '@/lib/auth/session';
 import { fieldErrors, signInSchema, signUpSchema } from '@/lib/validation';
+import { safeNext } from '@/lib/auth/oauth/state';
 
 export interface ActionState {
   ok: boolean;
@@ -35,6 +47,18 @@ const NOT_CONFIGURED: ActionState = {
   message:
     'Sign-in is unavailable because this deployment is not fully configured. If you administer it, set AUTH_SECRET (32+ characters) in the environment and redeploy.',
 };
+
+/**
+ * One message for both sign-in budgets (per IP and per account). Saying which
+ * one tripped would tell a caller whether their address or the account was
+ * the bottleneck, which is more than a legitimate user needs.
+ */
+function tooManySignIns(retryAfterSeconds: number): ActionState {
+  return {
+    ok: false,
+    message: `Too many sign-in attempts. Please wait about ${Math.ceil(retryAfterSeconds / 60)} minutes and try again.`,
+  };
+}
 
 /** Best-effort client identifier for rate limiting. */
 async function clientKey(prefix: string): Promise<string> {
@@ -107,15 +131,22 @@ export async function signInAction(
   pruneRateLimits();
   const key = await clientKey('signin');
   const limit = rateLimit(key, RATE_LIMITS.signIn.limit, RATE_LIMITS.signIn.windowMs);
-  if (!limit.ok) {
-    return {
-      ok: false,
-      message: `Too many sign-in attempts. Please wait about ${Math.ceil(limit.retryAfterSeconds / 60)} minutes and try again.`,
-    };
-  }
+  if (!limit.ok) return tooManySignIns(limit.retryAfterSeconds);
 
   const parsed = signInSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+
+  // The per-IP budget alone let a distributed attacker spread guesses at one
+  // account across many addresses with no account-level brake. Applied before
+  // the lookup, and identically for unknown addresses, so the limiter answers
+  // the same whether or not the account exists (see accountRateLimitKey).
+  const accountKey = accountRateLimitKey('signin-account', parsed.data.email);
+  const accountLimit = rateLimit(
+    accountKey,
+    RATE_LIMITS.signInAccount.limit,
+    RATE_LIMITS.signInAccount.windowMs,
+  );
+  if (!accountLimit.ok) return tooManySignIns(accountLimit.retryAfterSeconds);
 
   const user = await prisma.user.findUnique({
     where: { email: parsed.data.email },
@@ -137,10 +168,10 @@ export async function signInAction(
     };
   }
 
-  // Always run a comparison so that a missing account and a wrong password take
-  // a similar amount of time.
-  const hash =
-    user?.passwordHash ?? '$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidin';
+  // Always run a full comparison so that a missing account and a wrong password
+  // take the same time. The fallback must be a real hash at the real cost:
+  // bcryptjs short-circuits on a malformed one (see dummyPasswordHash).
+  const hash = user?.passwordHash ?? (await dummyPasswordHash());
   const valid = await verifyPassword(parsed.data.password, hash);
 
   if (!user || !valid) {
@@ -151,10 +182,21 @@ export async function signInAction(
     };
   }
 
+  // The account budget exists to brake password guessing, so only failures
+  // should spend it. Charged up front (atomic with the check) and refunded
+  // here: without the refund, 20 ordinary sign-ins in 15 minutes locked a
+  // shared account like the demo out for every visitor.
+  resetRateLimit(accountKey);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await audit({ userId: user.id, action: 'auth.sign_in' });
   await setSessionCookie(await signSession({ userId: user.id, tokenVersion: user.tokenVersion }));
-  redirect(user.profile?.onboardingCompletedAt ? '/app' : '/app/onboarding');
+  // Honour a same-origin `next` (deep links, PWA shortcuts) the same way the
+  // Google callback does; safeNext keeps it on this origin.
+  redirect(
+    user.profile?.onboardingCompletedAt
+      ? safeNext(formData.get('next')?.toString(), '/app')
+      : '/app/onboarding',
+  );
 }
 
 export async function signOutAction(): Promise<void> {

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
-import { getProvider } from '@/lib/ai/provider';
+import { getProvider, resolveProviderForUser } from '@/lib/ai/provider';
 import { recordCounts } from '@/lib/db/health-records';
 import {
   ButtonLink,
@@ -18,7 +18,14 @@ export const dynamic = 'force-dynamic';
 export default async function AssistantPage() {
   const user = await requireOnboardedUser();
   const counts = await recordCounts(user.id);
-  const provider = getProvider(process.env.AI_PROVIDER);
+  // The provider that will actually answer, after the consent gate, not the
+  // one the deployment is configured with. Showing getProvider()'s name told
+  // a user who had not consented that "Anthropic" was writing answers that in
+  // fact came from the local engine.
+  const externalConsent = user.profile.externalAiConsentAt != null;
+  const configured = getProvider(process.env.AI_PROVIDER);
+  const provider = resolveProviderForUser({ preferred: process.env.AI_PROVIDER, externalConsent });
+  const externalAvailable = configured.isExternal && !provider.isExternal;
   const hasData = counts.glucose > 0;
 
   if (!user.profile.aiEnabled) {
@@ -57,9 +64,15 @@ export default async function AssistantPage() {
       >
         {provider.isExternal ? (
           <p>
-            Only the summarised findings, figures such as &ldquo;average post-dinner reading across
-            14 days&rdquo;, are sent. Your individual readings and your notes are not. You can
-            switch this off in Settings.
+            Your question is sent word for word, together with summarised findings such as your
+            average post-dinner reading across 14 days. Your individual readings are not. You can
+            withdraw this in Settings.
+          </p>
+        ) : externalAvailable ? (
+          <p>
+            On-device (local): DiaLog&apos;s built-in engine answers, and nothing about your health
+            leaves this server. You can connect {configured.name} in Settings if you want it to
+            write the answers instead.
           </p>
         ) : (
           <p>

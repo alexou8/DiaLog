@@ -38,7 +38,12 @@
   --color-surface: oklch(100% 0 0);
   --color-surface-sunken: oklch(96.4% 0.006 95);
   --color-line: oklch(89% 0.008 95);
-  --color-line-strong: oklch(78% 0.01 95);
+  /* The boundary of every text field and radio card. Input fill and page
+     background differ by about 1.05:1, so this border is the only thing that
+     shows where a control is: it must reach 3:1 (WCAG 1.4.11) against the
+     canvas, the surface and the sunken surface. 78% measured 2.0:1 and failed;
+     62% is 3.5 / 3.6 / 3.3:1. `--color-line` stays light for decorative rules. */
+  --color-line-strong: oklch(62% 0.01 95);
   --color-ink: oklch(24% 0.015 250);
   --color-ink-muted: oklch(45% 0.015 250);
 
@@ -101,7 +106,6 @@
   --color-primary-foreground: var(--dl-on-brand);
 
   --color-secondary: var(--color-surface-sunken);
-  --color-secondary-foreground: var(--color-ink);
 
   --color-muted: var(--color-surface-sunken);
   --color-muted-foreground: var(--color-ink-muted);
@@ -110,20 +114,14 @@
   --color-accent-foreground: var(--color-brand-ink);
 
   --color-destructive: var(--color-critical);
-  --color-destructive-foreground: var(--dl-on-critical);
 
   --color-border: var(--color-line);
   --color-input: var(--color-line-strong);
   --color-ring: var(--color-brand);
 
-  /* Charts read as a categorical scale, not a gradient: each step is one of
-     the status tones, which are already tested against the common forms of
-     colour vision deficiency. */
-  --color-chart-1: var(--color-brand);
-  --color-chart-2: var(--color-info);
-  --color-chart-3: var(--color-positive);
-  --color-chart-4: var(--color-notice);
-  --color-chart-5: var(--color-caution);
+  /* No --color-chart-* or *-secondary/destructive-foreground aliases: nothing
+     referenced them (checked with rg), and the charts draw with the status
+     tones directly so a chart mark and its legend badge cannot drift apart. */
 
   --radius-sm: calc(var(--radius-card) - 4px);
   --radius-md: calc(var(--radius-card) - 2px);
@@ -152,7 +150,9 @@
     --color-surface: oklch(23.5% 0.014 250);
     --color-surface-sunken: oklch(17% 0.012 250);
     --color-line: oklch(32% 0.014 250);
-    --color-line-strong: oklch(45% 0.016 250);
+    /* 3:1 against the dark canvas, surface and sunken surface (4.3 / 3.9 /
+       4.5:1). 45% measured 2.2:1. See the light-theme note above. */
+    --color-line-strong: oklch(58% 0.016 250);
     --color-ink: oklch(96% 0.005 250);
     --color-ink-muted: oklch(76% 0.012 250);
     --color-brand: oklch(74% 0.09 197);
@@ -178,20 +178,34 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  /* The app shell has a sticky header and, below lg, a fixed bottom bar.
+     Without this, tabbing scrolls the focused control to the very edge of the
+     viewport, underneath one of them (WCAG 2.2 2.4.11, focus not obscured).
+     The values are the bars' own heights: both are sized in rem, so they
+     grow with the larger-text setting and this grows with them. Scoped to
+     pages that render the shell; marketing pages have neither bar. */
+  html:has([data-app-shell]) {
+    scroll-padding-top: calc(4.75rem + env(safe-area-inset-top));
+    scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 64rem) {
+    html:has([data-app-shell]) {
+      scroll-padding-bottom: 1rem;
+    }
+  }
+
   body {
     background-color: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    /* 17px, as the design system promises. `--text-base` used to feed only
+       the `text-base` utility, so all unclassed text rendered at the browser's
+       16px while the docs and comments said 17. */
+    font-size: var(--text-base);
     /* Comfortable line length and rhythm for long-sighted readers. */
     line-height: 1.6;
     text-rendering: optimizeLegibility;
-  }
-
-  /* A single, always-visible focus treatment. Never removed. */
-  :focus-visible {
-    outline: 3px solid var(--color-brand);
-    outline-offset: 2px;
-    border-radius: 4px;
   }
 
   /* Respect the OS-level reduced-motion setting and the in-app preference. */
@@ -219,6 +233,25 @@
   a.dl-target,
   input[type='submit'] {
     min-height: 2.75rem;
+  }
+
+  /* `min-height` is ignored on an inline box, so on a standalone link (the
+     marketing footer list, a "see all" link beside a heading) the 44px promise
+     above silently did nothing. inline-flex gives the link a box that honours
+     it.
+
+     Not inside running text, though: an inline-flex link is one atomic box,
+     so a long link in a sentence could no longer wrap and pushed whole words
+     to the next line or overflowed a narrow column. A link in a paragraph
+     stays inline; WCAG 2.5.8 exempts links in a sentence from the target
+     size, and a utility class such as `flex` still wins over both rules. */
+  a.dl-target {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  p a.dl-target {
+    display: inline;
   }
 
   h1,
@@ -296,6 +329,25 @@
     white-space: nowrap;
     border: 0;
   }
+}
+
+/*
+  A single, always-visible focus treatment. Never removed.
+
+  Deliberately outside every @layer. Cascade layers are compared before
+  specificity, and Tailwind emits its utilities in a later layer than `base`,
+  so when this rule lived in `@layer base` a single `outline-none` utility on a
+  component beat it outright: every Button, ButtonLink and dialog action in the
+  product had no focus indicator at all, while the button's own comment said
+  the opposite. Unlayered styles win over all layered ones, so no utility on
+  any primitive (stock shadcn included) can switch this off again.
+
+  No border-radius here: the outline follows the element's own radius, and
+  forcing 4px made rounded buttons visibly change shape on focus.
+*/
+:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
 }
 
 /* Safe-area insets so the installed PWA clears notches and home indicators. */

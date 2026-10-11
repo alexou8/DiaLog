@@ -36,6 +36,30 @@ export interface TargetRange {
 export const DEFAULT_TARGET_RANGE: TargetRange = { lowMgdl: 70, highMgdl: 180 };
 
 /**
+ * Snap a stored target range to whole mg/dL before comparing readings to it.
+ * Targets saved from mmol/L input used to be stored unrounded (3.9 mmol/L →
+ * 70.27 mg/dL), which made a reading of exactly 70 — displayed as 3.9, equal
+ * to the target — classify as below range. Snapping at comparison time fixes
+ * rows already stored that way as well as new ones.
+ */
+export function normalizeTargetRange(range: TargetRange): TargetRange {
+  return { lowMgdl: Math.round(range.lowMgdl), highMgdl: Math.round(range.highMgdl) };
+}
+
+/**
+ * Snap a stored reading to whole mg/dL before comparing it to the snapped
+ * target range. Readings entered or imported in mmol/L are stored unrounded
+ * (10.0 mmol/L → 180.18 mg/dL), so comparing them raw against a whole-mg/dL
+ * target put a reading equal to the target, as displayed, outside the range
+ * (10.0 against a 10.0 high → "above range"). Both sides must be compared at
+ * one resolution. Adjacent mmol/L display steps are 1.8 mg/dL apart, so
+ * rounding can never merge two distinct mmol/L values into the same mg/dL.
+ */
+export function comparableMgdl(mgdl: number): number {
+  return Math.round(mgdl);
+}
+
+/**
  * Absolute thresholds that sit outside the user's chosen target range and
  * carry safety messaging regardless of personal targets.
  */
@@ -89,12 +113,14 @@ const BANDS: Record<BandId, GlucoseBand> = {
 /** Classify a canonical mg/dL reading against a user's target range. */
 export function classifyGlucose(
   mgdl: number,
-  range: TargetRange = DEFAULT_TARGET_RANGE,
+  targetRange: TargetRange = DEFAULT_TARGET_RANGE,
 ): GlucoseBand {
-  if (mgdl < SAFETY_THRESHOLDS.veryLowMgdl) return BANDS['very-low'];
-  if (mgdl < range.lowMgdl) return BANDS.low;
-  if (mgdl > SAFETY_THRESHOLDS.veryHighMgdl) return BANDS['very-high'];
-  if (mgdl > range.highMgdl) return BANDS['above-range'];
+  const range = normalizeTargetRange(targetRange);
+  const value = comparableMgdl(mgdl);
+  if (value < SAFETY_THRESHOLDS.veryLowMgdl) return BANDS['very-low'];
+  if (value < range.lowMgdl) return BANDS.low;
+  if (value > SAFETY_THRESHOLDS.veryHighMgdl) return BANDS['very-high'];
+  if (value > range.highMgdl) return BANDS['above-range'];
   return BANDS['in-range'];
 }
 

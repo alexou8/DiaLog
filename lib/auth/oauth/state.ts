@@ -59,6 +59,15 @@ export async function openAttempt(token: string | undefined): Promise<OAuthAttem
  * crafted link cannot bounce a freshly authenticated user off-site.
  */
 export function safeNext(value: string | null | undefined, fallback: string): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//')) return fallback;
+  if (!value || !value.startsWith('/')) return fallback;
+  // Browsers normalise a backslash to a slash before resolving, so `/\\evil.com`
+  // is navigated as `//evil.com` — a protocol-relative URL to another host.
+  // Reject both spellings of the second character, not just the slash.
+  if (value.startsWith('//') || value.startsWith('/\\')) return fallback;
+  // The URL parser also strips ASCII tab and newline before resolving, so a
+  // decoded `/%09/evil.com` (`/<TAB>/evil.com`) is navigated as `//evil.com`
+  // too. No in-app path carries whitespace or a control character, so refuse
+  // them all rather than enumerate the ones a parser happens to drop.
+  if (/[\s\u0000-\u001f\u007f]/.test(value)) return fallback;
   return value;
 }

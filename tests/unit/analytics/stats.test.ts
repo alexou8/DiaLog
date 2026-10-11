@@ -218,3 +218,29 @@ describe('cohensD', () => {
     expect(cohensD([1], [1, 2])).toBeNull();
   });
 });
+
+describe('tCriticalTwoSided and the Welch confidence interval', () => {
+  it('matches reference critical values', async () => {
+    const { tCriticalTwoSided } = await import('@/lib/analytics/stats');
+    expect(tCriticalTwoSided(1)).toBeCloseTo(12.706, 2);
+    expect(tCriticalTwoSided(10)).toBeCloseTo(2.228, 3);
+    expect(tCriticalTwoSided(1e6)).toBeCloseTo(1.96, 2);
+    expect(tCriticalTwoSided(0)).toBeNull();
+    expect(tCriticalTwoSided(Number.NaN)).toBeNull();
+  });
+
+  it('brackets the mean difference, and excludes 0 exactly when p < 0.05', () => {
+    const a = [10, 11, 12, 9, 10, 11, 12, 10];
+    const b = [20, 21, 19, 22, 20, 21, 19, 20];
+    const r = welchTTest(a, b)!;
+    expect(r.ciLow).toBeLessThan(r.mean1 - r.mean2);
+    expect(r.ciHigh).toBeGreaterThan(r.mean1 - r.mean2);
+    expect(r.ciHigh).toBeLessThan(0);
+    const same = welchTTest([1, 2, 3, 4], [1, 2, 3, 4])!;
+    expect(same.ciLow).toBeLessThan(0);
+    expect(same.ciHigh).toBeGreaterThan(0);
+    for (const v of [r.ciLow, r.ciHigh, same.ciLow, same.ciHigh]) {
+      expect(Number.isFinite(v)).toBe(true);
+    }
+  });
+});

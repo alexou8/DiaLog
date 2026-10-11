@@ -1,33 +1,27 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { addHydrationAction, type RecordActionState } from '@/lib/actions/records';
-import { Button } from '@/components/ui';
-import { Field, FormStatus, RadioCards, TextInput } from '@/components/ui/form';
-
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full text-lg" disabled={pending}>
-      {pending ? 'Saving…' : 'Save'}
-    </Button>
-  );
-}
+import { ActionForm, Field, RadioCards, SubmitButton, TextInput } from '@/components/ui/form';
 
 export function HydrationForm({ defaultTime }: { defaultTime: string }) {
-  const [state, action] = useActionState<RecordActionState | null, FormData>(
+  const [state, action, pending] = useActionState<RecordActionState | null, FormData>(
     addHydrationAction,
     null,
   );
 
   return (
-    <form action={action} noValidate>
-      <FormStatus
-        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
-      />
-
-      <Field label="How much?" required error={state?.errors?.volume}>
+    <ActionForm
+      action={action}
+      state={state}
+      pending={pending}
+      labels={{
+        volume: 'How much?',
+        takenAt: 'When?',
+        unit: 'Measured in',
+      }}
+    >
+      <Field label="How much?" required name="volume">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -36,7 +30,7 @@ export function HydrationForm({ defaultTime }: { defaultTime: string }) {
             step="any"
             inputMode="decimal"
             required
-            autoFocus
+            autoFocus={!state}
             className="text-2xl"
             aria-describedby={describedBy}
             invalid={invalid}
@@ -56,7 +50,7 @@ export function HydrationForm({ defaultTime }: { defaultTime: string }) {
         ]}
       />
 
-      <Field label="When?" required error={state?.errors?.takenAt}>
+      <Field label="When?" required name="takenAt">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -70,7 +64,7 @@ export function HydrationForm({ defaultTime }: { defaultTime: string }) {
         )}
       </Field>
 
-      <Submit />
-    </form>
+      <SubmitButton className="w-full text-lg">Save</SubmitButton>
+    </ActionForm>
   );
 }

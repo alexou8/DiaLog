@@ -16,7 +16,9 @@ import { audit } from '@/lib/auth/audit';
 import { verifyPassword } from '@/lib/auth/password';
 import { RATE_LIMITS, rateLimit } from '@/lib/auth/rate-limit';
 import { clearSessionCookie } from '@/lib/auth/session';
-import { GLUCOSE_ENTRY_BOUNDS, toMgdl } from '@/lib/domain/units';
+import { DEMO_READ_ONLY_MESSAGE, isDemoEmail } from '@/lib/auth/demo';
+import { deleteAllHealthData } from '@/lib/db/health-records';
+import { GLUCOSE_ENTRY_BOUNDS, targetToMgdl } from '@/lib/domain/units';
 import { fieldErrors, preferencesSchema } from '@/lib/validation';
 import type { GlucoseUnit } from '@prisma/client';
 
@@ -70,11 +72,23 @@ export async function updatePreferencesAction(
     };
   }
 
-  const targetLowMgdl = toMgdl(d.targetLow, unit);
-  const targetHighMgdl = toMgdl(d.targetHigh, unit);
+  // Whole mg/dL: unrounded mmol conversions (70.27) understated time-in-range
+  // and made the stored target differ from what the user typed back in mmol.
+  const targetLowMgdl = targetToMgdl(d.targetLow, unit);
+  const targetHighMgdl = targetToMgdl(d.targetHigh, unit);
 
   const wantsExternalConsent = d.externalAiConsent;
   const hadConsent = user.profile.externalAiConsentAt != null;
+
+  // Consent is personal, but the demo account is shared: one visitor granting
+  // it would send every later visitor's questions and quick-log text to an
+  // external provider under a consent they never gave. Granting is refused for
+  // the demo; withdrawing stays possible, and every other preference on the
+  // demo stays editable. The assistant actions also ignore any consent already
+  // stored on the demo row (lib/actions/assistant.ts).
+  if (isDemoEmail(user.email) && wantsExternalConsent && !hadConsent) {
+    return { ok: false, message: DEMO_READ_ONLY_MESSAGE };
+  }
 
   await prisma.profile.update({
     where: { userId: user.id },
@@ -169,6 +183,9 @@ export async function deleteAllRecordsAction(
   formData: FormData,
 ): Promise<ActionState> {
   const user = await requireUser();
+  // The demo's records are what every visitor comes to look at; one visitor
+  // must not be able to wipe them for everyone (see lib/auth/demo.ts).
+  if (isDemoEmail(user.email)) return { ok: false, message: DEMO_READ_ONLY_MESSAGE };
   const limited = guard(user.id, 'deleteall');
   if (limited) return limited;
 
@@ -177,57 +194,12 @@ export async function deleteAllRecordsAction(
 
   await audit({ userId: user.id, action: 'data.delete_all_records' });
 
-  const [
-    glucose,
-    meal,
-    exercise,
-    sleep,
-    medication,
-    weight,
-    bloodPressure,
-    hydration,
-    symptom,
-    mood,
-    note,
-    conversations,
-    importBatches,
-  ] = await prisma.$transaction([
-    prisma.glucoseReading.deleteMany({ where: { userId: user.id } }),
-    prisma.meal.deleteMany({ where: { userId: user.id } }),
-    prisma.exerciseSession.deleteMany({ where: { userId: user.id } }),
-    prisma.sleepSession.deleteMany({ where: { userId: user.id } }),
-    prisma.medicationEvent.deleteMany({ where: { userId: user.id } }),
-    prisma.weightMeasurement.deleteMany({ where: { userId: user.id } }),
-    prisma.bloodPressureMeasurement.deleteMany({ where: { userId: user.id } }),
-    prisma.hydrationEvent.deleteMany({ where: { userId: user.id } }),
-    prisma.symptomEntry.deleteMany({ where: { userId: user.id } }),
-    prisma.moodEntry.deleteMany({ where: { userId: user.id } }),
-    prisma.noteEntry.deleteMany({ where: { userId: user.id } }),
-    // Health data that is derived from records rather than being one: an AI
-    // conversation stores the question, the answer and the evidence findings
-    // behind it, and an ImportBatch's issues keep the raw rejected rows
-    // (ImportIssue.rawRow) of a failed import. Both cascade from their parent,
-    // and both are health data the user reasonably expects "delete all my
-    // records" to erase — leaving them behind meant a wiped account still held
-    // free-text health discussion and raw imported rows.
-    prisma.aIConversation.deleteMany({ where: { userId: user.id } }),
-    prisma.importBatch.deleteMany({ where: { userId: user.id } }),
-  ]);
-
-  const total =
-    glucose.count +
-    meal.count +
-    exercise.count +
-    sleep.count +
-    medication.count +
-    weight.count +
-    bloodPressure.count +
-    hydration.count +
-    symptom.count +
-    mood.count +
-    note.count +
-    conversations.count +
-    importBatches.count;
+  // Which models count as health data, and why, lives with the query itself
+  // in lib/db/health-records.ts (it cannot be exported from this 'use server'
+  // module without becoming a client-callable endpoint).
+  const { devices: _devices, ...removed } = await deleteAllHealthData(user.id);
+  // A Device is equipment, not a record, so it is erased but not counted.
+  const total = Object.values(removed).reduce((sum, count) => sum + count, 0);
 
   revalidatePath('/app', 'layout');
 
@@ -242,6 +214,7 @@ export async function deleteAccountAction(
   formData: FormData,
 ): Promise<ActionState> {
   const user = await requireUser();
+  if (isDemoEmail(user.email)) return { ok: false, message: DEMO_READ_ONLY_MESSAGE };
   const limited = guard(user.id, 'deleteaccount');
   if (limited) return limited;
 

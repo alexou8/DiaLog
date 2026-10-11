@@ -16,7 +16,9 @@ export function HeroVisual() {
   return (
     <div className="rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-semibold tracking-tight">Last 14 days</h2>
+        {/* A <p>, not a heading: this is a picture of a card, and its title
+            landed in the page outline as a real section called "Last 14 days". */}
+        <p className="text-base font-semibold tracking-tight">Last 14 days</p>
         <span className="dl-numeric text-meta text-ink-muted">84 readings</span>
       </div>
 
@@ -72,7 +74,10 @@ export function HeroVisual() {
       <div className="mt-4 border-t border-line pt-4">
         <p className="font-medium">Readings after a walk sat lower than on days without one.</p>
         <p className="dl-meta mt-1 text-ink-muted">
-          Based on 21 days of your data &middot; moderate evidence
+          {/* One of the product's real evidence labels (EVIDENCE_LABELS in
+              lib/domain/evidence.ts). "Moderate evidence" was not one of them,
+              so the landing page promised a grading scale the app never shows. */}
+          Based on 21 days of your data &middot; Emerging pattern
         </p>
       </div>
     </div>

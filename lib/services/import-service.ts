@@ -8,9 +8,12 @@
  */
 import type { DataSource, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db/prisma';
-import { dedupeRecords, type KeyedRecord } from '@/lib/import/dedupe';
+import { isValidTimeZone } from '@/lib/domain/time';
+import { dedupeKeyedRecords, keyRecord, type KeyedRecord } from '@/lib/import/dedupe';
 import { detectConnector } from '@/lib/import/connectors/registry';
-import { parseFile, MAX_FILE_BYTES } from '@/lib/import/parse';
+import { ImportLimitError, MAX_IMPORT_BYTES, fileTooLargeMessage } from '@/lib/import/limits';
+import { enforceStorageConstraints } from '@/lib/import/normalize';
+import { parseFile } from '@/lib/import/parse';
 import { buildImportSummary, type ImportSummary } from '@/lib/import/summary';
 import type { NormalizedRecord } from '@/lib/import/types';
 
@@ -38,19 +41,22 @@ export async function prepareImport(params: {
       'That file is empty. Please check you exported the right file and try again.',
     );
   }
-  if (params.bytes.byteLength > MAX_FILE_BYTES) {
+  if (params.bytes.byteLength > MAX_IMPORT_BYTES) {
+    throw new ImportError(fileTooLargeMessage());
+  }
+  // Checked here rather than per row: an unrecognised zone used to be read
+  // silently as UTC, shifting every imported reading by the zone's offset.
+  if (!isValidTimeZone(params.timezone)) {
     throw new ImportError(
-      'That file is larger than DiaLog can process. Please split it into smaller exports.',
+      'Your time zone setting is not recognised, so imported times could not be placed correctly. Please choose your time zone again in Settings, then retry the import.',
     );
   }
 
   let parsedFile;
   try {
     parsedFile = await parseFile(params.filename, params.mimeType, Buffer.from(params.bytes));
-  } catch {
-    throw new ImportError(
-      'DiaLog could not read that file. It may be corrupted, or it may be a format DiaLog does not understand yet.',
-    );
+  } catch (error) {
+    throw importErrorFor(error);
   }
 
   const detection = detectConnector(parsedFile);
@@ -60,10 +66,15 @@ export async function prepareImport(params: {
     );
   }
 
-  const parseResult = await detection.connector.parse(parsedFile, { timezone: params.timezone });
+  // The backstop runs on every connector's output, so no connector can send a
+  // value Prisma or Postgres would refuse (which fails the whole commit).
+  const parseResult = enforceStorageConstraints(
+    await detection.connector.parse(parsedFile, { timezone: params.timezone }),
+  );
 
-  const existing = await existingKeysFor(params.userId, parseResult.records);
-  const dedupe = dedupeRecords(parseResult.records, existing);
+  const keyed = parseResult.records.map(keyRecord);
+  const existing = await existingKeysFor(params.userId, keyed);
+  const dedupe = dedupeKeyedRecords(keyed, existing);
 
   return {
     connectorId: detection.connector.id,
@@ -74,35 +85,86 @@ export async function prepareImport(params: {
   };
 }
 
+/** Maps a parse failure to the message the user sees. Never echoes file contents. */
+function importErrorFor(error: unknown): ImportError {
+  if (error instanceof ImportLimitError) {
+    switch (error.reason) {
+      case 'FILE_TOO_LARGE':
+        return new ImportError(fileTooLargeMessage());
+      case 'WORKBOOK_TOO_LARGE':
+        // The limit's own message is fixed, user-facing copy.
+        return new ImportError(error.message);
+      case 'UNSAFE_XML':
+        return new ImportError(
+          'That XML file declares entities or an external DTD, which DiaLog does not accept because they can be used to exhaust memory. Exports from Apple Health and other supported apps do not need them.',
+        );
+    }
+  }
+  return new ImportError(
+    'DiaLog could not read that file. It may be corrupted, or it may be a format DiaLog does not understand yet.',
+  );
+}
+
+/** Keys per `IN (...)` query; well under Postgres' bind-parameter limit. */
+const DEDUPE_LOOKUP_CHUNK = 1_000;
+
 /**
- * Look up which of these records the user already has. Only the dedupe keys are
- * fetched, and only for the record kinds present in the file.
+ * Look up which of these records the user already has.
+ *
+ * Only the keys present in the file are queried (`dedupeKey IN (...)`, in
+ * chunks, against the `@@unique([userId, dedupeKey])` index). This used to
+ * fetch every key the user had ever stored, per kind — about 15 MB and 200k
+ * rows for two years of CGM data, on every analyse and again on commit.
+ * `createMany({ skipDuplicates })` at commit remains the backstop for a key
+ * written concurrently after this lookup.
  */
 async function existingKeysFor(
   userId: string,
-  records: readonly NormalizedRecord[],
+  keyed: readonly KeyedRecord[],
 ): Promise<Set<string>> {
-  const kinds = new Set(records.map((record) => record.kind));
-  const keys = new Set<string>();
-  const select = { dedupeKey: true } as const;
-
-  const lookups: Promise<{ dedupeKey: string }[]>[] = [];
-  if (kinds.has('glucose'))
-    lookups.push(prisma.glucoseReading.findMany({ where: { userId }, select }));
-  if (kinds.has('meal')) lookups.push(prisma.meal.findMany({ where: { userId }, select }));
-  if (kinds.has('medication'))
-    lookups.push(prisma.medicationEvent.findMany({ where: { userId }, select }));
-  if (kinds.has('exercise'))
-    lookups.push(prisma.exerciseSession.findMany({ where: { userId }, select }));
-  if (kinds.has('sleep')) lookups.push(prisma.sleepSession.findMany({ where: { userId }, select }));
-  if (kinds.has('weight'))
-    lookups.push(prisma.weightMeasurement.findMany({ where: { userId }, select }));
-  if (kinds.has('note')) lookups.push(prisma.noteEntry.findMany({ where: { userId }, select }));
-
-  for (const rows of await Promise.all(lookups)) {
-    for (const row of rows) keys.add(row.dedupeKey);
+  const keysByKind = new Map<NormalizedRecord['kind'], Set<string>>();
+  for (const { record, dedupeKey } of keyed) {
+    let set = keysByKind.get(record.kind);
+    if (!set) {
+      set = new Set();
+      keysByKind.set(record.kind, set);
+    }
+    set.add(dedupeKey);
   }
-  return keys;
+
+  const existing = new Set<string>();
+  for (const [kind, keys] of keysByKind) {
+    const all = [...keys];
+    for (let i = 0; i < all.length; i += DEDUPE_LOOKUP_CHUNK) {
+      const rows = await findExistingKeys(kind, userId, all.slice(i, i + DEDUPE_LOOKUP_CHUNK));
+      for (const row of rows) existing.add(row.dedupeKey);
+    }
+  }
+  return existing;
+}
+
+function findExistingKeys(
+  kind: NormalizedRecord['kind'],
+  userId: string,
+  keys: string[],
+): Promise<{ dedupeKey: string }[]> {
+  const args = { where: { userId, dedupeKey: { in: keys } }, select: { dedupeKey: true } } as const;
+  switch (kind) {
+    case 'glucose':
+      return prisma.glucoseReading.findMany(args);
+    case 'meal':
+      return prisma.meal.findMany(args);
+    case 'medication':
+      return prisma.medicationEvent.findMany(args);
+    case 'exercise':
+      return prisma.exerciseSession.findMany(args);
+    case 'sleep':
+      return prisma.sleepSession.findMany(args);
+    case 'weight':
+      return prisma.weightMeasurement.findMany(args);
+    case 'note':
+      return prisma.noteEntry.findMany(args);
+  }
 }
 
 /** Write a prepared import, recording the batch so it can be traced or undone. */

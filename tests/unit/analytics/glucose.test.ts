@@ -9,6 +9,7 @@ import {
 } from '@/lib/analytics/glucose';
 import type { GlucosePoint } from '@/lib/analytics/types';
 import { DEFAULT_TARGET_RANGE } from '@/lib/domain/thresholds';
+import { targetToMgdl, toMgdl } from '@/lib/domain/units';
 
 const TZ = 'America/Toronto';
 
@@ -68,6 +69,29 @@ describe('summarizeGlucose', () => {
     expect(summary.percentBelowRange).toBe(25);
     expect(summary.percentInRange).toBe(50);
     expect(summary.percentAboveRange).toBe(25);
+  });
+
+  it('counts mmol/L readings equal to a target bound as in range, matching the band label', () => {
+    // Stored mmol/L readings are unrounded mg/dL; the target is whole mg/dL.
+    const cases = [
+      { reading: 4.2, low: 4.2, high: 10.0 },
+      { reading: 10.0, low: 3.9, high: 10.0 },
+      { reading: 9.0, low: 4.0, high: 9.0 },
+    ];
+    for (const c of cases) {
+      const range = {
+        lowMgdl: targetToMgdl(c.low, 'MMOLL'),
+        highMgdl: targetToMgdl(c.high, 'MMOLL'),
+      };
+      const summary = summarizeGlucose(
+        [point('a', '2026-01-01T12:00:00Z', toMgdl(c.reading, 'MMOLL'))],
+        range,
+        TZ,
+        new Date('2026-01-01T00:00:00Z'),
+        new Date('2026-01-02T00:00:00Z'),
+      );
+      expect(summary.percentInRange).toBe(100);
+    }
   });
 });
 

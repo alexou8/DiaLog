@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/prisma';
 import { dayKeyInZone, daysAgo, weekdayInZone } from '@/lib/domain/time';
 import { ButtonLink, Card, CardHeader, EmptyState, Icon, PageHeader, Stat } from '@/components/ui';
 import { BarChart, type Bar } from '@/components/charts/BarChart';
-import { DeleteRecordButton } from './DeleteRecordButton';
+import { DeleteRecordButton } from '@/components/records/DeleteRecordButton';
 
 export const metadata: Metadata = { title: 'Activity' };
 export const dynamic = 'force-dynamic';
@@ -62,6 +62,16 @@ export default async function ActivityPage() {
   });
   const timeFmt = new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  // Names a record in its delete control, so it needs the date as well as the
+  // time that the day heading above the row leaves out.
+  const labelFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    month: 'short',
+    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -150,7 +160,13 @@ export default async function ActivityPage() {
                       </p>
                       {s.note ? <p className="mt-1 text-sm">{s.note}</p> : null}
                     </div>
-                    <DeleteRecordButton type="exercise" id={s.id} label="this activity" />
+                    <DeleteRecordButton
+                      type="exercise"
+                      id={s.id}
+                      noun="activity"
+                      when={labelFmt.format(s.takenAt)}
+                      detail={`${s.activity}, ${s.durationMin} min`}
+                    />
                   </li>
                 ))}
               </ul>

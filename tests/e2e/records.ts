@@ -3,8 +3,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 /**
  * Counting record rows, safely.
  *
- * Several app pages stream behind a `loading.tsx` boundary (see
- * app/app/history/loading.tsx), so `page.goto()` resolves as soon as the
+ * Several app pages stream behind a `loading.tsx` boundary (see, for example,
+ * app/app/meals/loading.tsx), so `page.goto()` resolves as soon as the
  * skeleton is served — the real list arrives afterwards. Playwright's
  * `locator.count()` is one of the few APIs that does NOT auto-wait: it reports
  * whatever is in the DOM at that instant. Calling it straight after `goto()`

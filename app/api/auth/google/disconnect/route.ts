@@ -20,9 +20,11 @@
 import { type NextRequest, type NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { audit } from '@/lib/auth/audit';
+import { isDemoEmail } from '@/lib/auth/demo';
 import {
   back,
   crossOrigin,
+  demoReadOnly,
   isSameOrigin,
   sessionFromRequest,
   toSignIn,
@@ -47,12 +49,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     where: { id: session.userId },
     select: {
       id: true,
+      email: true,
       tokenVersion: true,
       passwordHash: true,
       identities: { where: { provider: 'google' }, select: { id: true } },
     },
   });
   if (!user || user.tokenVersion !== session.tokenVersion) return toSignIn(request);
+
+  // Linking is refused for the demo account, so there should be nothing to
+  // disconnect; refusing here as well keeps the demo's sign-in methods fixed
+  // whatever state an older deployment left behind.
+  if (isDemoEmail(user.email)) return demoReadOnly(request);
 
   const identity = user.identities[0];
   if (!identity) return result(request, 'absent');

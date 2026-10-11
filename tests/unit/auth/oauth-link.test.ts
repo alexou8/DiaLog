@@ -180,6 +180,25 @@ describe('safeNext', () => {
     expect(safeNext('//evil.com', '/app')).toBe('/app');
   });
 
+  it('rejects the backslash spelling browsers normalise to protocol-relative', () => {
+    expect(safeNext('/\\evil.com', '/app')).toBe('/app');
+    expect(safeNext('/\\/evil.com', '/app')).toBe('/app');
+  });
+
+  it('rejects whitespace and control characters the URL parser strips', () => {
+    // `/%09/evil.com` arrives decoded as `/\t/evil.com`; the parser drops the
+    // tab and resolves `//evil.com`, an off-site redirect.
+    expect(new URL('/\t/evil.com', 'https://dialog.test').host).toBe('evil.com');
+    expect(safeNext(decodeURIComponent('/%09/evil.com'), '/app')).toBe('/app');
+    expect(safeNext('/\t/evil.com', '/app')).toBe('/app');
+    expect(safeNext('/\n/evil.com', '/app')).toBe('/app');
+    expect(safeNext('/\r/evil.com', '/app')).toBe('/app');
+    expect(safeNext('/ /evil.com', '/app')).toBe('/app');
+    expect(safeNext('/\u0000/evil.com', '/app')).toBe('/app');
+    expect(safeNext('/\u007f/evil.com', '/app')).toBe('/app');
+    expect(safeNext('/app/x\n', '/app')).toBe('/app');
+  });
+
   it('rejects an absolute URL', () => {
     expect(safeNext('https://evil.com/app', '/app')).toBe('/app');
     expect(safeNext('http://evil.com', '/app')).toBe('/app');

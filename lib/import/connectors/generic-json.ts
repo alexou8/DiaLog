@@ -19,7 +19,7 @@
  * imports — it is not any particular vendor's format. Unrecognised objects
  * produce an UNSUPPORTED_ROW issue rather than being guessed at.
  */
-import { mapGlucoseContext, normalizeGlucoseValue } from '../normalize';
+import { mapGlucoseContext, normalizeGlucoseValue, pushIfStorable } from '../normalize';
 import { parseTimestamp } from '../parse';
 import { inferGlucoseUnit } from '@/lib/domain/units';
 import type {
@@ -236,16 +236,22 @@ export const genericJsonConnector: DeviceConnector = {
             });
             return;
           }
-          records.push({
-            kind: 'exercise',
-            takenAt: ts.date,
-            activity,
-            durationMin,
-            distanceKm: num(item.distanceKm) ?? null,
-            steps: num(item.steps) ?? null,
-            externalId: str(item.id ?? item.externalId),
-            raw,
-          });
+          pushIfStorable(
+            records,
+            issues,
+            {
+              kind: 'exercise',
+              takenAt: ts.date,
+              activity,
+              durationMin,
+              distanceKm: num(item.distanceKm) ?? null,
+              steps: num(item.steps) ?? null,
+              externalId: str(item.id ?? item.externalId),
+              raw,
+            },
+            rowNumber,
+            rawRow,
+          );
           return;
         }
         case 'sleep': {
@@ -264,15 +270,21 @@ export const genericJsonConnector: DeviceConnector = {
             });
             return;
           }
-          records.push({
-            kind: 'sleep',
-            takenAt: ts.date,
-            endedAt: endedTs.date,
-            durationMin,
-            quality: num(item.quality) ?? null,
-            externalId: str(item.id ?? item.externalId),
-            raw,
-          });
+          pushIfStorable(
+            records,
+            issues,
+            {
+              kind: 'sleep',
+              takenAt: ts.date,
+              endedAt: endedTs.date,
+              durationMin,
+              quality: num(item.quality) ?? null,
+              externalId: str(item.id ?? item.externalId),
+              raw,
+            },
+            rowNumber,
+            rawRow,
+          );
           return;
         }
         case 'weight': {

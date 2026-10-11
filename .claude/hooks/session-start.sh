@@ -26,20 +26,40 @@ fi
 cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}"
 
 # --- Node dependencies -------------------------------------------------------
-# `install` rather than `ci` so the cached container layer is reused. This also
-# guarantees the *pinned* prettier/eslint/tsc are on disk: without node_modules,
-# `npx` silently fetches the latest release and disagrees with CI. See AGENTS.md.
+# `ci`, not `install`: it installs exactly what package-lock.json records and
+# never rewrites the lockfile, which is what AGENTS.md and CI do. `install` could
+# quietly resolve newer versions and leave the working tree dirty. Skipped when
+# node_modules already exists (a warm container layer), which also guarantees the
+# *pinned* prettier/eslint/tsc are on disk: without node_modules, `npx` silently
+# fetches the latest release and disagrees with CI. See AGENTS.md.
 if [ ! -d node_modules ]; then
-  npm install --no-audit --no-fund
+  npm ci --no-audit --no-fund
 fi
 
 # --- Prisma client -----------------------------------------------------------
-# postinstall covers a fresh install; this covers a warm cache with a newer schema.
-npx --no-install prisma generate >/dev/null 2>&1 || true
+# postinstall covers a fresh install; this covers a warm cache with a newer
+# schema. A failure here is actionable — every typecheck and test that imports
+# @prisma/client would then fail for a confusing, unrelated-looking reason — so
+# it is not swallowed: the output is shown and the hook fails.
+if ! prisma_output="$(npx --no-install prisma generate 2>&1)"; then
+  echo "$prisma_output" >&2
+  echo "session-start: 'prisma generate' failed. Fix the schema or the install before relying on typecheck or tests." >&2
+  exit 1
+fi
 
 # --- Codex CLI ---------------------------------------------------------------
+# Pinned. An unpinned `npm install -g @openai/codex` runs whatever the registry
+# published most recently — third-party code with access to this session's
+# environment — on every remote session. Bump this deliberately. (The manual
+# `npm install -g` snippet in CLAUDE.md is a human setup step and is not pinned.)
+CODEX_VERSION="0.162.1"
 if ! command -v codex >/dev/null 2>&1; then
-  npm install -g @openai/codex --no-audit --no-fund
+  if ! npm install -g "@openai/codex@${CODEX_VERSION}" --no-audit --no-fund; then
+    # Codex is optional for the repository itself, so do not fail the whole
+    # session — but do say clearly what is lost, rather than hiding the error.
+    echo "codex: installing @openai/codex@${CODEX_VERSION} failed — Codex delegation (CLAUDE.md) is unavailable this session. Everything else works." >&2
+    exit 0
+  fi
 fi
 
 # --- Codex authentication ----------------------------------------------------

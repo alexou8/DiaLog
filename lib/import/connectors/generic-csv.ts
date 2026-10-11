@@ -92,12 +92,14 @@ interface Columns {
   carbs: number;
 }
 
-function locateColumns(headers: string[]): Columns {
+function locateColumns(headers: string[], extraGlucoseAliases: readonly string[] = []): Columns {
   return {
     timestamp: findColumn(headers, ALIASES.timestamp),
     date: findColumn(headers, ALIASES.date),
     time: findColumn(headers, ALIASES.time),
-    glucose: findColumn(headers, ALIASES.glucose),
+    // Vendor aliases go after the generic ones so they only win when no
+    // generic glucose column exists.
+    glucose: findColumn(headers, [...ALIASES.glucose, ...extraGlucoseAliases]),
     unit: findColumn(headers, ALIASES.unit),
     context: findColumn(headers, ALIASES.context),
     notes: findColumn(headers, ALIASES.notes),
@@ -147,9 +149,50 @@ export const genericCsvConnector: DeviceConnector = {
   },
 };
 
+/**
+ * Vendor-specific adjustments a thin wrapper connector can pass to
+ * `parseGenericCsv` without forking the row-walking logic.
+ */
+export interface GenericCsvLayout {
+  /**
+   * Index of the header row in `file.rows`. Rows above it are a preamble
+   * (device name, export date) rather than data, so they are not counted.
+   */
+  headerRowIndex?: number;
+  /** Extra normalised header names to accept as the glucose column. */
+  glucoseAliases?: readonly string[];
+  /**
+   * Returns a reason when a data row must not be read as glucose at all
+   * (e.g. a ketone result from a dual glucose/ketone meter); the row becomes
+   * an UNSUPPORTED_ROW issue instead of a misread reading.
+   */
+  rejectRow?: (row: string[], headers: string[]) => string | null;
+}
+
+/**
+ * Index of the first row (within the first `maxScan`) that looks like a
+ * header — it names a glucose column and a timestamp or date column — or -1.
+ */
+export function findHeaderRow(
+  rows: readonly string[][],
+  glucoseAliases: readonly string[] = [],
+  maxScan = 20,
+): number {
+  for (let i = 0; i < Math.min(rows.length, maxScan); i++) {
+    const cols = locateColumns(rows[i] ?? [], glucoseAliases);
+    if (cols.glucose >= 0 && (cols.timestamp >= 0 || cols.date >= 0)) return i;
+  }
+  return -1;
+}
+
 /** Exported so dialog-legacy and other thin wrappers can reuse the row-walking logic if useful. */
-export function parseGenericCsv(file: ParsedFile, options: ParseOptions): ParseResult {
-  const rows = file.rows ?? [];
+export function parseGenericCsv(
+  file: ParsedFile,
+  options: ParseOptions,
+  layout: GenericCsvLayout = {},
+): ParseResult {
+  const headerRowIndex = layout.headerRowIndex ?? 0;
+  const rows = (file.rows ?? []).slice(headerRowIndex);
   const issues: RowIssue[] = [];
   const warnings: string[] = [];
   const records: NormalizedRecord[] = [];
@@ -166,13 +209,15 @@ export function parseGenericCsv(file: ParsedFile, options: ParseOptions): ParseR
 
   const headers = rows[0] ?? [];
   const dataRows = rows.slice(1);
-  const cols = locateColumns(headers);
+  const cols = locateColumns(headers, layout.glucoseAliases);
+  // 1-based file line of dataRows[i]: the header is line headerRowIndex + 1.
+  const rowNumberOf = (i: number) => headerRowIndex + i + 2;
 
   if (cols.glucose < 0) {
     return {
       records: [],
       issues: dataRows.map((_, i) => ({
-        rowNumber: i + 2,
+        rowNumber: rowNumberOf(i),
         code: 'UNSUPPORTED_ROW' as const,
         message: 'No recognisable glucose value column found in this file.',
       })),
@@ -189,6 +234,7 @@ export function parseGenericCsv(file: ParsedFile, options: ParseOptions): ParseR
   const dateStrings: string[] = [];
   const glucoseValues: number[] = [];
   for (const row of dataRows) {
+    if (layout.rejectRow?.(row, headers)) continue;
     const tsRaw =
       cols.timestamp >= 0
         ? cell(row, cols.timestamp)
@@ -214,8 +260,13 @@ export function parseGenericCsv(file: ParsedFile, options: ParseOptions): ParseR
 
   // Pass 2: build records.
   dataRows.forEach((row, i) => {
-    const rowNumber = i + 2;
+    const rowNumber = rowNumberOf(i);
     const rawRow = row.join(',');
+    const rejected = layout.rejectRow?.(row, headers);
+    if (rejected) {
+      issues.push({ rowNumber, code: 'UNSUPPORTED_ROW', message: rejected, rawRow });
+      return;
+    }
     const tsRaw =
       cols.timestamp >= 0
         ? cell(row, cols.timestamp)

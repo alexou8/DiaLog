@@ -151,3 +151,43 @@ describe('tzOffsetMinutes', () => {
     expect(offset).toBe(-300); // EST, UTC-5
   });
 });
+
+describe('local timestamps across DST (shared lib/domain/time helper)', () => {
+  const NOW = new Date('2026-12-31T00:00:00Z');
+
+  it('uses the post-transition offset after spring-forward', () => {
+    const r = parseTimestamp('2026-03-08 05:00', { timezone: 'America/Toronto', now: NOW });
+    expect(r.date?.toISOString()).toBe('2026-03-08T09:00:00.000Z');
+  });
+
+  it('keeps the two readings of the repeated autumn hour distinct from the next hour', () => {
+    const first = parseTimestamp('2026-11-01 01:30', { timezone: 'America/Toronto', now: NOW });
+    const after = parseTimestamp('2026-11-01 03:00', { timezone: 'America/Toronto', now: NOW });
+    expect(first.date?.toISOString()).toBe('2026-11-01T05:30:00.000Z');
+    expect(after.date?.toISOString()).toBe('2026-11-01T08:00:00.000Z');
+  });
+
+  it('throws for an unknown zone rather than silently using UTC', () => {
+    expect(() => tzOffsetMinutes(new Date('2026-01-10T00:00:00Z'), 'Not/AZone')).toThrow(
+      RangeError,
+    );
+  });
+});
+
+describe('calendar-impossible timestamps', () => {
+  const NOW = new Date('2026-12-31T00:00:00Z');
+
+  it('rejects dates that Date.UTC would roll over', () => {
+    for (const raw of ['2026-02-30 08:00', '2026-13-01 08:00', '2026-01-10 24:30', '2026-02-29']) {
+      expect(parseTimestamp(raw, { now: NOW }).error).toBe('INVALID_TIMESTAMP');
+    }
+    expect(parseTimestamp('31/04/2026 08:00', { dateOrder: 'DMY', now: NOW }).error).toBe(
+      'INVALID_TIMESTAMP',
+    );
+    expect(parseTimestamp('2026-02-30T08:00:00Z', { now: NOW }).error).toBe('INVALID_TIMESTAMP');
+  });
+
+  it('still accepts a real leap day', () => {
+    expect(parseTimestamp('2028-02-29 08:00', { now: new Date('2028-03-01') }).date).not.toBeNull();
+  });
+});

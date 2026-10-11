@@ -34,10 +34,94 @@ export const resetPasswordSchema = z.object({
   confirmPassword: z.string(),
 });
 
+const LOCAL_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+/**
+ * True when every component of a `YYYY-MM-DDTHH:mm[:ss]` value names a real
+ * calendar instant. The regex alone accepted `2025-13-45T99:99`; that became an
+ * Invalid Date and `Intl.DateTimeFormat#formatToParts` then threw a RangeError
+ * deep in lib/domain/time.ts, which surfaced as a 500 instead of a field error.
+ * Built in UTC and compared back component by component, because `Date`
+ * silently rolls overflow forward (Feb 30 becomes Mar 2) rather than failing.
+ */
+export function isRealLocalDateTime(value: string): boolean {
+  const m = LOCAL_DATE_TIME.exec(value);
+  if (!m) return false;
+  const [y, mo, d, h, mi, s] = m.slice(1).map((part) => Number(part ?? 0)) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  const date = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
+  return (
+    date.getUTCFullYear() === y &&
+    date.getUTCMonth() === mo - 1 &&
+    date.getUTCDate() === d &&
+    date.getUTCHours() === h &&
+    date.getUTCMinutes() === mi &&
+    date.getUTCSeconds() === s
+  );
+}
+
 /** A date-time entered as a local wall-clock value from a form control. */
 export const localDateTimeSchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/, 'Please enter a valid date and time.');
+  .regex(LOCAL_DATE_TIME, 'Please enter a valid date and time.')
+  .refine(isRealLocalDateTime, 'Please enter a valid date and time.');
+
+let supportedTimeZones: ReadonlySet<string> | null = null;
+
+/**
+ * True for an IANA time zone this runtime can format in.
+ *
+ * Timezone and locale used to be any short string, stored as-is. A crafted
+ * value such as `Foo/Bar` was then handed to `Intl.DateTimeFormat` on every
+ * later page and import, which throws a RangeError — breaking that person's
+ * record entry and imports until the value was fixed by hand.
+ *
+ * `Intl.supportedValuesOf('timeZone')` is the allowlist, plus `UTC`, which
+ * Node's list omits. Not the allowlist alone, though: it holds one canonical
+ * name per zone, and which name is canonical differs between ICU versions —
+ * Node 24 lists `Asia/Calcutta` while current browsers report `Asia/Kolkata`
+ * from `resolvedOptions().timeZone`, which is exactly what onboarding submits.
+ * So a well-formed IANA-shaped name the runtime actually accepts is allowed
+ * too; anything it accepts cannot cause the RangeError this guards against.
+ */
+export function isSupportedTimeZone(value: string): boolean {
+  supportedTimeZones ??= new Set([...Intl.supportedValuesOf('timeZone'), 'UTC']);
+  if (supportedTimeZones.has(value)) return true;
+  if (!/^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+){0,2}$/.test(value)) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** True for a structurally valid BCP 47 language tag (see isSupportedTimeZone). */
+export function isValidLocale(value: string): boolean {
+  try {
+    return Intl.getCanonicalLocales(value).length === 1;
+  } catch {
+    return false;
+  }
+}
+
+const timezoneSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine(isSupportedTimeZone, 'Please choose a time zone from the list.');
+
+const localeSchema = z
+  .string()
+  .min(2)
+  .max(10)
+  .refine(isValidLocale, 'Please choose a language and region from the list.');
 
 export const glucoseEntrySchema = z.object({
   value: z.coerce.number().finite('Please enter a number.'),
@@ -144,15 +228,15 @@ export const onboardingSchema = z.object({
     'PREFER_NOT_TO_SAY',
   ]),
   glucoseUnit: z.enum(['MGDL', 'MMOLL']),
-  timezone: z.string().min(1).max(64),
+  timezone: timezoneSchema,
   goals: z.array(z.string().max(60)).max(6).default([]),
 });
 
 export const preferencesSchema = z.object({
   displayName: z.string().trim().max(80).optional().or(z.literal('')),
   glucoseUnit: z.enum(['MGDL', 'MMOLL']),
-  locale: z.string().min(2).max(10),
-  timezone: z.string().min(1).max(64),
+  locale: localeSchema,
+  timezone: timezoneSchema,
   targetLow: z.coerce.number().positive(),
   targetHigh: z.coerce.number().positive(),
   detailLevel: z.enum(['SIMPLE', 'STANDARD', 'DETAILED']),

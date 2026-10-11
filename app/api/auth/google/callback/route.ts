@@ -10,6 +10,7 @@ import { exchangeCode, googleConfig, verifyIdToken } from '@/lib/auth/oauth/goog
 import { resolveGoogleLink, resolveGoogleSignIn, type OAuthErrorCode } from '@/lib/auth/oauth/link';
 import { OAUTH_COOKIE, openAttempt, type OAuthAttempt } from '@/lib/auth/oauth/state';
 import { readSessionCookie, signSession, SESSION_COOKIE } from '@/lib/auth/session';
+import { isDemoEmail } from '@/lib/auth/demo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -91,6 +92,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       where: { id: session.userId },
       select: {
         id: true,
+        email: true,
         tokenVersion: true,
         identities: { where: { provider: PROVIDER }, select: { id: true } },
       },
@@ -98,6 +100,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (!current || current.tokenVersion !== session.tokenVersion) {
       return fail(request, attempt, 'invalid_state');
     }
+    // The authoritative refusal for the demo account. start/route.ts checks
+    // too, but the session read here may not be the one that started the
+    // flow (sign in as the demo mid-flight), so only this check is binding.
+    // See lib/auth/demo.ts.
+    if (isDemoEmail(current.email)) return fail(request, attempt, 'demo_read_only');
 
     const outcome = resolveGoogleLink(identity, {
       identityUserId: existingIdentity?.userId ?? null,

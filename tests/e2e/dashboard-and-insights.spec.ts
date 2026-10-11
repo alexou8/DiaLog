@@ -67,4 +67,53 @@ test.describe('dashboard and insights (demo account)', () => {
       }),
     ).toBeVisible();
   });
+  // A client-side navigation that stays inside one section (a filter that only
+  // changes the query string, or the redirect after saving a form) used to
+  // hang whenever a loading.tsx boundary stayed mounted across it: the URL
+  // never changed and the old view stayed on screen. Each check marks the
+  // document first and asserts the mark survives, so a fallback full-page load
+  // cannot pass for a working in-app navigation.
+  test('period and record-type filters change the view in place', async ({ page }) => {
+    async function hydrate() {
+      // The Add panel only opens once React owns the page; a click before
+      // that would be a plain link load rather than the navigation under test.
+      await page.getByRole('button', { name: 'Add' }).click();
+      const panel = page.getByRole('dialog', { name: 'What would you like to log?' });
+      await expect(panel).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(panel).toBeHidden();
+      await page.evaluate(() => {
+        (window as unknown as { __sameDocument?: boolean }).__sameDocument = true;
+      });
+    }
+    const stayedInDocument = () =>
+      page.evaluate(
+        () => (window as unknown as { __sameDocument?: boolean }).__sameDocument === true,
+      );
+
+    await page.goto('/app/glucose');
+    await hydrate();
+    const period = page.getByRole('navigation', { name: 'Time period' });
+    await period.getByRole('link', { name: '7 days' }).click();
+    await expect(page).toHaveURL(/\/app\/glucose\?days=7$/);
+    await expect(period.getByRole('link', { name: '7 days' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(
+      page.getByText('Your readings for the last 7 days', { exact: false }),
+    ).toBeVisible();
+    expect(await stayedInDocument()).toBe(true);
+
+    await page.goto('/app/history');
+    await hydrate();
+    const types = page.getByRole('navigation', { name: 'Record type' });
+    await types.getByRole('link', { name: 'Meals' }).click();
+    await expect(page).toHaveURL(/\/app\/history\?type=meal$/);
+    await expect(types.getByRole('link', { name: 'Meals' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(await stayedInDocument()).toBe(true);
+  });
 });

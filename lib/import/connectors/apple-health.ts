@@ -22,13 +22,15 @@
  * before delegating to `parseTimestamp`.
  *
  * export.xml can be very large (hundreds of MB for a multi-year export);
- * this connector relies on parse.ts's MAX_FILE_BYTES guard rather than
- * attempting true streaming XML parsing, and only reads `<Record>` and
- * `<Workout>` elements out of the parsed tree, dropping everything else
- * (correlations, clinical records, activity summaries) rather than
- * misinterpreting them.
+ * this connector relies on the 20 MB upload ceiling (lib/import/limits.ts)
+ * rather than attempting true streaming XML parsing, so a multi-year export
+ * must be trimmed before upload. Its inline `<!DOCTYPE HealthData [...]>`
+ * header is accepted and stripped by parse.ts (no entities allowed). It only
+ * reads `<Record>` and `<Workout>` elements out of the parsed tree, dropping
+ * everything else (correlations, clinical records, activity summaries) rather
+ * than misinterpreting them.
  */
-import { mapGlucoseContext, normalizeGlucoseValue } from '../normalize';
+import { mapGlucoseContext, normalizeGlucoseValue, pushIfStorable } from '../normalize';
 import type {
   DeviceConnector,
   GlucoseUnit,
@@ -267,7 +269,13 @@ export const appleHealthConnector: DeviceConnector = {
           });
           return;
         }
-        out.push({ kind: 'sleep', takenAt: start, endedAt: end, durationMin, raw: rawObject(el) });
+        pushIfStorable(
+          out,
+          issues,
+          { kind: 'sleep', takenAt: start, endedAt: end, durationMin, raw: rawObject(el) },
+          rowNumber,
+          rawRow,
+        );
       }
     });
 
@@ -310,20 +318,26 @@ export const appleHealthConnector: DeviceConnector = {
         });
         return;
       }
-      out.push({
-        kind: 'exercise',
-        takenAt: start,
-        activity:
-          attr(el, 'workoutActivityType')?.replace('HKWorkoutActivityType', '') ?? 'Workout',
-        durationMin,
-        distanceKm: (() => {
-          const d = Number(attr(el, 'totalDistance'));
-          if (!Number.isFinite(d)) return null;
-          const unit = attr(el, 'totalDistanceUnit')?.toLowerCase();
-          return unit?.includes('mi') ? d * 1.609344 : d;
-        })(),
-        raw: rawObject(el),
-      });
+      pushIfStorable(
+        out,
+        issues,
+        {
+          kind: 'exercise',
+          takenAt: start,
+          activity:
+            attr(el, 'workoutActivityType')?.replace('HKWorkoutActivityType', '') ?? 'Workout',
+          durationMin,
+          distanceKm: (() => {
+            const d = Number(attr(el, 'totalDistance'));
+            if (!Number.isFinite(d)) return null;
+            const unit = attr(el, 'totalDistanceUnit')?.toLowerCase();
+            return unit?.includes('mi') ? d * 1.609344 : d;
+          })(),
+          raw: rawObject(el),
+        },
+        rowNumber,
+        rawRow,
+      );
     });
 
     return {

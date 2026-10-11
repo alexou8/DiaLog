@@ -17,6 +17,20 @@ import { InsightCardView } from '@/components/InsightCardView';
 export const metadata: Metadata = { title: 'Insights' };
 export const dynamic = 'force-dynamic';
 
+/**
+ * Plain-language strength for a standardized regression coefficient. The cut
+ * points are the usual rule of thumb for standardized effects (about 0.1 small,
+ * 0.3 medium, 0.5 large), rounded to the nearest sensible split. They describe
+ * how closely a factor goes with readings in this person's own data, not
+ * whether it is important or causal.
+ */
+function describeStrength(coefficient: number): 'weak' | 'moderate' | 'strong' {
+  const size = Math.abs(coefficient);
+  if (size < 0.2) return 'weak';
+  if (size < 0.4) return 'moderate';
+  return 'strong';
+}
+
 export default async function InsightsPage() {
   const user = await requireOnboardedUser();
   const { profile } = user;
@@ -157,9 +171,13 @@ export default async function InsightsPage() {
                   className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line pb-2 last:border-0"
                 >
                   <span>{coefficient.label}</span>
-                  <span className="text-sm tabular-nums text-ink-muted">
+                  <span className="text-sm text-ink-muted">
                     goes with {coefficient.standardizedCoefficient >= 0 ? 'higher' : 'lower'}{' '}
-                    readings · strength {Math.abs(coefficient.standardizedCoefficient).toFixed(2)}
+                    readings · {describeStrength(coefficient.standardizedCoefficient)} link
+                    {/* The raw number is for anyone who wants it, not the headline. */}
+                    <span className="ml-1 text-xs tabular-nums">
+                      (coefficient {Math.abs(coefficient.standardizedCoefficient).toFixed(2)})
+                    </span>
                   </span>
                 </li>
               ))}

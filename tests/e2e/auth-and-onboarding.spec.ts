@@ -42,7 +42,15 @@ test.describe('sign up and onboarding', () => {
     await page.getByLabel('Password', { exact: false }).fill(TEST_PASSWORD);
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    await expect(page.getByText(/already exists/i)).toBeVisible();
+    // The message appears twice by design: as the field's own error, tied to
+    // the input through aria-describedby, and as a link in the error summary
+    // that takes focus. Assert each one where it belongs rather than matching
+    // the text anywhere on the page.
+    await expect(page.getByLabel('Email address')).toHaveAccessibleDescription(/already exists/i);
+    await expect(page.getByLabel('Email address')).toHaveAttribute('aria-invalid', 'true');
+    await expect(
+      page.getByRole('alert').getByRole('link', { name: /^Email address: .*already exists/i }),
+    ).toBeVisible();
     // Must not have created a session / navigated away.
     await expect(page).toHaveURL(/\/sign-up/);
   });

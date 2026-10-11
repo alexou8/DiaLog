@@ -15,10 +15,15 @@
  */
 import { dayKeyInZone, weekdayInZone } from '@/lib/domain/time';
 import { POST_MEAL_WINDOW_MIN } from '@/lib/domain/thresholds';
-import { gradeEvidence, type Finding } from '@/lib/domain/evidence';
+import {
+  gradeComparisonEvidence,
+  gradeEvidence,
+  type EvidenceLevel,
+  type Finding,
+} from '@/lib/domain/evidence';
 import type { AnalyticsInput, GlucosePoint } from './types';
 import { formatDelta, formatLevel } from './format';
-import { cohensD, mean, welchTTest } from './stats';
+import { cohensD, mean, welchTTest, type WelchTTestResult } from './stats';
 
 function isoDay(d: Date): string {
   return d.toISOString();
@@ -28,14 +33,115 @@ function periodBounds(input: AnalyticsInput): { periodStart: string; periodEnd: 
   return { periodStart: isoDay(input.periodStart), periodEnd: isoDay(input.periodEnd) };
 }
 
+interface GlucoseTimeIndex {
+  /** Epoch ms, ascending. */
+  times: Float64Array;
+  values: Float64Array;
+}
+
+/**
+ * Glucose sorted by time once per input array, so a window lookup is a
+ * binary search instead of a scan. The old per-meal `glucose.filter(...)`
+ * made the post-meal and sleep analyses O(events × readings): ~9.4M
+ * comparisons plus an array allocation per event over 90 days of CGM.
+ * Cached by array identity because `runAssociations` asks several analyses
+ * about the same input.
+ */
+const glucoseIndexCache = new WeakMap<readonly GlucosePoint[], GlucoseTimeIndex>();
+
+function glucoseIndex(glucose: readonly GlucosePoint[]): GlucoseTimeIndex {
+  const cached = glucoseIndexCache.get(glucose);
+  if (cached) return cached;
+  let sorted = true;
+  for (let i = 1; i < glucose.length; i++) {
+    if (glucose[i]!.takenAt.getTime() < glucose[i - 1]!.takenAt.getTime()) {
+      sorted = false;
+      break;
+    }
+  }
+  // The database returns readings ascending, but other callers may not.
+  const ordered = sorted
+    ? glucose
+    : [...glucose].sort((a, b) => a.takenAt.getTime() - b.takenAt.getTime());
+  const index: GlucoseTimeIndex = {
+    times: new Float64Array(ordered.length),
+    values: new Float64Array(ordered.length),
+  };
+  ordered.forEach((g, i) => {
+    index.times[i] = g.takenAt.getTime();
+    index.values[i] = g.valueMgdl;
+  });
+  glucoseIndexCache.set(glucose, index);
+  return index;
+}
+
+/** First index whose time is >= `t`. */
+function lowerBound(times: Float64Array, t: number): number {
+  let lo = 0;
+  let hi = times.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (times[mid]! < t) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** Mean of readings with startMs <= takenAt <= endMs, or null when there are none. */
+function windowMean(
+  glucose: readonly GlucosePoint[],
+  startMs: number,
+  endMs: number,
+): number | null {
+  const { times, values } = glucoseIndex(glucose);
+  let total = 0;
+  let count = 0;
+  for (let i = lowerBound(times, startMs); i < times.length && times[i]! <= endMs; i++) {
+    const v = values[i]!;
+    if (!Number.isFinite(v)) continue;
+    total += v;
+    count++;
+  }
+  return count === 0 ? null : total / count;
+}
+
 /** Average of readings in the post-meal response window (60-180 min, per lib/domain/thresholds) after `anchor`. */
 function postWindowAverage(glucose: readonly GlucosePoint[], anchor: Date): number | null {
-  const windowStartMs = anchor.getTime() + POST_MEAL_WINDOW_MIN.start * 60_000;
-  const windowEndMs = anchor.getTime() + POST_MEAL_WINDOW_MIN.end * 60_000;
-  const inWindow = glucose
-    .filter((g) => g.takenAt.getTime() >= windowStartMs && g.takenAt.getTime() <= windowEndMs)
-    .map((g) => g.valueMgdl);
-  return mean(inWindow);
+  return windowMean(
+    glucose,
+    anchor.getTime() + POST_MEAL_WINDOW_MIN.start * 60_000,
+    anchor.getTime() + POST_MEAL_WINDOW_MIN.end * 60_000,
+  );
+}
+
+/**
+ * Test, effect size and evidence grade for one two-group comparison. The
+ * grade accounts for the smaller group and for whether the difference is
+ * distinguishable from noise (see `gradeComparisonEvidence`).
+ */
+function compareGroups(
+  a: readonly number[],
+  b: readonly number[],
+  analysis: string,
+): { test: WelchTTestResult | null; d: number | null; evidenceLevel: EvidenceLevel } {
+  const test = welchTTest(a, b);
+  const d = cohensD(a, b);
+  const evidenceLevel = gradeComparisonEvidence(
+    { nA: a.length, nB: b.length, pValue: test?.pValue ?? null, effectSize: d },
+    analysis,
+  );
+  return { test, d, evidenceLevel };
+}
+
+/** The metrics every comparison finding reports about its test. */
+function testMetrics(test: WelchTTestResult | null, d: number | null) {
+  return {
+    welchT: test?.t ?? null,
+    welchPValue: test?.pValue ?? null,
+    differenceCiLowMgdl: test?.ciLow ?? null,
+    differenceCiHighMgdl: test?.ciHigh ?? null,
+    cohensD: d,
+  };
 }
 
 export type CarbBucket = 'low' | 'medium' | 'high';
@@ -60,19 +166,30 @@ export function postMealResponseByCarbBucket(input: AnalyticsInput): Finding | n
     buckets[carbBucketOf(meal.carbsG)].push(avg);
   }
   const totalN = buckets.low.length + buckets.medium.length + buckets.high.length;
-  const evidenceLevel = gradeEvidence(totalN, 'association');
-  if (evidenceLevel === 'INSUFFICIENT') return null;
+  if (gradeEvidence(totalN, 'association') === 'INSUFFICIENT') return null;
   if (buckets.low.length < 2 && buckets.high.length < 2) return null;
 
   const lowAvg = mean(buckets.low);
   const medAvg = mean(buckets.medium);
   const highAvg = mean(buckets.high);
-  const test =
-    buckets.low.length >= 2 && buckets.high.length >= 2
-      ? welchTTest(buckets.high, buckets.low)
-      : null;
-  const d =
-    buckets.low.length >= 2 && buckets.high.length >= 2 ? cohensD(buckets.high, buckets.low) : null;
+  // The statement describes every bucket, but the only comparison tested is
+  // high vs low, so the grade follows that comparison. Without both arms it
+  // is a description, not a pattern, so it stays an early signal.
+  const comparable = buckets.low.length >= 2 && buckets.high.length >= 2;
+  const compared = comparable
+    ? compareGroups(buckets.high, buckets.low, 'association')
+    : { test: null, d: null, evidenceLevel: 'EARLY' as EvidenceLevel };
+  const { test, d } = compared;
+  // The descriptive gate above already passed, so the finding exists; the
+  // comparison only decides how strongly it is graded. A comparison graded on
+  // its smaller arm (2 × min) can be INSUFFICIENT where the description is
+  // not — 20 low vs 3 high — and returning null there made the finding vanish
+  // when two more high-carb meals turned 20 vs 1 (described, EARLY) into
+  // 20 vs 3 (compared, INSUFFICIENT). More data must never remove a finding,
+  // so a too-small comparison stays an early signal, like the incomparable
+  // case.
+  const evidenceLevel: EvidenceLevel =
+    compared.evidenceLevel === 'INSUFFICIENT' ? 'EARLY' : compared.evidenceLevel;
 
   const parts: string[] = [];
   if (lowAvg !== null)
@@ -102,9 +219,7 @@ export function postMealResponseByCarbBucket(input: AnalyticsInput): Finding | n
       lowN: buckets.low.length,
       mediumN: buckets.medium.length,
       highN: buckets.high.length,
-      welchT: test?.t ?? null,
-      welchPValue: test?.pValue ?? null,
-      cohensD: d,
+      ...testMetrics(test, d),
     },
     basis: `Meals with a logged carb amount, compared against your glucose readings ${POST_MEAL_WINDOW_MIN.start}-${POST_MEAL_WINDOW_MIN.end} minutes afterward, one average per meal.`,
     ...periodBounds(input),
@@ -147,12 +262,8 @@ export function postDinnerActivityComparison(input: AnalyticsInput): Finding | n
   }
 
   const totalN = withActivity.length + withoutActivity.length;
-  const evidenceLevel = gradeEvidence(totalN, 'comparison');
-  if (evidenceLevel === 'INSUFFICIENT' || withActivity.length < 2 || withoutActivity.length < 2)
-    return null;
-
-  const test = welchTTest(withoutActivity, withActivity);
-  const d = cohensD(withoutActivity, withActivity);
+  const { test, d, evidenceLevel } = compareGroups(withoutActivity, withActivity, 'comparison');
+  if (evidenceLevel === 'INSUFFICIENT') return null;
   const avgWith = mean(withActivity);
   const avgWithout = mean(withoutActivity);
 
@@ -173,9 +284,7 @@ export function postDinnerActivityComparison(input: AnalyticsInput): Finding | n
       avgWithoutActivityMgdl: avgWithout,
       nWithActivity: withActivity.length,
       nWithoutActivity: withoutActivity.length,
-      welchT: test?.t ?? null,
-      welchPValue: test?.pValue ?? null,
-      cohensD: d,
+      ...testMetrics(test, d),
     },
     basis:
       'Days with a logged dinner, comparing your average post-dinner glucose (60-180 min after) on days with vs without a logged activity in the 4 hours after.',
@@ -197,25 +306,18 @@ export function sleepDurationComparison(input: AnalyticsInput): Finding | null {
     if (hours >= 6 && hours < 7) continue; // ambiguous middle band, excluded for a cleaner comparison
     const morningStart = s.endedAt.getTime();
     const morningEnd = morningStart + 6 * 60 * 60_000; // 6h window after waking
-    const morningValues = input.glucose
-      .filter((g) => g.takenAt.getTime() >= morningStart && g.takenAt.getTime() <= morningEnd)
-      .map((g) => g.valueMgdl);
-    const avg = mean(morningValues);
+    const avg = windowMean(input.glucose, morningStart, morningEnd);
     if (avg === null) continue;
     (hours < 6 ? shortDayAverages : adequateDayAverages).push(avg);
   }
 
   const totalN = shortDayAverages.length + adequateDayAverages.length;
-  const evidenceLevel = gradeEvidence(totalN, 'comparison');
-  if (
-    evidenceLevel === 'INSUFFICIENT' ||
-    shortDayAverages.length < 2 ||
-    adequateDayAverages.length < 2
-  )
-    return null;
-
-  const test = welchTTest(shortDayAverages, adequateDayAverages);
-  const d = cohensD(shortDayAverages, adequateDayAverages);
+  const { test, d, evidenceLevel } = compareGroups(
+    shortDayAverages,
+    adequateDayAverages,
+    'comparison',
+  );
+  if (evidenceLevel === 'INSUFFICIENT') return null;
   const avgShort = mean(shortDayAverages);
   const avgAdequate = mean(adequateDayAverages);
 
@@ -231,9 +333,7 @@ export function sleepDurationComparison(input: AnalyticsInput): Finding | null {
       avgAfterAdequateSleepMgdl: avgAdequate,
       nShort: shortDayAverages.length,
       nAdequate: adequateDayAverages.length,
-      welchT: test?.t ?? null,
-      welchPValue: test?.pValue ?? null,
-      cohensD: d,
+      ...testMetrics(test, d),
     },
     basis:
       'Nights with a logged sleep session, comparing your average glucose in the 6 hours after waking on nights under 6h sleep vs nights of 7h or more.',
@@ -255,11 +355,8 @@ export function fastingWeekdayVsWeekend(input: AnalyticsInput): Finding | null {
     (wd === 0 || wd === 6 ? weekend : weekday).push(g.valueMgdl);
   }
   const totalN = weekday.length + weekend.length;
-  const evidenceLevel = gradeEvidence(totalN, 'comparison');
-  if (evidenceLevel === 'INSUFFICIENT' || weekday.length < 2 || weekend.length < 2) return null;
-
-  const test = welchTTest(weekend, weekday);
-  const d = cohensD(weekend, weekday);
+  const { test, d, evidenceLevel } = compareGroups(weekend, weekday, 'comparison');
+  if (evidenceLevel === 'INSUFFICIENT') return null;
   const avgWeekday = mean(weekday);
   const avgWeekend = mean(weekend);
 
@@ -275,9 +372,7 @@ export function fastingWeekdayVsWeekend(input: AnalyticsInput): Finding | null {
       avgWeekendMgdl: avgWeekend,
       nWeekday: weekday.length,
       nWeekend: weekend.length,
-      welchT: test?.t ?? null,
-      welchPValue: test?.pValue ?? null,
-      cohensD: d,
+      ...testMetrics(test, d),
     },
     basis:
       'Readings you logged with a "Fasting" context, split by whether the local day was a weekday or weekend day.',
@@ -320,16 +415,12 @@ export function stressComparison(input: AnalyticsInput): Finding | null {
   }
 
   const totalN = highStressDayAverages.length + lowStressDayAverages.length;
-  const evidenceLevel = gradeEvidence(totalN, 'comparison');
-  if (
-    evidenceLevel === 'INSUFFICIENT' ||
-    highStressDayAverages.length < 2 ||
-    lowStressDayAverages.length < 2
-  )
-    return null;
-
-  const test = welchTTest(highStressDayAverages, lowStressDayAverages);
-  const d = cohensD(highStressDayAverages, lowStressDayAverages);
+  const { test, d, evidenceLevel } = compareGroups(
+    highStressDayAverages,
+    lowStressDayAverages,
+    'comparison',
+  );
+  if (evidenceLevel === 'INSUFFICIENT') return null;
   const avgHigh = mean(highStressDayAverages);
   const avgLow = mean(lowStressDayAverages);
 
@@ -345,9 +436,7 @@ export function stressComparison(input: AnalyticsInput): Finding | null {
       avgLowStressMgdl: avgLow,
       nHighStress: highStressDayAverages.length,
       nLowStress: lowStressDayAverages.length,
-      welchT: test?.t ?? null,
-      welchPValue: test?.pValue ?? null,
-      cohensD: d,
+      ...testMetrics(test, d),
     },
     basis:
       'Days with a logged mood/stress entry (stress 1-5), comparing your average glucose that day on high-stress days (4-5) vs low-stress days (1-2).',

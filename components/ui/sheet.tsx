@@ -1,5 +1,12 @@
 'use client';
 
+/**
+ * Sheet — shadcn/ui primitive (a Radix Dialog), used by the app navigation's
+ * "Log" and "More" panels (components/AppNav.tsx). Radix supplies the focus
+ * trap, Escape to close, focus return to the trigger, and `aria-modal`; the
+ * title is required by every caller so the dialog is always labelled.
+ */
+
 import * as React from 'react';
 import { XIcon } from 'lucide-react';
 import { Dialog as SheetPrimitive } from 'radix-ui';
@@ -69,8 +76,12 @@ function SheetContent({
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-secondary">
-            <XIcon className="size-4" />
+          // Retuned from stock: a 44px target rather than a 16px icon, full
+          // opacity (70% grey on the canvas was a faint, hard-to-find control),
+          // and no `focus:outline-hidden`, which removed the global focus
+          // outline from the one control every keyboard user needs here.
+          <SheetPrimitive.Close className="absolute top-3 right-3 inline-flex size-11 items-center justify-center rounded-[var(--radius-control)] text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink disabled:pointer-events-none">
+            <XIcon className="size-5" aria-hidden="true" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>
         )}

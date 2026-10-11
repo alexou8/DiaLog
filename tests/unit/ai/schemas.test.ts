@@ -109,7 +109,12 @@ describe('NoteStructureSchema', () => {
   it('parses a good payload', () => {
     const good = {
       candidates: [
-        { type: 'meal', summary: 'toast for breakfast', fields: { carbs: 20 }, confidence: 'low' },
+        {
+          type: 'meal',
+          summary: 'toast for breakfast',
+          fields: [{ key: 'carbs', value: 20 }],
+          confidence: 'low',
+        },
       ],
       unparsed: ['felt tired'],
     };
@@ -118,7 +123,7 @@ describe('NoteStructureSchema', () => {
 
   it('rejects an invalid candidate type', () => {
     const bad = {
-      candidates: [{ type: 'vitals', summary: 'x', fields: {}, confidence: 'low' }],
+      candidates: [{ type: 'vitals', summary: 'x', fields: [], confidence: 'low' }],
       unparsed: [],
     };
     expect(NoteStructureSchema.safeParse(bad).success).toBe(false);

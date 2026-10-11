@@ -1,46 +1,36 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import type { Profile } from '@prisma/client';
 import { updatePreferencesAction, type ActionState } from '@/lib/actions/preferences';
 import { fromMgdl } from '@/lib/domain/units';
 import { LOCALE_LABELS, LOCALES } from '@/lib/i18n/dictionaries';
-import { Button } from '@/components/ui';
-import { Field, FormStatus, Select } from '@/components/ui/form';
+import { ActionForm, Field, Select, SubmitButton } from '@/components/ui/form';
 import { HiddenBool } from './HiddenBool';
 import { TIMEZONE_OPTIONS } from './timezones';
 
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? 'Saving…' : 'Save language and region'}
-    </Button>
-  );
-}
-
 export function RegionForm({ profile }: { profile: Profile }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(
+  const [state, action, pending] = useActionState<ActionState | null, FormData>(
     updatePreferencesAction,
     null,
   );
 
   return (
-    <form
+    <ActionForm
       action={action}
-      noValidate
+      state={state}
+      pending={pending}
       className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6"
+      labels={{
+        locale: 'Language',
+        timezone: 'Time zone',
+      }}
     >
-      <FormStatus
-        status={state && state.message ? { ok: state.ok, message: state.message } : null}
-      />
-
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           label="Language"
           required
-          error={state?.errors?.locale}
+          name="locale"
           hint="French is a partial translation today. Some screens still show in English."
         >
           {({ id, describedBy, invalid }) => (
@@ -64,7 +54,7 @@ export function RegionForm({ profile }: { profile: Profile }) {
         <Field
           label="Time zone"
           required
-          error={state?.errors?.timezone}
+          name="timezone"
           hint="Used to group your readings by day and to time-stamp new entries."
         >
           {({ id, describedBy, invalid }) => (
@@ -105,8 +95,8 @@ export function RegionForm({ profile }: { profile: Profile }) {
       <HiddenBool name="externalAiConsent" value={profile.externalAiConsentAt != null} />
 
       <div className="mt-5">
-        <Submit />
+        <SubmitButton>Save language and region</SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

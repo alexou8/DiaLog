@@ -10,9 +10,11 @@
  * 2. Variant names. They stay DiaLog's semantic names (primary / secondary /
  *    ghost / danger) rather than shadcn's visual ones, so a call site says
  *    what the action *is*, not what it looks like.
- * 3. Focus. The global `:focus-visible` treatment in globals.css is the single
+ * 3. Focus. The global `:focus-visible` outline in globals.css is the single
  *    focus style across the product, so the stock ring utilities are dropped
- *    rather than competing with it.
+ *    rather than competing with it. Stock shadcn also adds `outline-none`;
+ *    that is gone too, because it removed the global outline from every
+ *    button in the product (see the note on `:focus-visible` in globals.css).
  */
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -21,7 +23,7 @@ import { Slot } from 'radix-ui';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-[var(--radius-control)] font-semibold whitespace-nowrap transition-colors outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-[1.15em]",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-[var(--radius-control)] font-semibold whitespace-nowrap transition-colors disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-[1.15em]",
   {
     variants: {
       variant: {
