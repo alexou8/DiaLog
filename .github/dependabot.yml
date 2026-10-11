@@ -29,6 +29,11 @@ updates:
     ignore:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
+      # Prettier changes its output between minor releases (3.9 reformatted
+      # seven files that 3.6 accepted), so a bare version bump is red at the
+      # `format:check` step by construction. Bump it by hand and run
+      # `npm run format` in the same commit.
+      - dependency-name: prettier
     groups:
       npm-minor-patch:
         update-types: [minor, patch]

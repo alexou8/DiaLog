@@ -3,6 +3,7 @@
   "framework": "nextjs",
   "buildCommand": "prisma generate && if [ \"$VERCEL_ENV\" = \"production\" ]; then prisma migrate deploy; fi && next build",
   "installCommand": "npm ci",
+  "ignoreCommand": "case \"$VERCEL_GIT_COMMIT_REF\" in dependabot/*) echo 'Dependabot branch: GitHub Actions verifies it, no preview needed.'; exit 0;; *) exit 1;; esac",
   "regions": ["iad1"],
   "headers": [
     {
