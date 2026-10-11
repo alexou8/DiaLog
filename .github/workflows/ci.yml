@@ -171,7 +171,7 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: nextjs-build
           # `.next/cache` is excluded on purpose: it's large, and it's already
@@ -296,7 +296,7 @@ jobs:
       # run that needs it. Uploading on success too keeps traces for passing
       # runs; there are no retries (playwright.config.ts), so nothing hides
       # behind a green result.
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
