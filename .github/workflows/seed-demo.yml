@@ -56,10 +56,12 @@ jobs:
           echo "::error::Refusing to run. Type SEED in the confirm input to proceed."
           exit 1
 
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Same action versions and Node source as ci.yml, so the two workflows
+      # cannot drift apart again.
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       # postinstall runs `prisma generate`, which the seed script needs.

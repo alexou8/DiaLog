@@ -2,12 +2,25 @@ import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { FlatCompat } from '@eslint/eslintrc';
 
-const compat = new FlatCompat({ baseDirectory: dirname(fileURLToPath(import.meta.url)) });
+const root = dirname(fileURLToPath(import.meta.url));
+const compat = new FlatCompat({ baseDirectory: root });
 
 const config = [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  // `next/core-web-vitals` already registers eslint-plugin-jsx-a11y but turns on
+  // only seven of its rules, all as warnings (alt-text, aria-props,
+  // aria-proptypes, aria-unsupported-elements, role-has-required-aria-props,
+  // role-supports-aria-props). DiaLog is accessibility-first and axe covers a
+  // fixed list of routes, so the plugin's full `strict` preset is layered on
+  // top: label association, interactive-element focus, redundant roles, and so on.
+  ...compat.extends('next/core-web-vitals', 'next/typescript', 'plugin:jsx-a11y/strict'),
   {
     rules: {
+      // The one `strict` rule left off. Three new-record forms autofocus their
+      // first field on purpose (GlucoseForm, HydrationForm, SymptomForm under
+      // app/app/): the page exists only to fill that field in. Whether that
+      // is right for screen-reader users is a design decision to make
+      // deliberately — turn this on and resolve those three sites together.
+      'jsx-a11y/no-autofocus': 'off',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -39,6 +52,24 @@ const config = [
           message:
             'locator.count() does not auto-wait and reads 0 on streamed pages. Use countRecordRows() from tests/e2e/records.ts, or await an expect(...).toBeVisible() / toHaveCount() first.',
         },
+      ],
+    },
+  },
+  {
+    // Type-aware rules, scoped to application code (they need the TypeScript
+    // program, which makes them the slow part of `npm run lint`). An un-awaited
+    // promise in a Server Action is a write that may not have happened by the
+    // time the response is sent — silent data loss, not a style issue.
+    files: ['app/**/*.{ts,tsx}', 'lib/**/*.ts', 'components/**/*.{ts,tsx}', 'middleware.ts'],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: root } },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      // `attributes: false`: `<form action={serverAction}>` and similar pass an
+      // async function where a void return is nominally expected, which is how
+      // React 19 forms work.
+      '@typescript-eslint/no-misused-promises': [
+        'error',
+        { checksVoidReturn: { attributes: false } },
       ],
     },
   },

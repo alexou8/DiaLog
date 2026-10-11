@@ -22,13 +22,14 @@ below — when a rule here looks over-cautious, it is deliberate.
 ```bash
 npm run dev              # dev server (port 3000)
 npm run typecheck        # tsc --noEmit
-npm run lint             # eslint
+npm run lint             # eslint, zero warnings allowed (--max-warnings 0)
 npm run format:check     # prettier --check  (CI fails on this; run format first)
 npm run format           # prettier --write
 npm test                 # unit suite only — no database needed
 npm run test:integration # integration + security suite — needs a real Postgres
 npm run test:e2e         # Playwright e2e + axe accessibility (serves on port 3100)
 npm run build            # prisma generate && next build
+npm run audit            # npm audit --omit=dev --audit-level=high (CI runs it)
 npm run db:migrate       # prisma migrate dev
 npm run db:seed          # tsx prisma/seed.ts
 ```
@@ -95,15 +96,23 @@ must produce a `RowIssue`. Register a new one by adding it to the `CONNECTORS`
 array in `lib/import/connectors/registry.ts`; order is the tie-break, so
 specific connectors go before generic fallbacks. `dedupeKey` uniqueness is what
 makes re-importing the same export a no-op — don't bypass it. XML input rejects
-any `DOCTYPE` internal subset: entity-expansion bombs blow up after the
-file-size check passes, so the size ceiling cannot bound them.
+any `DOCTYPE` internal subset that declares entities or references an external
+DTD (an entity-free subset, as in Apple Health's export.xml, is stripped before
+parsing): entity-expansion bombs blow up after the file-size check passes, so
+the size ceiling cannot bound them.
 
 **AI.** The AI layer never sees raw health records — only the evidence-graded
 `AnalyticsResult` / `EvidenceBundle`. Provider resolution is explicit arg →
 `AI_PROVIDER` → `local`, falling back to `local` when the chosen provider is
-unavailable. `redact.ts` strips free-text before anything reaches a provider
-with `isExternal: true` without consent, so route user notes into
-`EvidenceBundle.summary` under a well-known key rather than a bespoke field.
+unavailable. The consent gate lives inside the pipeline (`callProvider` throws
+if an `isExternal` provider is reached without consent) — a caller cannot skip
+it, and without consent `resolveProviderForUser()` returns `local`. `redact.ts`
+strips free-text before anything reaches an external provider without consent,
+so route user notes into `EvidenceBundle.summary` under a well-known key rather
+than a bespoke field. `answerQuestion` runs `detectEmergency()` on the question
+before any provider and returns a fixed template on a hit; `parseMealText`
+does the same for quick-log text, parsing locally and returning the template
+alongside the proposal.
 The medical-safety regexes in `guardrails.ts` are intentionally over-broad — a
 false rejection falls back to a safe template, a false negative is a dosing
 instruction reaching a patient. Do not "fix" apparent over-matching without
@@ -189,9 +198,13 @@ you verified and which you could not.
 - **E2E** (`tests/e2e/`) — Playwright + axe, served on **port 3100**. Runs
   `workers: 1`, `fullyParallel: false` on purpose: the specs share a small pool
   of accounts (sign-up is rate limited) and several assert on record counts.
+  There are no retries, in CI or locally: a test that needs a second attempt is
+  a defect to fix, not a result to accept.
 
 E2E specifics worth knowing before you touch that suite: `global-setup.ts`
-resets and reseeds the DB; `auth.setup.ts` pre-authenticates the shared accounts
+resets and reseeds the DB — it deletes every account, so it reads
+`E2E_DATABASE_URL` (never `DATABASE_URL`) and refuses any database not named
+`dialog_e2e` or `dialog_test`, the e2e counterpart of the integration guard; `auth.setup.ts` pre-authenticates the shared accounts
 once into `tests/e2e/.auth/*.json`; `fake-google.ts` is a loopback OIDC stand-in
 so the OAuth flow is testable without real Google. Don't add new independent
 sign-up flows casually — the rate-limit budget is shared. And `locator.count()`
@@ -252,13 +265,19 @@ rather than talking to the user directly:
 - **Generated code.** Prisma client output, `next-env.d.ts` and `.next/` are
   generated. Regenerate with the repo's tooling; never edit by hand.
 - **Vendored skills** under `.claude/skills/` are third-party content managed by
-  the `skills` CLI. Do not hand-edit them.
+  the `skills` CLI. Do not hand-edit them. The one recorded exception is
+  `shadcn`'s `SKILL.md`, patched to remove an implicit `npx` execution (see
+  `.claude/skills/README.md`).
 
 ## Accessibility
 
-This is an accessibility-first product with an axe-core e2e suite. Treat WCAG
-2.2 conformance as part of the definition of done for any UI change, not an
-optional extra. Meaning is never encoded in colour alone; every chart ships a
+This is an accessibility-first product with an axe-core e2e suite, but that
+suite is a sample, not a proof: `tests/e2e/accessibility.spec.ts` checks twelve
+hand-listed routes (plus the two password-recovery pages in
+`password-reset.spec.ts`), out of 35 page routes. A page not on that list is
+not checked by anything, so add a new route to it or audit the page by hand.
+Treat WCAG 2.2 conformance as part of the definition of done for any UI change,
+not an optional extra. Meaning is never encoded in colour alone; every chart ships a
 real `<table>` data alternative; focus must stay visible; contrast must hold in
 both light and dark themes. See [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 
@@ -294,8 +313,22 @@ handles structured-output and input validation. The AI layer throws a typed
 `.env.example` lists what's needed: `DATABASE_URL`, `DIRECT_DATABASE_URL`,
 `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AI_PROVIDER`,
 `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`,
-`NEXT_PUBLIC_APP_URL`. Never commit real values, and never paste a secret into a
-subagent brief, a commit message, or a PR body.
+`EMAIL_PROVIDER`, `EMAIL_HTTP_URL`, `EMAIL_HTTP_TOKEN`, `EMAIL_FROM`,
+`NEXT_PUBLIC_APP_URL`, plus `TEST_DATABASE_URL` and `E2E_DATABASE_URL` for the
+two test suites.
+
+Required to run at all: `DATABASE_URL`, `DIRECT_DATABASE_URL` (the Prisma schema
+declares `directUrl`, so every Prisma CLI command fails without it) and
+`AUTH_SECRET`. Required for password recovery: `NEXT_PUBLIC_APP_URL` (reset
+links are built from it) and, in production, `EMAIL_PROVIDER=http` with
+`EMAIL_HTTP_URL`, `EMAIL_HTTP_TOKEN` and `EMAIL_FROM` — the default `console`
+provider sends nothing in production, so recovery silently does not work.
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) has the full table.
+
+Node: `engines` allows `>=20`, but CI and `seed-demo.yml` run the version in
+`.nvmrc` (22), so 22 is the only version that is tested. Never commit real
+values, and never paste a secret into a subagent brief, a commit message, or a PR
+body.
 
 ## Token efficiency
 

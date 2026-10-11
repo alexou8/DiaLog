@@ -1,0 +1,41 @@
+# Dependency update automation.
+#
+# Why this exists: AGENTS.md makes `npm audit` a manual step, and parse.ts
+# already cites an advisory chain in fast-xml-parser. Weekly PRs mean a
+# reachable advisory is noticed within days instead of whenever someone next
+# remembers to look.
+#
+# Grouping keeps the volume reviewable: minor and patch updates arrive as one
+# PR per ecosystem per week. Major bumps are deliberately left ungrouped so each
+# gets its own review and its own CI verdict.
+#
+# Every PR runs the full CI workflow, so a bump that breaks the build, a type,
+# a test or the production audit fails like any other change.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  # The research pipeline in ml/ is independent of the Node build and has its
+  # own requirements.txt; it is not deployed, but it is tested in CI.
+  - package-ecosystem: pip
+    directory: /ml
+    schedule:
+      interval: weekly
+    groups:
+      pip-minor-patch:
+        update-types: [minor, patch]

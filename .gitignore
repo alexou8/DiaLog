@@ -68,7 +68,12 @@ ml/models/*
 ml/outputs/*
 !ml/outputs/.gitkeep
 ml/dialog.sqlite
-ml/data/processed_dataset.csv
+# Real exports ingested into the pipeline are health data and this repository
+# is public: everything under ml/data is ignored except the two committed
+# synthetic samples (see ml/README.md).
+ml/data/*
+!ml/data/sample_glucose_data.csv
+!ml/data/sample_logs.csv
 
 # --- Local scratch -------------------------------------------------------
 debug_*.mjs

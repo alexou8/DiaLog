@@ -1,5 +1,20 @@
 import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+import { resolveE2eDatabase } from './tests/e2e/global-setup';
+
+/**
+ * Point the server, global setup and every worker at the disposable e2e
+ * database, and refuse to continue if that is not one.
+ *
+ * Done here, at config load, because the web server starts before
+ * `globalSetup` runs and every spec's own PrismaClient reads `DATABASE_URL`.
+ * Assigning `process.env` in the config is what propagates it to all of them.
+ * `globalSetup` wipes every account in this database, so it must never be
+ * whatever `.env` happens to name. See tests/e2e/global-setup.ts.
+ */
+const e2eDatabase = resolveE2eDatabase();
+process.env.DATABASE_URL = e2eDatabase.url;
+process.env.DIRECT_DATABASE_URL = e2eDatabase.directUrl;
 
 /**
  * Resolve a Chromium binary to launch.
@@ -43,7 +58,12 @@ export default defineConfig({
   // a minute and removes that entire class of flake.
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // No retries, in CI or locally. A test that passes on its second attempt is
+  // reported "flaky" with exit code 0, so the flake reaches main unseen — and
+  // AGENTS.md treats flakiness as a root cause to fix, never to retry. The
+  // stateful specs could not pass a retry anyway: account-security.spec.ts has
+  // already changed a password and revoked a session on the first attempt.
+  retries: 0,
   workers: 1,
   timeout: 60_000,
   expect: {

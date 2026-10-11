@@ -20,8 +20,10 @@ language. Built accessibility-first, for people aged 20 to 80.
   generic fallbacks, preview-then-commit, and content-addressed deduplication
   that makes re-importing the same export a no-op.
 - **Accessibility as a test, not a promise** — `@axe-core/playwright` runs over
-  twelve public and authenticated routes on every CI run, and every chart ships
-  a real `<table>` alternative.
+  twelve hand-picked public and authenticated routes (plus the two
+  password-recovery pages) on every CI run, and every chart ships a real
+  `<table>` alternative. That is 14 of 35 page routes: a page outside the list is
+  not checked automatically.
 
 > **DiaLog is not a medical device.** It does not diagnose any condition, does
 > not recommend or adjust medication doses, and does not replace a healthcare
@@ -60,13 +62,13 @@ Full reasoning, including the alternatives rejected:
 
 ## Evidence
 
-| Area          | Where to verify it                                                                                                                      |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Security      | `tests/integration/authorization.test.ts`, `api-security.test.ts`, `auth-credential-routes.test.ts`; threat model in `docs/SECURITY.md` |
-| Accessibility | `tests/e2e/accessibility.spec.ts` runs axe over twelve routes; `docs/ACCESSIBILITY.md` lists the known gaps                             |
-| Reliability   | Import idempotency and malformed-file handling in `tests/unit/import/`; `/api/health` readiness endpoint                                |
-| Data safety   | Export and deletion lifecycle in `lib/actions/preferences.ts`; per-model deletion decisions in `docs/DATA.md`                           |
-| AI safety     | `tests/unit/ai/` covers the evidence-bundle boundary, schema validation and the dosing/diagnosis guardrails                             |
+| Area          | Where to verify it                                                                                                                       |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Security      | `tests/integration/authorization.test.ts`, `api-security.test.ts`, `auth-credential-routes.test.ts`; threat model in `docs/SECURITY.md`  |
+| Accessibility | `tests/e2e/accessibility.spec.ts` runs axe over twelve routes (14 of 35 with the recovery pages); `docs/ACCESSIBILITY.md` lists the gaps |
+| Reliability   | Import idempotency and malformed-file handling in `tests/unit/import/`; `/api/health` readiness endpoint                                 |
+| Data safety   | Export and deletion lifecycle in `lib/actions/preferences.ts`; per-model deletion decisions in `docs/DATA.md`                            |
+| AI safety     | `tests/unit/ai/` covers the evidence-bundle boundary, schema validation and the dosing/diagnosis guardrails                              |
 
 <details>
 <summary><strong>More screenshots</strong> — logging, insights, reports, import, settings, dark theme and mobile</summary>
@@ -92,7 +94,7 @@ Full reasoning, including the alternatives rejected:
   feature importance — every finding graded by sample size before it is shown,
   so nothing overclaims from thin data.
 - **File-based import** of CSV, XLSX, JSON and XML, with connectors for Abbott
-  LibreView, Nightscout, Apple Health, Omron and DiaLog's own export, plus
+  LibreView and Optium Neo, Nightscout, Apple Health, Omron and DiaLog's own export, plus
   generic fallbacks. Parse-and-preview, then commit; re-importing the same file
   is a no-op.
 - **An assistant** that answers questions about your own data. It runs with no
@@ -109,15 +111,15 @@ and what is deliberately not built.
 
 ## Tech stack
 
-| Layer      | Choice                                                              |
-| ---------- | ------------------------------------------------------------------- |
-| Framework  | Next.js 15.5.24 (App Router), React 19.1.1, TypeScript 5.9.2        |
-| Database   | PostgreSQL via Prisma 6.16.2                                        |
-| Auth       | Signed-cookie sessions (`jose`), bcrypt passwords, Google OAuth     |
-| UI         | Tailwind CSS 4.1.13, Radix primitives, hand-built inline SVG charts |
-| Validation | Zod 3.25.76                                                         |
-| Import     | `exceljs`, `fast-xml-parser`                                        |
-| Testing    | Vitest 3.2.4, Playwright 1.55.0, `@axe-core/playwright`             |
+| Layer      | Choice                                                             |
+| ---------- | ------------------------------------------------------------------ |
+| Framework  | Next.js 15.5.27 (App Router), React 19.1.1, TypeScript 5.9.2       |
+| Database   | PostgreSQL via Prisma 6.19.3                                       |
+| Auth       | Signed-cookie sessions (`jose`), bcrypt passwords, Google OAuth    |
+| UI         | Tailwind CSS 4.3.3, Radix primitives, hand-built inline SVG charts |
+| Validation | Zod 3.25.76                                                        |
+| Import     | `exceljs`, `fast-xml-parser`                                       |
+| Testing    | Vitest 3.2.7, Playwright 1.64.0, `@axe-core/playwright`            |
 
 Rationale for each choice — including why charts are hand-built and why auth is
 not delegated to a third-party identity provider — is in
@@ -125,7 +127,9 @@ not delegated to a third-party identity provider — is in
 
 ## Quick start
 
-Requires Node.js ≥ 20 and a local PostgreSQL instance.
+Requires Node.js and a local PostgreSQL instance. `package.json` allows Node
+≥ 20, but CI runs the version in `.nvmrc` (22) and nothing else is tested — use
+22 (`nvm use`).
 
 ```bash
 npm install                 # postinstall runs `prisma generate`
@@ -157,7 +161,8 @@ generated by a seeded PRNG and carries no clinical meaning.
 | `npm run dev`              | Dev server on port 3000.                                   |
 | `npm run build`            | `prisma generate` then `next build`.                       |
 | `npm run typecheck`        | `tsc --noEmit`, strict.                                    |
-| `npm run lint`             | ESLint 9, flat config.                                     |
+| `npm run lint`             | ESLint 9, flat config. Zero warnings allowed.              |
+| `npm run audit`            | `npm audit` on production dependencies, high and above.    |
 | `npm run format[:check]`   | Prettier write / check. CI fails on `format:check`.        |
 | `npm test`                 | Unit suite. No database needed.                            |
 | `npm run test:integration` | Integration and security suite. Needs a real Postgres.     |
@@ -169,39 +174,66 @@ generated by a seeded PRNG and carries no clinical meaning.
 
 ## Environment
 
-`.env.example` is the source of truth. `DATABASE_URL`, `DIRECT_DATABASE_URL`
-and `AUTH_SECRET` are required; everything else has a working default. The
-assistant defaults to the local provider, so no AI keys are needed.
-`AI_PROVIDER` (`local` | `anthropic` | `openai`), `ANTHROPIC_API_KEY`,
-`ANTHROPIC_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `GOOGLE_CLIENT_ID`,
-`GOOGLE_CLIENT_SECRET` and `NEXT_PUBLIC_APP_URL` are optional. Full table with
-defaults and behaviour: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+`.env.example` is the source of truth.
+
+- **Required to run:** `DATABASE_URL`, `DIRECT_DATABASE_URL` and `AUTH_SECRET`.
+  `DIRECT_DATABASE_URL` is not optional — the Prisma schema declares it as
+  `directUrl`, so every Prisma command fails without it. Use the same value as
+  `DATABASE_URL` if you have no pooler.
+- **Required for password recovery:** `NEXT_PUBLIC_APP_URL` (reset links are
+  built from it) and, in production, `EMAIL_PROVIDER=http` with `EMAIL_HTTP_URL`,
+  `EMAIL_HTTP_TOKEN` and `EMAIL_FROM`. The default `console` provider sends
+  nothing in production.
+- **Optional:** the assistant defaults to the local provider, so no AI keys are
+  needed. `AI_PROVIDER` (`local` | `anthropic` | `openai`), `ANTHROPIC_API_KEY`,
+  `ANTHROPIC_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `GOOGLE_CLIENT_ID` and
+  `GOOGLE_CLIENT_SECRET`.
+
+Full table with defaults and behaviour: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Testing
 
-| Layer       | Command                    | Covers                                                                                                                             |
-| ----------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Unit        | `npm test`                 | Domain rules, the analytics engine, AI guardrails and schemas, every import connector against real fixtures. No database.          |
-| Integration | `npm run test:integration` | Every record type round-tripped against an isolated `dialog_test` Postgres, plus cross-user isolation and API security assertions. |
-| E2E         | `npm run test:e2e`         | Real browser flows plus automated WCAG 2.2 AA checks on every public and authenticated page.                                       |
+| Layer       | Command                    | Covers                                                                                                                                         |
+| ----------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | `npm test`                 | Domain rules, the analytics engine, AI guardrails and schemas, and the import pipeline and its connectors (`tests/unit/import/`). No database. |
+| Integration | `npm run test:integration` | Every record type round-tripped against an isolated `dialog_test` Postgres, plus cross-user isolation and API security assertions.             |
+| E2E         | `npm run test:e2e`         | Real browser flows plus automated WCAG 2.2 AA checks on a fixed list of 14 of the 35 page routes (see Evidence). No retries.                   |
 
-The integration suite refuses to run against any database not named
-`dialog_test`. Point it elsewhere with `TEST_DATABASE_URL`.
+Both database-backed suites delete data, so each refuses to run against any
+database it was not pointed at on purpose, and neither reads `DATABASE_URL`:
+
+- Integration refuses any database not named `dialog_test`. Point it elsewhere
+  with `TEST_DATABASE_URL`.
+- E2E wipes every account at the start of a run, so it refuses any database not
+  named `dialog_e2e` (or `dialog_test`) and reads `E2E_DATABASE_URL`. Its
+  default is a local `dialog_e2e`. Create it and migrate it once:
+
+```bash
+createdb dialog_e2e
+URL="postgresql://postgres:dialog@127.0.0.1:5432/dialog_e2e?schema=public"
+DATABASE_URL="$URL" DIRECT_DATABASE_URL="$URL" npx prisma migrate deploy
+```
+
+E2E data is generated from a seed printed at the start of the run; set `PW_SEED`
+to that value to reproduce it.
 
 ## Deployment
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Falexou8%2FDiaLog&env=DATABASE_URL,DIRECT_DATABASE_URL,AUTH_SECRET&envDescription=DATABASE_URL%20and%20DIRECT_DATABASE_URL%20are%20PostgreSQL%20connection%20strings%3B%20AUTH_SECRET%20is%20a%2032%2B%20character%20random%20value%20used%20to%20sign%20session%20cookies&project-name=dialog&repository-name=dialog)
 
-DiaLog needs a PostgreSQL database and `AUTH_SECRET`; nothing else is required.
-After the first deploy, apply the schema once against the direct URL:
+DiaLog needs a PostgreSQL database and `AUTH_SECRET` to run; password recovery
+additionally needs `NEXT_PUBLIC_APP_URL` and a mail relay. On Vercel,
+`vercel.json` runs `prisma migrate deploy` for **production** builds only
+(`VERCEL_ENV=production`); preview builds never touch a database schema. Anywhere
+else, apply the schema yourself against the direct URL:
 
 ```bash
 DATABASE_URL="$DIRECT_DATABASE_URL" npx prisma migrate deploy
 ```
 
-Full procedure, including where migrations belong in a pipeline and the
-"deploying this for real" checklist: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-and [docs/SECURITY.md](docs/SECURITY.md).
+Full procedure, including the migration race to know about and the "deploying
+this for real" checklist: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and
+[docs/SECURITY.md](docs/SECURITY.md).
 
 ## Documentation
 

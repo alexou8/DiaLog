@@ -10,7 +10,7 @@
  */
 import { PrismaClient, type GlucoseContext, type MealType, type Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 const prisma = new PrismaClient();
 
@@ -57,27 +57,15 @@ function at(dayOffset: number, hour: number, minute = 0): Date {
 }
 
 async function main() {
-  await prisma.user.deleteMany({ where: { email: DEMO_EMAIL } });
-
-  const user = await prisma.user.create({
-    data: {
-      email: DEMO_EMAIL,
-      passwordHash: await bcrypt.hash(DEMO_PASSWORD, 10),
-      profile: {
-        create: {
-          displayName: 'Marie',
-          glucoseUnit: 'MMOLL',
-          locale: 'en-CA',
-          timezone: TIMEZONE,
-          condition: 'TYPE_2',
-          targetLowMgdl: 72,
-          targetHighMgdl: 180,
-          goals: ['understand', 'food', 'movement'],
-          onboardingCompletedAt: new Date(),
-        },
-      },
-    },
-  });
+  // Everything is generated in memory first and written in ONE transaction at
+  // the end. The seed deletes the demo account before recreating it, and the
+  // same script runs against the real public demo database (seed-demo.yml): a
+  // failure part-way — an unmigrated schema, a dropped connection, a bad row —
+  // must roll back to the previous demo account, not leave it deleted and not
+  // recreated. The id is chosen up front so records can reference it before the
+  // user row exists.
+  const userId = randomUUID();
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
   const glucose: Prisma.GlucoseReadingCreateManyInput[] = [];
   const meals: Prisma.MealCreateManyInput[] = [];
@@ -106,7 +94,7 @@ async function main() {
     // --- Morning: fasting reading
     const fasting = gaussian(126 + drift + (sleptWell ? 0 : 6), 11);
     glucose.push({
-      userId: user.id,
+      userId,
       takenAt: at(day, 7, 15),
       valueMgdl: Math.round(fasting),
       context: 'FASTING' as GlucoseContext,
@@ -115,7 +103,7 @@ async function main() {
     });
 
     medications.push({
-      userId: user.id,
+      userId,
       takenAt: at(day, 7, 30),
       name: 'Metformin',
       dose: '500 mg',
@@ -126,7 +114,7 @@ async function main() {
     // --- Breakfast and its response
     const breakfastCarbs = Math.round(gaussian(38, 9));
     meals.push({
-      userId: user.id,
+      userId,
       takenAt: at(day, 8, 0),
       mealType: 'BREAKFAST' as MealType,
       description: random() < 0.5 ? 'Oatmeal with berries' : 'Toast, eggs and coffee',
@@ -138,7 +126,7 @@ async function main() {
     });
     const postBreakfast = fasting + breakfastCarbs * 0.9 + gaussian(0, 14);
     glucose.push({
-      userId: user.id,
+      userId,
       takenAt: at(day, 10, 0),
       valueMgdl: Math.round(postBreakfast),
       context: 'AFTER_MEAL' as GlucoseContext,
@@ -149,7 +137,7 @@ async function main() {
     // --- Dinner and its response, which is where the walk shows up
     const dinner = DINNERS[Math.floor(random() * DINNERS.length)]!;
     meals.push({
-      userId: user.id,
+      userId,
       takenAt: at(day, 18, 30),
       mealType: 'DINNER' as MealType,
       description: dinner.description,
@@ -164,7 +152,7 @@ async function main() {
     if (walkedAfterDinner) {
       const minutes = Math.round(gaussian(24, 6));
       exercise.push({
-        userId: user.id,
+        userId,
         takenAt: at(day, 19, 15),
         endedAt: at(day, 19, 15 + minutes),
         activity: 'Walking',
@@ -178,7 +166,7 @@ async function main() {
     const postDinner =
       fasting + dinner.carbs * 0.95 + (walkedAfterDinner ? -21 : 6) + gaussian(0, 15) + drift;
     glucose.push({
-      userId: user.id,
+      userId,
       takenAt: at(day, 20, 30),
       valueMgdl: Math.round(postDinner),
       context: 'AFTER_MEAL' as GlucoseContext,
@@ -190,7 +178,7 @@ async function main() {
     if (random() < 0.55) {
       const bedtime = gaussian(138 + drift, 13);
       glucose.push({
-        userId: user.id,
+        userId,
         takenAt: at(day, 22, 30),
         valueMgdl: Math.round(bedtime),
         context: 'BEDTIME' as GlucoseContext,
@@ -201,7 +189,7 @@ async function main() {
 
     const sleepMinutes = Math.round(sleptWell ? gaussian(455, 30) : gaussian(340, 35));
     sleep.push({
-      userId: user.id,
+      userId,
       takenAt: at(day + 1, 23, 15),
       endedAt: at(day, 6, 45),
       durationMin: sleepMinutes,
@@ -218,7 +206,7 @@ async function main() {
     [23, 61],
   ] as const) {
     glucose.push({
-      userId: user.id,
+      userId,
       takenAt: at(day, 15, 40),
       valueMgdl: value,
       context: 'RANDOM' as GlucoseContext,
@@ -228,11 +216,41 @@ async function main() {
     });
   }
 
-  await prisma.glucoseReading.createMany({ data: glucose, skipDuplicates: true });
-  await prisma.meal.createMany({ data: meals, skipDuplicates: true });
-  await prisma.exerciseSession.createMany({ data: exercise, skipDuplicates: true });
-  await prisma.sleepSession.createMany({ data: sleep, skipDuplicates: true });
-  await prisma.medicationEvent.createMany({ data: medications, skipDuplicates: true });
+  await prisma.$transaction(
+    async (tx) => {
+      // Cascades to the demo account's own rows only; every other account is
+      // untouched.
+      await tx.user.deleteMany({ where: { email: DEMO_EMAIL } });
+      await tx.user.create({
+        data: {
+          id: userId,
+          email: DEMO_EMAIL,
+          passwordHash,
+          profile: {
+            create: {
+              displayName: 'Marie',
+              glucoseUnit: 'MMOLL',
+              locale: 'en-CA',
+              timezone: TIMEZONE,
+              condition: 'TYPE_2',
+              targetLowMgdl: 72,
+              targetHighMgdl: 180,
+              goals: ['understand', 'food', 'movement'],
+              onboardingCompletedAt: new Date(),
+            },
+          },
+        },
+      });
+      await tx.glucoseReading.createMany({ data: glucose, skipDuplicates: true });
+      await tx.meal.createMany({ data: meals, skipDuplicates: true });
+      await tx.exerciseSession.createMany({ data: exercise, skipDuplicates: true });
+      await tx.sleepSession.createMany({ data: sleep, skipDuplicates: true });
+      await tx.medicationEvent.createMany({ data: medications, skipDuplicates: true });
+    },
+    // several hundred rows over a possibly remote, pooled connection: well past the 5 s
+    // default for an interactive transaction.
+    { timeout: 60_000 },
+  );
 
   console.log(
     `Seeded ${DEMO_EMAIL} (password: ${DEMO_PASSWORD}) with ${glucose.length} readings, ${meals.length} meals, ${exercise.length} activity sessions, ${sleep.length} nights of sleep.`,
