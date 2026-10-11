@@ -6,14 +6,32 @@
  * secrets are never touched; ids are kept on records (so a user can
  * cross-reference an import batch or a device) but dropped where they carry
  * no meaning outside DiaLog (e.g. the Profile row's own id).
+ *
+ * Complete, not capped. This used to stop at 20,000 rows per record type,
+ * which a CGM user passes in about ten weeks (one reading every five minutes),
+ * so "download all my data" quietly returned a fraction of it. Records are now
+ * read in keyset pages of EXPORT_PAGE_SIZE ordered by (takenAt, id) and written
+ * out as they arrive (`streamJsonExport` / `streamCsvExport`), so memory stays
+ * at one page whatever the history length and there is no ceiling to hit.
+ * Nothing is ever dropped silently: if a page fails, the stream errors and the
+ * download fails visibly rather than ending early with a valid-looking file.
+ *
+ * Not a point-in-time snapshot: each page is its own query. A record written
+ * while an export is running may or may not appear in it; keyset paging
+ * guarantees no row present for the whole export is skipped or repeated.
  */
+import type { Profile } from '@prisma/client';
 import { prisma } from '@/lib/db/prisma';
 import { fromMgdl } from '@/lib/domain/units';
 
-/** Per-record-type cap so a single export request cannot run unbounded. */
-export const EXPORT_ROW_LIMIT = 20_000;
+/** Rows read per query. Bounds memory; has no effect on what is exported. */
+export const EXPORT_PAGE_SIZE = 2_000;
 
-export const EXPORT_SCHEMA_VERSION = 1;
+/**
+ * 2: `rowLimit` is now `null` (no cap) and `meta.*.truncated` is always false.
+ * The record shapes are unchanged from version 1.
+ */
+export const EXPORT_SCHEMA_VERSION = 2;
 
 export type ExportRecordType =
   | 'glucose'
@@ -43,7 +61,7 @@ export const EXPORT_RECORD_TYPES: readonly ExportRecordType[] = [
 ];
 
 export interface ExportMeta {
-  /** True when this record type's row count met EXPORT_ROW_LIMIT and was truncated. */
+  /** Always false since schema version 2; kept so version-1 readers still parse. */
   truncated: boolean;
   count: number;
 }
@@ -51,7 +69,8 @@ export interface ExportMeta {
 export interface JsonExport {
   exportedAt: string;
   schemaVersion: number;
-  rowLimit: number;
+  /** Always null since schema version 2: there is no per-type cap. */
+  rowLimit: null;
   profile: {
     displayName: string | null;
     glucoseUnit: string;
@@ -66,7 +85,6 @@ export interface JsonExport {
     detailLevel: string;
     createdAt: string;
   };
-  meta: Partial<Record<ExportRecordType, ExportMeta>>;
   records: {
     glucose: unknown[];
     meals: unknown[];
@@ -82,77 +100,556 @@ export interface JsonExport {
   };
   devices: unknown[];
   importBatches: unknown[];
+  meta: Partial<Record<ExportRecordType, ExportMeta>>;
 }
 
-function withMeta<T>(rows: T[]): { rows: T[]; meta: ExportMeta } {
-  const truncated = rows.length > EXPORT_ROW_LIMIT;
-  return {
-    rows: truncated ? rows.slice(0, EXPORT_ROW_LIMIT) : rows,
-    meta: { truncated, count: rows.length },
-  };
+export interface ExportOptions {
+  /** Override the page size. Tests use a tiny one to cross many page boundaries cheaply. */
+  pageSize?: number;
 }
 
-/** Build the complete, versioned JSON export for one user. */
-export async function buildJsonExport(userId: string): Promise<JsonExport> {
-  const take = EXPORT_ROW_LIMIT + 1; // +1 so we can detect truncation without a second count query.
+function round(value: number, digits: number): number {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
 
-  const [
-    profile,
-    glucose,
-    meals,
-    exercise,
-    sleep,
-    medications,
-    weight,
-    bloodPressure,
-    hydration,
-    symptoms,
-    moods,
-    notes,
-    devices,
-    importBatches,
-  ] = await Promise.all([
-    prisma.profile.findUniqueOrThrow({ where: { userId } }),
-    prisma.glucoseReading.findMany({ where: { userId }, orderBy: { takenAt: 'asc' }, take }),
-    prisma.meal.findMany({
-      where: { userId },
-      orderBy: { takenAt: 'asc' },
-      take,
-      include: { foodItems: true },
-    }),
-    prisma.exerciseSession.findMany({ where: { userId }, orderBy: { takenAt: 'asc' }, take }),
-    prisma.sleepSession.findMany({ where: { userId }, orderBy: { takenAt: 'asc' }, take }),
-    prisma.medicationEvent.findMany({ where: { userId }, orderBy: { takenAt: 'asc' }, take }),
-    prisma.weightMeasurement.findMany({ where: { userId }, orderBy: { takenAt: 'asc' }, take }),
-    prisma.bloodPressureMeasurement.findMany({
-      where: { userId },
-      orderBy: { takenAt: 'asc' },
-      take,
-    }),
-    prisma.hydrationEvent.findMany({ where: { userId }, orderBy: { takenAt: 'asc' }, take }),
-    prisma.symptomEntry.findMany({ where: { userId }, orderBy: { takenAt: 'asc' }, take }),
-    prisma.moodEntry.findMany({ where: { userId }, orderBy: { takenAt: 'asc' }, take }),
-    prisma.noteEntry.findMany({ where: { userId }, orderBy: { takenAt: 'asc' }, take }),
-    prisma.device.findMany({ where: { userId } }),
-    prisma.importBatch.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
-  ]);
+// ----------------------------------------------------------- keyset paging
 
-  const glucoseCapped = withMeta(glucose);
-  const mealsCapped = withMeta(meals);
-  const exerciseCapped = withMeta(exercise);
-  const sleepCapped = withMeta(sleep);
-  const medicationsCapped = withMeta(medications);
-  const weightCapped = withMeta(weight);
-  const bpCapped = withMeta(bloodPressure);
-  const hydrationCapped = withMeta(hydration);
-  const symptomsCapped = withMeta(symptoms);
-  const moodsCapped = withMeta(moods);
-  const notesCapped = withMeta(notes);
+interface Position {
+  takenAt: Date;
+  id: string;
+}
 
-  return {
+/** Strictly after `position` in (takenAt asc, id asc) order. */
+function after(position: Position | null) {
+  return position
+    ? {
+        OR: [
+          { takenAt: { gt: position.takenAt } },
+          { takenAt: position.takenAt, id: { gt: position.id } },
+        ],
+      }
+    : {};
+}
+
+const ORDER = [{ takenAt: 'asc' as const }, { id: 'asc' as const }];
+
+/** One exported row, in both shapes, plus where it sits in the keyset order. */
+interface ExportRow {
+  position: Position;
+  json: Record<string, unknown>;
+  /** Cells in header order. Text cells are already formula-neutralised. */
+  csv: unknown[];
+}
+
+interface RecordSource {
+  /** File stem for the CSV download. */
+  file: string;
+  /** Key under `records` in the JSON export. */
+  jsonKey: keyof JsonExport['records'];
+  header: string[];
+  page(userId: string, from: Position | null, take: number): Promise<ExportRow[]>;
+}
+
+/**
+ * CSV / formula injection. A cell whose text starts with `=`, `+`, `-`, `@`,
+ * tab or carriage return is treated as a formula by Excel, Sheets and
+ * LibreOffice, so a note such as `=HYPERLINK("https://evil.example","Open")`
+ * — typed by the user or, more likely, carried in from an imported third-party
+ * file — would run in the spreadsheet of whoever opens the export (perhaps a
+ * clinician). Prefixing a single quote makes the application show it as text.
+ *
+ * Applied to text columns only. Numeric columns are written as numbers and
+ * are never passed through this, so a negative value stays a number rather
+ * than becoming the string `'-5`. The JSON export is not touched: it is not a
+ * spreadsheet format, and it should carry the user's data byte for byte.
+ */
+export function neutraliseFormula(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
+function text(value: string | null | undefined): string | null {
+  return value == null ? null : neutraliseFormula(value);
+}
+
+/**
+ * RFC4180-safe field quoting: a field is quoted whenever it contains a
+ * comma, a double quote or a line break, and embedded quotes are doubled.
+ */
+export function csvField(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const str = value instanceof Date ? value.toISOString() : String(value);
+  if (/[",\r\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+export function csvRow(values: unknown[]): string {
+  return values.map(csvField).join(',');
+}
+
+const SOURCES: Record<ExportRecordType, RecordSource> = {
+  glucose: {
+    file: 'glucose',
+    jsonKey: 'glucose',
+    header: ['id', 'taken_at', 'value_mgdl', 'value_mmoll', 'context', 'note', 'source'],
+    async page(userId, from, take) {
+      const rows = await prisma.glucoseReading.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+        // Explicit select: rawPayload (the imported row, possibly large) is
+        // never exported and has no business being read a page at a time.
+        select: {
+          id: true,
+          takenAt: true,
+          valueMgdl: true,
+          context: true,
+          note: true,
+          source: true,
+          deviceId: true,
+          importBatchId: true,
+          externalId: true,
+        },
+      });
+      return rows.map((r) => {
+        const mmoll = round(fromMgdl(r.valueMgdl, 'MMOLL'), 1);
+        return {
+          position: r,
+          json: {
+            id: r.id,
+            takenAt: r.takenAt.toISOString(),
+            valueMgdl: r.valueMgdl,
+            valueMmoll: mmoll,
+            context: r.context,
+            note: r.note,
+            source: r.source,
+            deviceId: r.deviceId,
+            importBatchId: r.importBatchId,
+            externalId: r.externalId,
+          },
+          csv: [
+            r.id,
+            r.takenAt.toISOString(),
+            r.valueMgdl,
+            mmoll,
+            r.context,
+            text(r.note),
+            r.source,
+          ],
+        };
+      });
+    },
+  },
+  meal: {
+    file: 'meal',
+    jsonKey: 'meals',
+    header: [
+      'id',
+      'taken_at',
+      'meal_type',
+      'description',
+      'carbs_g',
+      'protein_g',
+      'fat_g',
+      'fiber_g',
+      'calories',
+      'portion',
+      'note',
+      'source',
+    ],
+    async page(userId, from, take) {
+      const rows = await prisma.meal.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+        include: { foodItems: true },
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: {
+          id: r.id,
+          takenAt: r.takenAt.toISOString(),
+          mealType: r.mealType,
+          description: r.description,
+          carbsG: r.carbsG,
+          proteinG: r.proteinG,
+          fatG: r.fatG,
+          fiberG: r.fiberG,
+          calories: r.calories,
+          portion: r.portion,
+          note: r.note,
+          estimateSource: r.estimateSource,
+          source: r.source,
+          importBatchId: r.importBatchId,
+          foodItems: r.foodItems.map((f) => ({
+            name: f.name,
+            quantity: f.quantity,
+            carbsG: f.carbsG,
+            proteinG: f.proteinG,
+            fatG: f.fatG,
+            fiberG: f.fiberG,
+            calories: f.calories,
+          })),
+        },
+        csv: [
+          r.id,
+          r.takenAt.toISOString(),
+          r.mealType,
+          text(r.description),
+          r.carbsG,
+          r.proteinG,
+          r.fatG,
+          r.fiberG,
+          r.calories,
+          text(r.portion),
+          text(r.note),
+          r.source,
+        ],
+      }));
+    },
+  },
+  exercise: {
+    file: 'exercise',
+    jsonKey: 'exercise',
+    header: [
+      'id',
+      'taken_at',
+      'ended_at',
+      'activity',
+      'duration_min',
+      'intensity',
+      'distance_km',
+      'steps',
+      'note',
+      'source',
+    ],
+    async page(userId, from, take) {
+      const rows = await prisma.exerciseSession.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: {
+          id: r.id,
+          takenAt: r.takenAt.toISOString(),
+          endedAt: r.endedAt?.toISOString() ?? null,
+          activity: r.activity,
+          durationMin: r.durationMin,
+          intensity: r.intensity,
+          distanceKm: r.distanceKm,
+          steps: r.steps,
+          note: r.note,
+          source: r.source,
+        },
+        csv: [
+          r.id,
+          r.takenAt.toISOString(),
+          r.endedAt?.toISOString() ?? '',
+          text(r.activity),
+          r.durationMin,
+          r.intensity,
+          r.distanceKm,
+          r.steps,
+          text(r.note),
+          r.source,
+        ],
+      }));
+    },
+  },
+  sleep: {
+    file: 'sleep',
+    jsonKey: 'sleep',
+    header: ['id', 'bedtime', 'wake_time', 'duration_min', 'quality', 'note', 'source'],
+    async page(userId, from, take) {
+      const rows = await prisma.sleepSession.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: {
+          id: r.id,
+          takenAt: r.takenAt.toISOString(),
+          endedAt: r.endedAt.toISOString(),
+          durationMin: r.durationMin,
+          quality: r.quality,
+          note: r.note,
+          source: r.source,
+        },
+        csv: [
+          r.id,
+          r.takenAt.toISOString(),
+          r.endedAt.toISOString(),
+          r.durationMin,
+          r.quality,
+          text(r.note),
+          r.source,
+        ],
+      }));
+    },
+  },
+  medication: {
+    file: 'medication',
+    jsonKey: 'medications',
+    header: ['id', 'taken_at', 'name', 'dose', 'route', 'note', 'source'],
+    async page(userId, from, take) {
+      const rows = await prisma.medicationEvent.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: {
+          id: r.id,
+          takenAt: r.takenAt.toISOString(),
+          name: r.name,
+          dose: r.dose,
+          route: r.route,
+          note: r.note,
+          source: r.source,
+        },
+        csv: [
+          r.id,
+          r.takenAt.toISOString(),
+          text(r.name),
+          text(r.dose),
+          text(r.route),
+          text(r.note),
+          r.source,
+        ],
+      }));
+    },
+  },
+  weight: {
+    file: 'weight',
+    jsonKey: 'weight',
+    header: ['id', 'taken_at', 'weight_kg', 'note', 'source'],
+    async page(userId, from, take) {
+      const rows = await prisma.weightMeasurement.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: {
+          id: r.id,
+          takenAt: r.takenAt.toISOString(),
+          weightKg: r.weightKg,
+          note: r.note,
+          source: r.source,
+        },
+        csv: [r.id, r.takenAt.toISOString(), r.weightKg, text(r.note), r.source],
+      }));
+    },
+  },
+  bloodPressure: {
+    file: 'blood-pressure',
+    jsonKey: 'bloodPressure',
+    header: ['id', 'taken_at', 'systolic', 'diastolic', 'pulse', 'note', 'source'],
+    async page(userId, from, take) {
+      const rows = await prisma.bloodPressureMeasurement.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: {
+          id: r.id,
+          takenAt: r.takenAt.toISOString(),
+          systolic: r.systolic,
+          diastolic: r.diastolic,
+          pulse: r.pulse,
+          note: r.note,
+          source: r.source,
+        },
+        csv: [
+          r.id,
+          r.takenAt.toISOString(),
+          r.systolic,
+          r.diastolic,
+          r.pulse,
+          text(r.note),
+          r.source,
+        ],
+      }));
+    },
+  },
+  hydration: {
+    file: 'hydration',
+    jsonKey: 'hydration',
+    header: ['id', 'taken_at', 'volume_ml', 'source'],
+    async page(userId, from, take) {
+      const rows = await prisma.hydrationEvent.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: {
+          id: r.id,
+          takenAt: r.takenAt.toISOString(),
+          volumeMl: r.volumeMl,
+          source: r.source,
+        },
+        csv: [r.id, r.takenAt.toISOString(), r.volumeMl, r.source],
+      }));
+    },
+  },
+  symptom: {
+    file: 'symptom',
+    jsonKey: 'symptoms',
+    header: ['id', 'taken_at', 'symptom', 'severity', 'note', 'source'],
+    async page(userId, from, take) {
+      const rows = await prisma.symptomEntry.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: {
+          id: r.id,
+          takenAt: r.takenAt.toISOString(),
+          symptom: r.symptom,
+          severity: r.severity,
+          note: r.note,
+          source: r.source,
+        },
+        csv: [r.id, r.takenAt.toISOString(), text(r.symptom), r.severity, text(r.note), r.source],
+      }));
+    },
+  },
+  mood: {
+    file: 'mood',
+    jsonKey: 'moods',
+    header: ['id', 'taken_at', 'mood', 'stress', 'note', 'source'],
+    async page(userId, from, take) {
+      const rows = await prisma.moodEntry.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: {
+          id: r.id,
+          takenAt: r.takenAt.toISOString(),
+          mood: r.mood,
+          stress: r.stress,
+          note: r.note,
+          source: r.source,
+        },
+        csv: [r.id, r.takenAt.toISOString(), r.mood, r.stress, text(r.note), r.source],
+      }));
+    },
+  },
+  note: {
+    file: 'note',
+    jsonKey: 'notes',
+    header: ['id', 'taken_at', 'text', 'source'],
+    async page(userId, from, take) {
+      const rows = await prisma.noteEntry.findMany({
+        where: { userId, ...after(from) },
+        orderBy: ORDER,
+        take,
+      });
+      return rows.map((r) => ({
+        position: r,
+        json: { id: r.id, takenAt: r.takenAt.toISOString(), text: r.text, source: r.source },
+        csv: [r.id, r.takenAt.toISOString(), text(r.text), r.source],
+      }));
+    },
+  },
+};
+
+/**
+ * Every row of one record type for one user, a page at a time, in (takenAt, id)
+ * order. `firstPage`, when given, is the already-read first page (see
+ * openJsonExport) and is used instead of querying it again.
+ */
+async function* pages(
+  source: RecordSource,
+  userId: string,
+  pageSize: number,
+  firstPage?: ExportRow[],
+): AsyncGenerator<ExportRow[]> {
+  let position: Position | null = null;
+  let prefetched = firstPage;
+  for (;;) {
+    const page: ExportRow[] = prefetched ?? (await source.page(userId, position, pageSize));
+    prefetched = undefined;
+    if (page.length > 0) yield page;
+    if (page.length < pageSize) return;
+    position = page[page.length - 1]!.position;
+  }
+}
+
+async function collect(chunks: AsyncIterable<string>): Promise<string> {
+  let out = '';
+  for await (const chunk of chunks) out += chunk;
+  return out;
+}
+
+// -------------------------------------------------------------------- JSON
+
+/**
+ * Start a JSON export: read the profile and the first page of records now,
+ * and return the stream of the rest.
+ *
+ * Why: a generator runs nothing until its first `next()`, which for a
+ * streamed download happens after the route has already committed a 200. A
+ * missing profile or a database that is down then surfaced as a 200 with an
+ * aborted body instead of an error status. Awaiting this before building the
+ * Response moves the reads most likely to fail (the first touch of the
+ * database, and the one `OrThrow`) ahead of the status line, where they can
+ * still become an error response. A failure on a later page still aborts the
+ * stream, which is the best a streamed body can do.
+ */
+export async function openJsonExport(
+  userId: string,
+  options: ExportOptions = {},
+): Promise<AsyncGenerator<string>> {
+  const pageSize = options.pageSize ?? EXPORT_PAGE_SIZE;
+  const profile = await prisma.profile.findUniqueOrThrow({ where: { userId } });
+  const firstType = EXPORT_RECORD_TYPES[0]!;
+  const firstPage = await SOURCES[firstType].page(userId, null, pageSize);
+  return jsonChunks(userId, pageSize, profile, firstPage);
+}
+
+/**
+ * The complete, versioned JSON export for one user, as a stream of text
+ * chunks (one per page of records). Pretty-printed at the top level; each
+ * record is one compact line, which keeps a multi-year CGM history to a size
+ * a person can still download and open. Prefer `openJsonExport` where a
+ * failure should surface before the stream starts.
+ */
+export async function* streamJsonExport(
+  userId: string,
+  options: ExportOptions = {},
+): AsyncGenerator<string> {
+  yield* await openJsonExport(userId, options);
+}
+
+async function* jsonChunks(
+  userId: string,
+  pageSize: number,
+  profile: Profile,
+  firstPage: ExportRow[],
+): AsyncGenerator<string> {
+  const indent = (value: unknown, depth: number) =>
+    JSON.stringify(value, null, 2).replace(/\n/g, `\n${'  '.repeat(depth)}`);
+
+  const head: Omit<JsonExport, 'records' | 'devices' | 'importBatches' | 'meta'> = {
     exportedAt: new Date().toISOString(),
     schemaVersion: EXPORT_SCHEMA_VERSION,
-    rowLimit: EXPORT_ROW_LIMIT,
+    rowLimit: null,
     profile: {
       displayName: profile.displayName,
       glucoseUnit: profile.glucoseUnit,
@@ -167,132 +664,40 @@ export async function buildJsonExport(userId: string): Promise<JsonExport> {
       detailLevel: profile.detailLevel,
       createdAt: profile.createdAt.toISOString(),
     },
-    meta: {
-      glucose: glucoseCapped.meta,
-      meal: mealsCapped.meta,
-      exercise: exerciseCapped.meta,
-      sleep: sleepCapped.meta,
-      medication: medicationsCapped.meta,
-      weight: weightCapped.meta,
-      bloodPressure: bpCapped.meta,
-      hydration: hydrationCapped.meta,
-      symptom: symptomsCapped.meta,
-      mood: moodsCapped.meta,
-      note: notesCapped.meta,
-    },
-    records: {
-      glucose: glucoseCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        valueMgdl: r.valueMgdl,
-        valueMmoll: round(fromMgdl(r.valueMgdl, 'MMOLL'), 1),
-        context: r.context,
-        note: r.note,
-        source: r.source,
-        deviceId: r.deviceId,
-        importBatchId: r.importBatchId,
-        externalId: r.externalId,
-      })),
-      meals: mealsCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        mealType: r.mealType,
-        description: r.description,
-        carbsG: r.carbsG,
-        proteinG: r.proteinG,
-        fatG: r.fatG,
-        fiberG: r.fiberG,
-        calories: r.calories,
-        portion: r.portion,
-        note: r.note,
-        estimateSource: r.estimateSource,
-        source: r.source,
-        importBatchId: r.importBatchId,
-        foodItems: r.foodItems.map((f) => ({
-          name: f.name,
-          quantity: f.quantity,
-          carbsG: f.carbsG,
-          proteinG: f.proteinG,
-          fatG: f.fatG,
-          fiberG: f.fiberG,
-          calories: f.calories,
-        })),
-      })),
-      exercise: exerciseCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        endedAt: r.endedAt?.toISOString() ?? null,
-        activity: r.activity,
-        durationMin: r.durationMin,
-        intensity: r.intensity,
-        distanceKm: r.distanceKm,
-        steps: r.steps,
-        note: r.note,
-        source: r.source,
-      })),
-      sleep: sleepCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        endedAt: r.endedAt.toISOString(),
-        durationMin: r.durationMin,
-        quality: r.quality,
-        note: r.note,
-        source: r.source,
-      })),
-      medications: medicationsCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        name: r.name,
-        dose: r.dose,
-        route: r.route,
-        note: r.note,
-        source: r.source,
-      })),
-      weight: weightCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        weightKg: r.weightKg,
-        note: r.note,
-        source: r.source,
-      })),
-      bloodPressure: bpCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        systolic: r.systolic,
-        diastolic: r.diastolic,
-        pulse: r.pulse,
-        note: r.note,
-        source: r.source,
-      })),
-      hydration: hydrationCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        volumeMl: r.volumeMl,
-        source: r.source,
-      })),
-      symptoms: symptomsCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        symptom: r.symptom,
-        severity: r.severity,
-        note: r.note,
-        source: r.source,
-      })),
-      moods: moodsCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        mood: r.mood,
-        stress: r.stress,
-        note: r.note,
-        source: r.source,
-      })),
-      notes: notesCapped.rows.map((r) => ({
-        id: r.id,
-        takenAt: r.takenAt.toISOString(),
-        text: r.text,
-        source: r.source,
-      })),
-    },
+  };
+  yield '{\n';
+  for (const [key, value] of Object.entries(head)) {
+    yield `  ${JSON.stringify(key)}: ${indent(value, 1)},\n`;
+  }
+
+  const meta: Partial<Record<ExportRecordType, ExportMeta>> = {};
+  yield '  "records": {\n';
+  for (const [index, type] of EXPORT_RECORD_TYPES.entries()) {
+    const source = SOURCES[type];
+    let count = 0;
+    yield `    ${JSON.stringify(source.jsonKey)}: [`;
+    const prefetched = index === 0 ? firstPage : undefined;
+    for await (const page of pages(source, userId, pageSize, prefetched)) {
+      const lines = page.map((row) => `\n      ${JSON.stringify(row.json)}`);
+      yield (count > 0 ? ',' : '') + lines.join(',');
+      count += page.length;
+    }
+    meta[type] = { truncated: false, count };
+    yield `${count > 0 ? '\n    ' : ''}]${index < EXPORT_RECORD_TYPES.length - 1 ? ',' : ''}\n`;
+  }
+  yield '  },\n';
+
+  // Devices and import batches are a handful of rows per account (imports are
+  // rate limited), so these two are read in one query each.
+  const devices = await prisma.device.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'asc' },
+  });
+  const importBatches = await prisma.importBatch.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'asc' },
+  });
+  const tail = {
     devices: devices.map((d) => ({
       id: d.id,
       label: d.label,
@@ -312,254 +717,95 @@ export async function buildJsonExport(userId: string): Promise<JsonExport> {
       createdAt: b.createdAt.toISOString(),
       finishedAt: b.finishedAt?.toISOString() ?? null,
     })),
+    meta,
   };
+  const entries = Object.entries(tail);
+  for (const [index, [key, value]] of entries.entries()) {
+    yield `  ${JSON.stringify(key)}: ${indent(value, 1)}${index < entries.length - 1 ? ',' : ''}\n`;
+  }
+  yield '}\n';
 }
 
-function round(value: number, digits: number): number {
-  const factor = 10 ** digits;
-  return Math.round(value * factor) / factor;
+/**
+ * The whole JSON export as an object. Buffers everything, so the download
+ * route streams instead; this exists for tests and small internal callers,
+ * and parsing the streamed text (rather than building the object separately)
+ * means every test of it is also a test that the stream is valid JSON.
+ */
+export async function buildJsonExport(
+  userId: string,
+  options: ExportOptions = {},
+): Promise<JsonExport> {
+  return JSON.parse(await collect(streamJsonExport(userId, options))) as JsonExport;
 }
 
 // -------------------------------------------------------------------- CSV
 
-/**
- * RFC4180-safe field quoting: a field is quoted whenever it contains a
- * comma, a double quote or a line break, and embedded quotes are doubled.
- */
-function csvField(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  const str = value instanceof Date ? value.toISOString() : String(value);
-  if (/[",\r\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
-  return str;
+/** CSV download name (without date or extension) for one record type. */
+export function csvExportFilename(type: ExportRecordType): string {
+  return `dialog-${SOURCES[type].file}`;
 }
 
-function csvRow(values: unknown[]): string {
-  return values.map(csvField).join(',');
+async function* csvChunks(
+  userId: string,
+  type: ExportRecordType,
+  pageSize: number,
+  firstPage?: ExportRow[],
+): AsyncGenerator<{ text: string; rows: number }> {
+  const source = SOURCES[type];
+  yield { text: csvRow(source.header) + '\r\n', rows: 0 };
+  for await (const page of pages(source, userId, pageSize, firstPage)) {
+    yield { text: page.map((row) => csvRow(row.csv) + '\r\n').join(''), rows: page.length };
+  }
+}
+
+/**
+ * Start a CSV export: read the first page now and return the stream of the
+ * rest, so a database failure throws before a route commits a 200 (see
+ * openJsonExport for the full reasoning).
+ */
+export async function openCsvExport(
+  userId: string,
+  type: ExportRecordType,
+  options: ExportOptions = {},
+): Promise<AsyncGenerator<string>> {
+  const pageSize = options.pageSize ?? EXPORT_PAGE_SIZE;
+  const firstPage = await SOURCES[type].page(userId, null, pageSize);
+  return (async function* () {
+    for await (const chunk of csvChunks(userId, type, pageSize, firstPage)) yield chunk.text;
+  })();
+}
+
+/** An RFC4180 CSV for a single record type, scoped to one user, as a stream of text chunks. */
+export async function* streamCsvExport(
+  userId: string,
+  type: ExportRecordType,
+  options: ExportOptions = {},
+): AsyncGenerator<string> {
+  yield* await openCsvExport(userId, type, options);
 }
 
 export interface CsvExport {
   filename: string;
   csv: string;
+  /** Always false: CSV exports are complete. Kept for existing callers. */
   truncated: boolean;
   rowCount: number;
 }
 
-/** Build an RFC4180 CSV for a single record type, scoped to one user. */
-export async function buildCsvExport(userId: string, type: ExportRecordType): Promise<CsvExport> {
-  const take = EXPORT_ROW_LIMIT + 1;
-
-  switch (type) {
-    case 'glucose': {
-      const rows = await prisma.glucoseReading.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = ['id', 'taken_at', 'value_mgdl', 'value_mmoll', 'context', 'note', 'source'];
-      const lines = capped.map((r) =>
-        csvRow([
-          r.id,
-          r.takenAt.toISOString(),
-          r.valueMgdl,
-          round(fromMgdl(r.valueMgdl, 'MMOLL'), 1),
-          r.context,
-          r.note,
-          r.source,
-        ]),
-      );
-      return finish('glucose', header, lines, meta);
-    }
-    case 'meal': {
-      const rows = await prisma.meal.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = [
-        'id',
-        'taken_at',
-        'meal_type',
-        'description',
-        'carbs_g',
-        'protein_g',
-        'fat_g',
-        'fiber_g',
-        'calories',
-        'portion',
-        'note',
-        'source',
-      ];
-      const lines = capped.map((r) =>
-        csvRow([
-          r.id,
-          r.takenAt.toISOString(),
-          r.mealType,
-          r.description,
-          r.carbsG,
-          r.proteinG,
-          r.fatG,
-          r.fiberG,
-          r.calories,
-          r.portion,
-          r.note,
-          r.source,
-        ]),
-      );
-      return finish('meal', header, lines, meta);
-    }
-    case 'exercise': {
-      const rows = await prisma.exerciseSession.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = [
-        'id',
-        'taken_at',
-        'ended_at',
-        'activity',
-        'duration_min',
-        'intensity',
-        'distance_km',
-        'steps',
-        'note',
-        'source',
-      ];
-      const lines = capped.map((r) =>
-        csvRow([
-          r.id,
-          r.takenAt.toISOString(),
-          r.endedAt?.toISOString() ?? '',
-          r.activity,
-          r.durationMin,
-          r.intensity,
-          r.distanceKm,
-          r.steps,
-          r.note,
-          r.source,
-        ]),
-      );
-      return finish('exercise', header, lines, meta);
-    }
-    case 'sleep': {
-      const rows = await prisma.sleepSession.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = ['id', 'bedtime', 'wake_time', 'duration_min', 'quality', 'note', 'source'];
-      const lines = capped.map((r) =>
-        csvRow([
-          r.id,
-          r.takenAt.toISOString(),
-          r.endedAt.toISOString(),
-          r.durationMin,
-          r.quality,
-          r.note,
-          r.source,
-        ]),
-      );
-      return finish('sleep', header, lines, meta);
-    }
-    case 'medication': {
-      const rows = await prisma.medicationEvent.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = ['id', 'taken_at', 'name', 'dose', 'route', 'note', 'source'];
-      const lines = capped.map((r) =>
-        csvRow([r.id, r.takenAt.toISOString(), r.name, r.dose, r.route, r.note, r.source]),
-      );
-      return finish('medication', header, lines, meta);
-    }
-    case 'weight': {
-      const rows = await prisma.weightMeasurement.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = ['id', 'taken_at', 'weight_kg', 'note', 'source'];
-      const lines = capped.map((r) =>
-        csvRow([r.id, r.takenAt.toISOString(), r.weightKg, r.note, r.source]),
-      );
-      return finish('weight', header, lines, meta);
-    }
-    case 'bloodPressure': {
-      const rows = await prisma.bloodPressureMeasurement.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = ['id', 'taken_at', 'systolic', 'diastolic', 'pulse', 'note', 'source'];
-      const lines = capped.map((r) =>
-        csvRow([r.id, r.takenAt.toISOString(), r.systolic, r.diastolic, r.pulse, r.note, r.source]),
-      );
-      return finish('blood-pressure', header, lines, meta);
-    }
-    case 'hydration': {
-      const rows = await prisma.hydrationEvent.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = ['id', 'taken_at', 'volume_ml', 'source'];
-      const lines = capped.map((r) =>
-        csvRow([r.id, r.takenAt.toISOString(), r.volumeMl, r.source]),
-      );
-      return finish('hydration', header, lines, meta);
-    }
-    case 'symptom': {
-      const rows = await prisma.symptomEntry.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = ['id', 'taken_at', 'symptom', 'severity', 'note', 'source'];
-      const lines = capped.map((r) =>
-        csvRow([r.id, r.takenAt.toISOString(), r.symptom, r.severity, r.note, r.source]),
-      );
-      return finish('symptom', header, lines, meta);
-    }
-    case 'mood': {
-      const rows = await prisma.moodEntry.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = ['id', 'taken_at', 'mood', 'stress', 'note', 'source'];
-      const lines = capped.map((r) =>
-        csvRow([r.id, r.takenAt.toISOString(), r.mood, r.stress, r.note, r.source]),
-      );
-      return finish('mood', header, lines, meta);
-    }
-    case 'note': {
-      const rows = await prisma.noteEntry.findMany({
-        where: { userId },
-        orderBy: { takenAt: 'asc' },
-        take,
-      });
-      const { rows: capped, meta } = withMeta(rows);
-      const header = ['id', 'taken_at', 'text', 'source'];
-      const lines = capped.map((r) => csvRow([r.id, r.takenAt.toISOString(), r.text, r.source]));
-      return finish('note', header, lines, meta);
-    }
+/** The whole CSV in memory. As with buildJsonExport, the route streams instead. */
+export async function buildCsvExport(
+  userId: string,
+  type: ExportRecordType,
+  options: ExportOptions = {},
+): Promise<CsvExport> {
+  let csv = '';
+  let rowCount = 0;
+  for await (const chunk of csvChunks(userId, type, options.pageSize ?? EXPORT_PAGE_SIZE)) {
+    csv += chunk.text;
+    rowCount += chunk.rows;
   }
-}
-
-function finish(name: string, header: string[], lines: string[], meta: ExportMeta): CsvExport {
-  const csv = [csvRow(header), ...lines].join('\r\n') + '\r\n';
-  return { filename: `dialog-${name}`, csv, truncated: meta.truncated, rowCount: meta.count };
+  return { filename: csvExportFilename(type), csv, truncated: false, rowCount };
 }
 
 export function exportLabel(type: ExportRecordType): string {

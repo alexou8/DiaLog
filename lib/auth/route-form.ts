@@ -99,6 +99,18 @@ export function back(request: NextRequest, key: string, outcome: string): NextRe
   return NextResponse.redirect(url, 303);
 }
 
+/**
+ * Refuse a credential change on the shared demo account (lib/auth/demo.ts).
+ *
+ * Reported as `?error=demo_read_only` rather than as one of the handler's own
+ * outcome codes: Settings types each handler's codes exhaustively, and the
+ * `?error=` channel is the one it already turns into a sentence for any
+ * handler. Nothing is written and no session is touched.
+ */
+export function demoReadOnly(request: NextRequest): NextResponse {
+  return back(request, 'error', 'demo_read_only');
+}
+
 /** Send an unauthenticated (or newly de-authenticated) request to sign in. */
 export function toSignIn(request: NextRequest): NextResponse {
   const url = request.nextUrl.clone();

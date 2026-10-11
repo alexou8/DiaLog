@@ -12,6 +12,7 @@ import {
 import { pruneRateLimits, RATE_LIMITS, rateLimit } from '@/lib/auth/rate-limit';
 import { resetPasswordSchema } from '@/lib/validation';
 import { prepareResetProof } from '@/lib/auth/password-reset';
+import { isDemoEmail } from '@/lib/auth/demo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,10 +28,12 @@ function result(
   request: NextRequest,
   outcome: ResetOutcome | 'reset',
   proof?: string,
+  extra?: Record<string, string>,
 ): NextResponse {
   const url = new URL(outcome === 'reset' ? '/sign-in' : '/reset-password', request.url);
   url.searchParams.set('password', outcome);
   if (proof) url.searchParams.set('proof', proof);
+  for (const [key, value] of Object.entries(extra ?? {})) url.searchParams.set(key, value);
   const response = NextResponse.redirect(url, 303);
   response.headers.set('Cache-Control', 'no-store');
   response.headers.set('Referrer-Policy', 'no-referrer');
@@ -99,9 +102,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${claims.userId} FOR UPDATE`;
       const user = await tx.user.findUnique({
         where: { id: claims.userId },
-        select: { passwordHash: true },
+        select: { passwordHash: true, email: true },
       });
       if (!user?.passwordHash) return false;
+      // The demo password is published (lib/auth/demo.ts). Issuance already
+      // skips it; this catches a link minted before that rule existed. Reported
+      // as the ordinary 'invalid' so the reset page needs no new outcome.
+      if (isDemoEmail(user.email)) return false;
       // Conditional consumption plus the owner lock makes a double submit
       // single-use, and serializes it with issuance of a replacement link.
       const consumed = await tx.passwordResetToken.updateMany({
@@ -122,11 +129,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         where: { userId: claims.userId, usedAt: null },
         data: { usedAt: new Date() },
       });
-      return true;
+      // Account pre-hijack: sign-up does not verify email, so someone can
+      // register the victim's address first and link their OWN Google account
+      // to it. When the real owner later recovers the account by email, the
+      // new password and the tokenVersion bump do nothing about that Google
+      // link, and the squatter keeps signing in through it. Proving control of
+      // the mailbox is the strongest claim this account has, so a completed
+      // reset drops every linked identity; the owner can reconnect Google from
+      // Settings. Same transaction, so a reset never half-applies.
+      const unlinked = await tx.authIdentity.deleteMany({ where: { userId: claims.userId } });
+      return { unlinked: unlinked.count };
     });
     if (!completed) return failure('invalid', undefined, claims.userId);
     await audit({ userId: claims.userId, action: 'auth.password_reset_completed' });
-    const response = result(request, 'reset');
+    if (completed.unlinked > 0) {
+      await audit({
+        userId: claims.userId,
+        action: 'auth.google_unlinked',
+        detail: 'password_reset',
+      });
+    }
+    // `unlinked=google` lets the sign-in page explain why Google sign-in no
+    // longer works for this account. Only the person holding the reset link
+    // ever sees it, and it says nothing they could not see in Settings.
+    const response = result(
+      request,
+      'reset',
+      undefined,
+      completed.unlinked > 0 ? { unlinked: 'google' } : undefined,
+    );
     // No auto-sign-in: every old session is revoked, including this browser's.
     response.cookies.set(SESSION_COOKIE, '', { ...SESSION_COOKIE_OPTIONS, maxAge: 0 });
     return response;

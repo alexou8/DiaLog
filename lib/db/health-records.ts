@@ -22,6 +22,18 @@ export const RECORD_TYPES = [
 
 export type RecordType = (typeof RECORD_TYPES)[number];
 
+/**
+ * Every type a person can delete one record of. A superset of RECORD_TYPES:
+ * hydration and symptom entries are logged from the Health page but have no
+ * History tab, and RECORD_TYPES is also the History tab list (the page types
+ * its labels as `Record<RecordType, string>`), so they are added here rather
+ * than there. Before this, a hydration or symptom entry could be created but
+ * never individually removed.
+ */
+export const DELETABLE_RECORD_TYPES = [...RECORD_TYPES, 'hydration', 'symptom'] as const;
+
+export type DeletableRecordType = (typeof DELETABLE_RECORD_TYPES)[number];
+
 /** Prisma delegate for each record type, keyed by the type name used in URLs. */
 const DELEGATES = {
   glucose: () => prisma.glucoseReading,
@@ -32,16 +44,23 @@ const DELEGATES = {
   weight: () => prisma.weightMeasurement,
   bloodPressure: () => prisma.bloodPressureMeasurement,
   mood: () => prisma.moodEntry,
-} as const;
+  hydration: () => prisma.hydrationEvent,
+  symptom: () => prisma.symptomEntry,
+} as const satisfies Record<DeletableRecordType, () => unknown>;
 
 export function isRecordType(value: string): value is RecordType {
   return (RECORD_TYPES as readonly string[]).includes(value);
 }
 
+/** As isRecordType, for the wider set deleteOwnedRecord accepts. */
+export function isDeletableRecordType(value: string): value is DeletableRecordType {
+  return (DELETABLE_RECORD_TYPES as readonly string[]).includes(value);
+}
+
 /** Delete one record, but only if it belongs to the given user. */
 export async function deleteOwnedRecord(
   userId: string,
-  type: RecordType,
+  type: DeletableRecordType,
   id: string,
 ): Promise<boolean> {
   const delegate = DELEGATES[type]();
@@ -151,6 +170,14 @@ export async function recordCounts(userId: string): Promise<Record<RecordType, n
 /**
  * Paginated history across a single record type. Keyset pagination on
  * (takenAt, id) so that deep pages stay fast on large histories.
+ *
+ * The cursor arrives from `?cursor=` in the URL, so it is client-supplied and
+ * is resolved scoped by owner like any other id. This used Prisma's
+ * `cursor: { id }`, which looks the cursor row up by id alone — outside the
+ * `userId` filter — so another account's reading id positioned this user's
+ * page at that reading's timestamp: an ordering oracle on someone else's
+ * data. An unknown or foreign cursor now simply restarts from the first page,
+ * which is also the kind outcome for a cursor whose reading was deleted.
  */
 export async function pageGlucose(params: {
   userId: string;
@@ -159,18 +186,31 @@ export async function pageGlucose(params: {
   from?: Date;
   to?: Date;
 }) {
-  const where: Prisma.GlucoseReadingWhereInput = { userId: params.userId };
+  const conditions: Prisma.GlucoseReadingWhereInput[] = [{ userId: params.userId }];
   if (params.from || params.to) {
-    where.takenAt = {
-      ...(params.from ? { gte: params.from } : {}),
-      ...(params.to ? { lte: params.to } : {}),
-    };
+    conditions.push({
+      takenAt: {
+        ...(params.from ? { gte: params.from } : {}),
+        ...(params.to ? { lte: params.to } : {}),
+      },
+    });
+  }
+  const after = params.cursor
+    ? await prisma.glucoseReading.findFirst({
+        where: { id: params.cursor, userId: params.userId },
+        select: { id: true, takenAt: true },
+      })
+    : null;
+  if (after) {
+    // Strictly after the cursor in (takenAt desc, id desc) order.
+    conditions.push({
+      OR: [{ takenAt: { lt: after.takenAt } }, { takenAt: after.takenAt, id: { lt: after.id } }],
+    });
   }
   const rows = await prisma.glucoseReading.findMany({
-    where,
+    where: { AND: conditions },
     orderBy: [{ takenAt: 'desc' }, { id: 'desc' }],
     take: params.take + 1,
-    ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
     include: {
       importBatch: { select: { id: true, filename: true, connectorName: true } },
       device: { select: { label: true } },
@@ -180,5 +220,85 @@ export async function pageGlucose(params: {
   return {
     rows: hasMore ? rows.slice(0, params.take) : rows,
     nextCursor: hasMore ? rows[params.take - 1]?.id : undefined,
+  };
+}
+
+/**
+ * Erase every health record and everything derived from one, for one user,
+ * keeping the account, profile and credentials. The engine behind "Delete all
+ * my records" (lib/actions/preferences.ts), kept here rather than in that file
+ * because a 'use server' module turns every exported async function into a
+ * client-callable endpoint — exporting a `(userId) => …` from there would let
+ * any signed-in client erase any account. Here it is only reachable through
+ * callers that derive `userId` from the session.
+ *
+ * Per the Deletion invariant (AGENTS.md), each model below is listed with the
+ * reason it is in scope; a new model derived from health data belongs here.
+ * Returns the number of rows removed per model, in one transaction so a
+ * failure leaves nothing half-deleted.
+ */
+export async function deleteAllHealthData(userId: string) {
+  const where = { userId };
+  const [
+    glucose,
+    meal,
+    exercise,
+    sleep,
+    medication,
+    weight,
+    bloodPressure,
+    hydration,
+    symptom,
+    mood,
+    note,
+    conversations,
+    importBatches,
+    insights,
+    devices,
+  ] = await prisma.$transaction([
+    // The eleven record tables. FoodItem cascades from Meal.
+    prisma.glucoseReading.deleteMany({ where }),
+    prisma.meal.deleteMany({ where }),
+    prisma.exerciseSession.deleteMany({ where }),
+    prisma.sleepSession.deleteMany({ where }),
+    prisma.medicationEvent.deleteMany({ where }),
+    prisma.weightMeasurement.deleteMany({ where }),
+    prisma.bloodPressureMeasurement.deleteMany({ where }),
+    prisma.hydrationEvent.deleteMany({ where }),
+    prisma.symptomEntry.deleteMany({ where }),
+    prisma.moodEntry.deleteMany({ where }),
+    prisma.noteEntry.deleteMany({ where }),
+    // Health data that is derived from records rather than being one: an AI
+    // conversation stores the question, the answer and the evidence findings
+    // behind it, and an ImportBatch's issues keep the raw rejected rows
+    // (ImportIssue.rawRow) of a failed import. Both cascade to their children.
+    prisma.aIConversation.deleteMany({ where }),
+    prisma.importBatch.deleteMany({ where }),
+    // Insight.summary/detail/evidence are statements about the user's
+    // readings ("your post-dinner readings run higher..."). Nothing writes the
+    // table today, which is exactly when a gap like this gets missed.
+    prisma.insight.deleteMany({ where }),
+    // A Device row names the meter or CGM the person uses (label, vendor,
+    // model), which itself says something about their condition and treatment.
+    // Readings and batches point at it with ON DELETE SET NULL, and both are
+    // already gone above, so nothing is orphaned.
+    prisma.device.deleteMany({ where }),
+  ]);
+  return {
+    glucose: glucose.count,
+    meal: meal.count,
+    exercise: exercise.count,
+    sleep: sleep.count,
+    medication: medication.count,
+    weight: weight.count,
+    bloodPressure: bloodPressure.count,
+    hydration: hydration.count,
+    symptom: symptom.count,
+    mood: mood.count,
+    note: note.count,
+    conversations: conversations.count,
+    importBatches: importBatches.count,
+    insights: insights.count,
+    devices: devices.count,
   };
 }

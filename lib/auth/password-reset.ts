@@ -4,6 +4,7 @@ import { getEmailProvider } from '@/lib/email/provider';
 import type { ActionState } from '@/lib/actions/auth';
 import { fieldErrors, forgotPasswordSchema } from '@/lib/validation';
 import { audit } from './audit';
+import { isDemoEmail } from './demo';
 import { isSessionSecretConfigured } from './session';
 import { keyedRecoveryEmailHash } from './password-reset-email-key';
 import { RATE_LIMITS, pruneRateLimits, rateLimit } from './rate-limit';
@@ -99,6 +100,10 @@ export async function requestPasswordReset(input: unknown, ip: string): Promise<
         userId = user?.id;
         await audit({ userId, action: 'auth.password_reset_requested' });
         if (!user || user.passwordHash === null) return;
+        // The shared demo account's password is fixed (see ./demo.ts). Skipped
+        // here, inside the deferred work, so the response stays neutral and
+        // takes the same time as for any other address.
+        if (isDemoEmail(parsed.data.email)) return;
         const token = createResetToken();
         const created = await prisma.$transaction(async (tx) => {
           // Issuance and consumption lock the same owner row, including when there

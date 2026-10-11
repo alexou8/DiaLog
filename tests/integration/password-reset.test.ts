@@ -127,6 +127,59 @@ describe('password recovery against Postgres', () => {
     expect(events.map((event) => event.action)).toContain('auth.password_reset_completed');
     expect(JSON.stringify(events)).not.toContain(raw);
   });
+  it('removes linked Google identities so a pre-registered squatter loses access', async () => {
+    // The account pre-hijack: someone registers the victim's address first
+    // (sign-up does not verify email) and links their own Google account. The
+    // real owner then recovers the account by email. Before this fix the reset
+    // changed the password and bumped tokenVersion but left the squatter's
+    // Google link in place, so they kept signing in through it.
+    const user = await seed('squatted');
+    await prisma.authIdentity.create({
+      data: {
+        userId: user.id,
+        provider: 'google',
+        providerAccountId: `squatter-${randomUUID()}`,
+        email: 'squatter@example.test',
+      },
+    });
+    const { proof } = await issue(user.email);
+    const response = await POST(post({ proof }));
+    expect(response.status).toBe(303);
+    const location = new URL(response.headers.get('location')!);
+    expect(location.pathname).toBe('/sign-in');
+    expect(location.searchParams.get('password')).toBe('reset');
+    expect(location.searchParams.get('unlinked')).toBe('google');
+    expect(await prisma.authIdentity.count({ where: { userId: user.id } })).toBe(0);
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.tokenVersion).toBe(user.tokenVersion + 1);
+    const actions = (
+      await prisma.auditEvent.findMany({ where: { userId: user.id }, select: { action: true } })
+    ).map((e) => e.action);
+    expect(actions).toContain('auth.google_unlinked');
+  });
+  it('leaves other accounts’ identities alone and refuses a stale link without unlinking', async () => {
+    const user = await seed('unlink-scope');
+    const bystander = await seed('unlink-bystander');
+    await prisma.authIdentity.createMany({
+      data: [
+        { userId: user.id, provider: 'google', providerAccountId: `own-${randomUUID()}` },
+        { userId: bystander.id, provider: 'google', providerAccountId: `by-${randomUUID()}` },
+      ],
+    });
+    const { proof, raw } = await issue(user.email);
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, tokenHash: hashResetToken(raw) },
+      data: { expiresAt: new Date(Date.now() - 1) },
+    });
+    // A failed reset proves nothing, so it must not unlink anything.
+    expect(outcome(await POST(post({ proof })))).toBe('invalid');
+    expect(await prisma.authIdentity.count({ where: { userId: user.id } })).toBe(1);
+
+    const fresh = await issue(user.email);
+    expect(outcome(await POST(post({ proof: fresh.proof })))).toBe('reset');
+    expect(await prisma.authIdentity.count({ where: { userId: user.id } })).toBe(0);
+    expect(await prisma.authIdentity.count({ where: { userId: bystander.id } })).toBe(1);
+  });
   it.each(['expired', 'used'])('refuses a %s token without changing credentials', async (kind) => {
     const user = await seed(kind);
     const { raw, proof } = await issue(user.email);

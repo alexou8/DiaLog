@@ -65,15 +65,15 @@ model User {
 /// email — is the identity, because email addresses can be reassigned. `email`
 /// is only kept for display ("Connected as ...") and is refreshed on sign-in.
 model AuthIdentity {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   userId            String
   provider          String
   providerAccountId String
   email             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
   lastLoginAt       DateTime?
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // A provider account can back at most one DiaLog account...
   @@unique([provider, providerAccountId])

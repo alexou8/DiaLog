@@ -14,9 +14,11 @@ import { type NextRequest, type NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { audit } from '@/lib/auth/audit';
 import { RATE_LIMITS, rateLimit } from '@/lib/auth/rate-limit';
+import { isDemoEmail } from '@/lib/auth/demo';
 import {
   back,
   crossOrigin,
+  demoReadOnly,
   isSameOrigin,
   issueSession,
   sessionFromRequest,
@@ -36,9 +38,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, tokenVersion: true },
+    select: { id: true, email: true, tokenVersion: true },
   });
   if (!user || user.tokenVersion !== session.tokenVersion) return toSignIn(request);
+
+  // On the shared demo account "every other device" is every other visitor.
+  if (isDemoEmail(user.email)) return demoReadOnly(request);
 
   const limit = rateLimit(`revoke:${user.id}`, RATE_LIMITS.write.limit, RATE_LIMITS.write.windowMs);
   if (!limit.ok) return back(request, 'sessions', 'rate_limited');

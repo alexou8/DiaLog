@@ -1,7 +1,10 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
+  DELETABLE_RECORD_TYPES,
   deleteOwnedRecord,
+  isDeletableRecordType,
   loadAnalyticsWindow,
+  pageGlucose,
   recordCounts,
   RECORD_TYPES,
 } from '@/lib/db/health-records';
@@ -133,6 +136,54 @@ describe('deleteOwnedRecord', () => {
     const deleted = await deleteOwnedRecord(user.id, 'glucose', reading.id);
     expect(deleted).toBe(true);
     expect(await prisma.glucoseReading.findUnique({ where: { id: reading.id } })).toBeNull();
+  });
+
+  // Hydration and symptom entries could be logged but not individually
+  // removed: neither type was in the delete path's delegate map.
+  it('deletes an owned hydration entry and refuses another user’s', async () => {
+    const { user } = await createTestUser('delete-hydration');
+    const { user: other } = await createTestUser('delete-hydration-other');
+    createdUserIds.push(user.id, other.id);
+    const mine = await prisma.hydrationEvent.create({
+      data: { userId: user.id, takenAt: new Date(), volumeMl: 250, dedupeKey: 'hyd-mine' },
+    });
+    const theirs = await prisma.hydrationEvent.create({
+      data: { userId: other.id, takenAt: new Date(), volumeMl: 500, dedupeKey: 'hyd-theirs' },
+    });
+
+    expect(isDeletableRecordType('hydration')).toBe(true);
+    expect(await deleteOwnedRecord(user.id, 'hydration', theirs.id)).toBe(false);
+    expect(await prisma.hydrationEvent.findUnique({ where: { id: theirs.id } })).not.toBeNull();
+
+    expect(await deleteOwnedRecord(user.id, 'hydration', mine.id)).toBe(true);
+    expect(await prisma.hydrationEvent.findUnique({ where: { id: mine.id } })).toBeNull();
+  });
+
+  it('deletes an owned symptom entry and refuses another user’s', async () => {
+    const { user } = await createTestUser('delete-symptom');
+    const { user: other } = await createTestUser('delete-symptom-other');
+    createdUserIds.push(user.id, other.id);
+    const mine = await prisma.symptomEntry.create({
+      data: { userId: user.id, takenAt: new Date(), symptom: 'headache', dedupeKey: 'sym-mine' },
+    });
+    const theirs = await prisma.symptomEntry.create({
+      data: { userId: other.id, takenAt: new Date(), symptom: 'dizzy', dedupeKey: 'sym-theirs' },
+    });
+
+    expect(isDeletableRecordType('symptom')).toBe(true);
+    expect(await deleteOwnedRecord(user.id, 'symptom', theirs.id)).toBe(false);
+    expect(await prisma.symptomEntry.findUnique({ where: { id: theirs.id } })).not.toBeNull();
+
+    expect(await deleteOwnedRecord(user.id, 'symptom', mine.id)).toBe(true);
+    expect(await prisma.symptomEntry.findUnique({ where: { id: mine.id } })).toBeNull();
+  });
+
+  it('keeps the History tab list separate from the deletable set', () => {
+    // RECORD_TYPES drives History's tabs; widening it would add tabs that
+    // page has no renderer for. Deletion takes the wider set.
+    expect(RECORD_TYPES).not.toContain('hydration');
+    expect(DELETABLE_RECORD_TYPES).toEqual(expect.arrayContaining([...RECORD_TYPES]));
+    expect(isDeletableRecordType('note')).toBe(false);
   });
 });
 
@@ -302,5 +353,74 @@ describe('cascade deletion of a User', () => {
     // Audit events keep userId nullable and SET NULL on delete rather than cascading away —
     // confirm no orphan row still references the deleted user id.
     expect(await prisma.auditEvent.count({ where: { userId: user.id } })).toBe(0);
+  });
+});
+
+describe('pageGlucose cursor', () => {
+  // The cursor comes from `?cursor=` on the history page. It used to be
+  // resolved with Prisma's `cursor: { id }`, by id alone, so another account's
+  // reading id positioned this user's page at that reading's timestamp.
+  async function seedReadings(label: string, times: string[]) {
+    const { user } = await createTestUser(label);
+    createdUserIds.push(user.id);
+    await prisma.glucoseReading.createMany({
+      data: times.map((t, i) => ({
+        userId: user.id,
+        takenAt: new Date(t),
+        valueMgdl: 100 + i,
+        context: 'RANDOM' as const,
+        dedupeKey: `${label}-${i}`,
+      })),
+    });
+    return user;
+  }
+
+  it('walks every reading exactly once, including ties on takenAt across a page edge', async () => {
+    // Five readings share one instant, so a page boundary must fall inside
+    // the tie and be broken by id.
+    const user = await seedReadings('page-walk', [
+      '2026-03-01T08:00:00Z',
+      '2026-03-01T09:00:00Z',
+      '2026-03-01T09:00:00Z',
+      '2026-03-01T09:00:00Z',
+      '2026-03-01T09:00:00Z',
+      '2026-03-01T09:00:00Z',
+      '2026-03-01T10:00:00Z',
+    ]);
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await pageGlucose({ userId: user.id, take: 2, cursor });
+      seen.push(...page.rows.map((r) => r.id));
+      cursor = page.nextCursor;
+    } while (cursor);
+    const all = await prisma.glucoseReading.findMany({
+      where: { userId: user.id },
+      orderBy: [{ takenAt: 'desc' }, { id: 'desc' }],
+      select: { id: true },
+    });
+    expect(seen).toEqual(all.map((r) => r.id));
+  });
+
+  it("ignores another account's reading id instead of positioning on it", async () => {
+    const mine = await seedReadings('page-mine', [
+      '2026-03-01T08:00:00Z',
+      '2026-03-02T08:00:00Z',
+      '2026-03-03T08:00:00Z',
+    ]);
+    const theirs = await seedReadings('page-theirs', ['2026-03-02T12:00:00Z']);
+    const foreign = await prisma.glucoseReading.findFirstOrThrow({
+      where: { userId: theirs.id },
+      select: { id: true },
+    });
+
+    const firstPage = await pageGlucose({ userId: mine.id, take: 10 });
+    const withForeign = await pageGlucose({ userId: mine.id, take: 10, cursor: foreign.id });
+    // Same as no cursor at all: the foreign reading's timestamp leaks nothing.
+    expect(withForeign.rows.map((r) => r.id)).toEqual(firstPage.rows.map((r) => r.id));
+    expect(withForeign.rows.every((r) => r.userId === mine.id)).toBe(true);
+
+    const unknown = await pageGlucose({ userId: mine.id, take: 10, cursor: 'not-a-real-id' });
+    expect(unknown.rows.map((r) => r.id)).toEqual(firstPage.rows.map((r) => r.id));
   });
 });

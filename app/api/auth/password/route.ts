@@ -14,9 +14,11 @@ import { prisma } from '@/lib/db/prisma';
 import { audit } from '@/lib/auth/audit';
 import { hashPassword, validatePassword, verifyPassword } from '@/lib/auth/password';
 import { RATE_LIMITS, rateLimit } from '@/lib/auth/rate-limit';
+import { isDemoEmail } from '@/lib/auth/demo';
 import {
   back,
   crossOrigin,
+  demoReadOnly,
   isSameOrigin,
   issueSession,
   sessionFromRequest,
@@ -50,11 +52,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, tokenVersion: true, passwordHash: true },
+    select: { id: true, email: true, tokenVersion: true, passwordHash: true },
   });
   // Re-checked here rather than trusted from the cookie: a token whose version
   // has moved on is no longer a session, whatever it says about itself.
   if (!user || user.tokenVersion !== session.tokenVersion) return toSignIn(request);
+
+  // The demo password is published; letting one visitor change it would lock
+  // every later visitor out. Checked before the form is read so nothing about
+  // the submitted passwords is even parsed.
+  if (isDemoEmail(user.email)) return demoReadOnly(request);
 
   const limit = rateLimit(
     `pwchange:${user.id}`,
