@@ -3,9 +3,9 @@
 # pins (numpy 2.0.1, pandas 2.2.2) had none, so `pip install -r requirements.txt`
 # tried to compile pandas from source on 3.13 and failed.
 pandas==2.2.3
-numpy==2.1.3
-scikit-learn==1.5.2
-joblib==1.4.2
+numpy==2.4.6
+scikit-learn==1.9.1
+joblib==1.6.0
 python-dateutil==2.9.0.post0
 
 # Test tooling. Pinned so a new pytest/hypothesis release cannot turn CI red on
