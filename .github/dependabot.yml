@@ -6,8 +6,16 @@
 # remembers to look.
 #
 # Grouping keeps the volume reviewable: minor and patch updates arrive as one
-# PR per ecosystem per week. Major bumps are deliberately left ungrouped so each
-# gets its own review and its own CI verdict.
+# PR per ecosystem per week.
+#
+# npm majors are ignored on purpose. The first Dependabot run opened one PR per
+# major (Next 16, Prisma 7, Vitest 5, Zod 4, ESLint 10) and every one failed
+# CI for a known, structural reason — Prisma 7 moves datasource URLs out of
+# the schema, ESLint 10 is not accepted by eslint-config-next 15, Vitest 5
+# changes the config types. Those are planned migrations that need code
+# changes, docs and a deliberate PR each, not a weekly bump that is red by
+# construction. Patch and minor updates still arrive weekly; `npm outdated`
+# shows the majors when someone is ready to take one on.
 #
 # Every PR runs the full CI workflow, so a bump that breaks the build, a type,
 # a test or the production audit fails like any other change.
@@ -18,6 +26,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
