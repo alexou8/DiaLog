@@ -59,7 +59,7 @@ jobs:
       # Same action versions and Node source as ci.yml, so the two workflows
       # cannot drift apart again.
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
