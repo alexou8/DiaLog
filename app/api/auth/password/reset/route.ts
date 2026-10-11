@@ -17,11 +17,7 @@ import { isDemoEmail } from '@/lib/auth/demo';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export type ResetOutcome =
-  | PasswordPolicyCode
-  | 'mismatch'
-  | 'invalid'
-  | 'rate_limited'
-  | 'unavailable';
+  PasswordPolicyCode | 'mismatch' | 'invalid' | 'rate_limited' | 'unavailable';
 
 /** A dedicated redirect helper: settings' back() must retain its destination. */
 function result(

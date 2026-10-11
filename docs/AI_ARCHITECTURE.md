@@ -179,7 +179,7 @@ Every analytical statement is graded by how many observations support it, using 
 | ----------------------------------------------- | -------------------- | ----- | -------- | ---------- |
 | `summary` (e.g. "your average morning reading") | < 5                  | 5–13  | 14–29    | ≥ 30       |
 | `comparison` (two groups of days/readings)      | < 8                  | 8–19  | 20–39    | ≥ 40       |
-| `association` (behaviour ↔ glucose outcome)    | < 10                 | 10–23 | 24–49    | ≥ 50       |
+| `association` (behaviour ↔ glucose outcome)     | < 10                 | 10–23 | 24–49    | ≥ 50       |
 | `trend` (change over time)                      | < 10                 | 10–20 | 21–44    | ≥ 45       |
 | `model` (personalised model fit)                | < 30                 | 30–79 | 80–149   | ≥ 150      |
 

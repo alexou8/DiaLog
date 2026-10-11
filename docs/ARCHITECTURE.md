@@ -117,7 +117,7 @@ All storage is UTC (every `DateTime` column). A user's `Profile.timezone` (IANA 
 | File parsing                   | `lib/import/parse.ts`                                                          |
 | Per-vendor import connectors   | `lib/import/connectors/*`                                                      |
 | Import dedupe                  | `lib/import/dedupe.ts`                                                         |
-| App↔analytics/AI/import seam  | `lib/services/*`                                                               |
+| App↔analytics/AI/import seam   | `lib/services/*`                                                               |
 | Server Actions (mutations)     | `lib/actions/*`                                                                |
 | Routes/pages                   | `app/**`                                                                       |
 | Charts                         | `components/charts/*`                                                          |

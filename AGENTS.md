@@ -40,10 +40,12 @@ client. After editing `prisma/schema.prisma`, re-run `prisma generate`.
 Run these through `npm run`, never a bare `npx prettier` / `npx eslint` /
 `npx tsc`. Without `node_modules` installed, `npx` silently fetches the latest
 release instead of the pinned one, and its output disagrees with CI: Prettier
-3.8 pads Markdown table columns containing `↔` differently from the pinned
-3.6.2, so `npx prettier --write` reports files as unformatted, "fixes" them,
-and leaves the tree red under `npm ci`. Run `npm ci` first if `node_modules`
-is missing.
+changes its output between minor releases (3.9 reformatted seven files that
+3.6 accepted, mostly Markdown table padding), so a mismatched `npx prettier
+--write` reports files as unformatted, "fixes" them, and leaves the tree red
+under `npm ci`. Run `npm ci` first if `node_modules` is missing. For the same
+reason Dependabot does not bump Prettier: bump it by hand and run
+`npm run format` in the same commit.
 
 While iterating, run the narrowest check that proves the change — a single
 vitest file beats the whole suite. Run the full suite once before handing work
@@ -61,7 +63,7 @@ back.
 | `lib/analytics/` | `engine.ts` orchestrates `glucose`, `associations`, `stats` and `ml/` (anomaly, cluster, trend, importance) into an `AnalyticsResult`.                        |
 | `lib/ai/`        | Provider abstraction (`providers/` local, anthropic, openai), prompts, Zod schemas, `guardrails.ts`, `redact.ts`.                                             |
 | `lib/auth/`      | JWT session cookie, bcrypt passwords, rate limiting, audit log, `oauth/` (Google).                                                                            |
-| `lib/domain/`    | `units` (mg/dL ↔ mmol/L), `thresholds`, `evidence` grading, `time`, `dedupe`.                                                                                |
+| `lib/domain/`    | `units` (mg/dL ↔ mmol/L), `thresholds`, `evidence` grading, `time`, `dedupe`.                                                                                 |
 | `lib/db/`        | Prisma client singleton and health-record query helpers.                                                                                                      |
 | `prisma/`        | Schema, migrations, seed.                                                                                                                                     |
 | `ml/`            | Standalone Python project (pytest). Independent of the Node build.                                                                                            |

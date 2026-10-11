@@ -251,7 +251,7 @@ this for real" checklist: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                         | Environment, migrations, deploy procedure.                      |
 | [docs/COMPLIANCE.md](docs/COMPLIANCE.md)                         | Regulatory posture, standards referenced, and known gaps.       |
 | [AGENTS.md](AGENTS.md)                                           | Engineering contract: invariants, CI policy, verification.      |
-| [CLAUDE.md](CLAUDE.md) · [SKILLS.md](SKILLS.md)                  | Claude ↔ Codex orchestration and the agent skills.             |
+| [CLAUDE.md](CLAUDE.md) · [SKILLS.md](SKILLS.md)                  | Claude ↔ Codex orchestration and the agent skills.              |
 | [docs/RESUME_PORTFOLIO_NOTES.md](docs/RESUME_PORTFOLIO_NOTES.md) | Reusable project descriptions, with evidence for each claim.    |
 
 ## Project structure

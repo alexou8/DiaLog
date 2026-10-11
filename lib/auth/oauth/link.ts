@@ -72,9 +72,7 @@ export interface LinkSnapshot {
 }
 
 export type LinkOutcome =
-  | { kind: 'link' }
-  | { kind: 'already_linked' }
-  | { kind: 'blocked'; code: OAuthErrorCode };
+  { kind: 'link' } | { kind: 'already_linked' } | { kind: 'blocked'; code: OAuthErrorCode };
 
 export function resolveGoogleLink(identity: GoogleIdentity, snapshot: LinkSnapshot): LinkOutcome {
   if (!identity.emailVerified) return { kind: 'blocked', code: 'unverified_email' };
