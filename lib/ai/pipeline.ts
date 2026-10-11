@@ -1,9 +1,23 @@
 /**
- * Orchestration pipeline: build prompt -> call provider -> guardrails ->
- * return the final answer. This is the only place in `lib/ai` that wires a
- * provider, prompts, and guardrails together.
+ * Orchestration pipeline: consent gate -> build prompt -> call provider ->
+ * guardrails -> return the final answer. This is the only place in `lib/ai`
+ * that wires a provider, prompts, and guardrails together.
+ *
+ * Every entry point takes a required `externalConsent`, applies the consent
+ * gate itself (`enforceExternalConsent`), and sends every request through
+ * `callProvider`, which refuses an external call without consent. The gate
+ * used to live in the server action and covered only the bundle, so the
+ * question and quick-log text reached the external provider without consent
+ * (review C1/C2, 2026-10). A required parameter means the compiler stops a
+ * caller that forgets it.
  */
-import { AIProviderError, type AIProvider, type CompletionRequest } from './provider';
+import {
+  AIProviderError,
+  enforceExternalConsent,
+  type AIProvider,
+  type CompletionRequest,
+  type CompletionResult,
+} from './provider';
 import type { EvidenceBundle } from './types';
 import {
   buildAnswerQuestionSystemPrompt,
@@ -25,7 +39,15 @@ import {
   type NoteStructure,
   type WeeklyNarrative,
 } from './schemas';
-import { applyAssistantAnswerGuardrails, safeFallbackAnswer } from './guardrails';
+import {
+  applyAssistantAnswerGuardrails,
+  checkTextsSafety,
+  collectStrings,
+  normalizeForSafety,
+  safeFallbackAnswer,
+} from './guardrails';
+import { detectEmergency, emergencyAnswer } from './emergency';
+import { redactForProvider } from './redact';
 import { LocalProvider } from './providers/local';
 
 const DEFAULT_MAX_TOKENS = 2048;
@@ -90,6 +112,86 @@ export function assertNoRawRecords(bundle: EvidenceBundle): void {
 }
 
 // ---------------------------------------------------------------------------
+// Shared provider call
+// ---------------------------------------------------------------------------
+
+/**
+ * The last line before data leaves the process. Unreachable while every entry
+ * point gates first, and kept so that a future code path that forgets the
+ * gate fails loudly instead of sending free text out. A plain Error, not an
+ * AIProviderError, so the local fallback never swallows it.
+ */
+async function callProvider(
+  provider: AIProvider,
+  req: CompletionRequest,
+  externalConsent: boolean,
+): Promise<CompletionResult> {
+  if (provider.isExternal && !externalConsent) {
+    throw new Error('Refusing to call an external AI provider without consent');
+  }
+  return provider.complete(req);
+}
+
+interface TaskOutcome<T> {
+  value: T;
+  providerId: string;
+  usedFallback: boolean;
+}
+
+/**
+ * Try the (already consent-gated) provider, then the local provider, then a
+ * fixed last-resort value. `accept` validates and safety-checks a candidate
+ * and returns null to reject it. A provider error (network, timeout,
+ * malformed JSON, refusal) and a rejected output are treated alike: the user
+ * always gets something safe. The local provider is called at most once.
+ */
+async function runTask<T>(options: {
+  provider: AIProvider;
+  req: CompletionRequest;
+  externalConsent: boolean;
+  accept: (json: unknown) => T | null;
+  lastResort: () => T;
+}): Promise<TaskOutcome<T>> {
+  const { provider, req, externalConsent, accept, lastResort } = options;
+
+  const attempt = async (p: AIProvider): Promise<{ value: T; providerId: string } | null> => {
+    try {
+      const result = await callProvider(p, req, externalConsent);
+      const value = accept(result.json);
+      return value === null ? null : { value, providerId: result.providerId };
+    } catch (err) {
+      if (err instanceof AIProviderError) return null;
+      throw err;
+    }
+  };
+
+  const first = await attempt(provider);
+  if (first) return { ...first, usedFallback: false };
+
+  const local = new LocalProvider();
+  if (provider.id !== local.id) {
+    const second = await attempt(local);
+    if (second) return { ...second, usedFallback: true };
+  }
+  return { value: lastResort(), providerId: local.id, usedFallback: true };
+}
+
+/** Consent gate plus the redaction that goes with it, for a bundle-carrying task. */
+function gateBundleTask(
+  provider: AIProvider,
+  bundle: EvidenceBundle,
+  externalConsent: boolean,
+): { provider: AIProvider; bundle: EvidenceBundle } {
+  const gated = enforceExternalConsent(provider, externalConsent);
+  // Belt and braces: after the gate this is a no-op (an external provider
+  // here implies consent), but it keeps `redact.ts` on the path, so loosening
+  // the gate later cannot on its own put free-text bundle fields in front of
+  // an external provider.
+  const { bundle: redacted } = redactForProvider(bundle, gated.isExternal, externalConsent);
+  return { provider: gated, bundle: redacted };
+}
+
+// ---------------------------------------------------------------------------
 // answerQuestion
 // ---------------------------------------------------------------------------
 
@@ -98,17 +200,29 @@ export interface AnswerQuestionParams {
   bundle: EvidenceBundle;
   detailLevel: DetailLevel;
   provider: AIProvider;
+  /** Whether the user has consented to external AI processing. Required: see the file header. */
+  externalConsent: boolean;
 }
 
 export interface AnswerQuestionResult {
   answer: AssistantAnswer;
   providerId: string;
   usedFallback: boolean;
+  /** True when the question described a possible emergency and got the fixed safety answer. */
+  emergency: boolean;
 }
 
 export async function answerQuestion(params: AnswerQuestionParams): Promise<AnswerQuestionResult> {
-  const { question, bundle, detailLevel, provider } = params;
-  assertNoRawRecords(bundle);
+  const { question, detailLevel, externalConsent } = params;
+
+  // Before anything else, including the bundle check: a possible emergency
+  // gets the fixed safety answer and never reaches a model (see emergency.ts).
+  if (detectEmergency(question).emergency) {
+    return { answer: emergencyAnswer(), providerId: 'local', usedFallback: false, emergency: true };
+  }
+
+  assertNoRawRecords(params.bundle);
+  const { provider, bundle } = gateBundleTask(params.provider, params.bundle, externalConsent);
 
   const req: CompletionRequest = {
     system: buildAnswerQuestionSystemPrompt(bundle, detailLevel),
@@ -118,48 +232,22 @@ export async function answerQuestion(params: AnswerQuestionParams): Promise<Answ
     temperature: 0.2,
   };
 
-  return runWithGuardrailsAndFallback(provider, req, bundle);
-}
-
-async function runWithGuardrailsAndFallback(
-  provider: AIProvider,
-  req: CompletionRequest,
-  bundle: EvidenceBundle,
-): Promise<AnswerQuestionResult> {
-  let json: unknown;
-  let providerId = provider.id;
-  let usedFallback = false;
-
-  try {
-    const result = await provider.complete(req);
-    json = result.json;
-    providerId = result.providerId;
-  } catch (err) {
-    // Any provider failure (network, timeout, malformed JSON) falls back to
-    // the local provider so the user always gets a safe, grounded answer.
-    if (!(err instanceof AIProviderError)) throw err;
-    const fallback = new LocalProvider();
-    const fallbackResult = await fallback.complete(req);
-    json = fallbackResult.json;
-    providerId = fallbackResult.providerId;
-    usedFallback = true;
-  }
-
-  const guardrailed = applyAssistantAnswerGuardrails(json, bundle);
-  if (guardrailed.rejected && !usedFallback) {
-    // Schema/safety rejection on a live model response — retry once against
-    // the local provider rather than showing the raw unsafe/invalid output.
-    const fallback = new LocalProvider();
-    const fallbackResult = await fallback.complete(req);
-    const reGuardrailed = applyAssistantAnswerGuardrails(fallbackResult.json, bundle);
-    return {
-      answer: reGuardrailed.rejected ? safeFallbackAnswer() : reGuardrailed.answer,
-      providerId: fallbackResult.providerId,
-      usedFallback: true,
-    };
-  }
-
-  return { answer: guardrailed.answer, providerId, usedFallback };
+  const outcome = await runTask({
+    provider,
+    req,
+    externalConsent,
+    accept: (json) => {
+      const guardrailed = applyAssistantAnswerGuardrails(json, params.bundle);
+      return guardrailed.rejected ? null : guardrailed.answer;
+    },
+    lastResort: safeFallbackAnswer,
+  });
+  return {
+    answer: outcome.value,
+    providerId: outcome.providerId,
+    usedFallback: outcome.usedFallback,
+    emergency: false,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -169,16 +257,40 @@ async function runWithGuardrailsAndFallback(
 export interface ParseMealTextParams {
   text: string;
   provider: AIProvider;
+  /** Whether the user has consented to external AI processing. Required: see the file header. */
+  externalConsent: boolean;
 }
 
 export interface ParseMealTextResult {
   parse: MealParse;
   providerId: string;
   usedFallback: boolean;
+  /**
+   * The text described a possible emergency ("BG 2.8 and shaking, had juice").
+   * The caller must show `emergencyAnswer` ahead of the proposal.
+   */
+  emergency: boolean;
+  /** The same fixed safety template `answerQuestion` returns; set only when `emergency`. */
+  emergencyAnswer?: AssistantAnswer;
 }
 
+/**
+ * Meal and note parsing output is shown to the user and then saved, so it
+ * gets the same medical-safety scan as an answer (review M1: only
+ * `answerQuestion` was filtered). A string that is the user's whole text, or
+ * one whole sentence or clause of it, is exempt; anything else is checked.
+ */
 export async function parseMealText(params: ParseMealTextParams): Promise<ParseMealTextResult> {
-  const { text, provider } = params;
+  const { text, externalConsent } = params;
+  // Quick-log text is free text too, and someone logging "BG 2.8 and shaking"
+  // needs the same safety answer as someone asking about it. Triage runs
+  // before any provider; on a hit the parse runs on the local engine only, so
+  // nothing waits on (or is sent to) a model, and whatever was logged (the
+  // juice) still comes back to be saved.
+  const emergency = detectEmergency(text).emergency;
+  const provider = emergency
+    ? new LocalProvider()
+    : enforceExternalConsent(params.provider, externalConsent);
 
   const req: CompletionRequest = {
     system: buildMealParseSystemPrompt(),
@@ -188,36 +300,24 @@ export async function parseMealText(params: ParseMealTextParams): Promise<ParseM
     temperature: 0.1,
   };
 
-  let json: unknown;
-  let providerId = provider.id;
-  let usedFallback = false;
-
-  try {
-    const result = await provider.complete(req);
-    json = result.json;
-    providerId = result.providerId;
-  } catch (err) {
-    if (!(err instanceof AIProviderError)) throw err;
-    const fallback = new LocalProvider();
-    const fallbackResult = await fallback.complete(req);
-    json = fallbackResult.json;
-    providerId = fallbackResult.providerId;
-    usedFallback = true;
-  }
-
-  const validated = MealParseSchema.safeParse(json);
-  if (validated.success) {
-    return { parse: validated.data, providerId, usedFallback };
-  }
-
-  // Malformed structured output: fall back to a safe "everything unparsed" result.
-  const fallback = new LocalProvider();
-  const fallbackResult = await fallback.complete(req);
-  const reValidated = MealParseSchema.safeParse(fallbackResult.json);
+  const outcome = await runTask<MealParse>({
+    provider,
+    req,
+    externalConsent,
+    accept: (json) => {
+      const validated = MealParseSchema.safeParse(json);
+      if (!validated.success) return null;
+      const safety = checkTextsSafety(collectStrings(validated.data), { echoSource: text });
+      return safety.safe ? validated.data : null;
+    },
+    lastResort: () => ({ meals: [], exercise: [], unparsed: [text] }),
+  });
   return {
-    parse: reValidated.success ? reValidated.data : { meals: [], exercise: [], unparsed: [text] },
-    providerId: fallbackResult.providerId,
-    usedFallback: true,
+    parse: outcome.value,
+    providerId: outcome.providerId,
+    usedFallback: outcome.usedFallback,
+    emergency,
+    ...(emergency ? { emergencyAnswer: emergencyAnswer() } : {}),
   };
 }
 
@@ -229,6 +329,8 @@ export interface SummarizePeriodParams {
   bundle: EvidenceBundle;
   detailLevel: DetailLevel;
   provider: AIProvider;
+  /** Whether the user has consented to external AI processing. Required: see the file header. */
+  externalConsent: boolean;
 }
 
 export interface SummarizePeriodResult {
@@ -237,11 +339,23 @@ export interface SummarizePeriodResult {
   usedFallback: boolean;
 }
 
+function notEnoughDataNarrative(): WeeklyNarrative {
+  return {
+    headline: 'Not enough data yet for a weekly summary',
+    sections: [],
+    whatChanged: 'Not enough data yet to say what changed.',
+    whatWentWell: 'Not enough data yet to highlight what went well.',
+    whatToExploreNext: 'Keep logging consistently.',
+    questionsForClinician: [],
+  };
+}
+
 export async function summarizePeriod(
   params: SummarizePeriodParams,
 ): Promise<SummarizePeriodResult> {
-  const { bundle, detailLevel, provider } = params;
-  assertNoRawRecords(bundle);
+  const { detailLevel, externalConsent } = params;
+  assertNoRawRecords(params.bundle);
+  const { provider, bundle } = gateBundleTask(params.provider, params.bundle, externalConsent);
 
   const req: CompletionRequest = {
     system: buildWeeklyNarrativeSystemPrompt(bundle, detailLevel),
@@ -251,44 +365,21 @@ export async function summarizePeriod(
     temperature: 0.3,
   };
 
-  let json: unknown;
-  let providerId = provider.id;
-  let usedFallback = false;
-
-  try {
-    const result = await provider.complete(req);
-    json = result.json;
-    providerId = result.providerId;
-  } catch (err) {
-    if (!(err instanceof AIProviderError)) throw err;
-    const fallback = new LocalProvider();
-    const fallbackResult = await fallback.complete(req);
-    json = fallbackResult.json;
-    providerId = fallbackResult.providerId;
-    usedFallback = true;
-  }
-
-  const validated = WeeklyNarrativeSchema.safeParse(json);
-  if (validated.success) {
-    return { narrative: validated.data, providerId, usedFallback };
-  }
-
-  const fallback = new LocalProvider();
-  const fallbackResult = await fallback.complete(req);
-  const reValidated = WeeklyNarrativeSchema.safeParse(fallbackResult.json);
+  const outcome = await runTask<WeeklyNarrative>({
+    provider,
+    req,
+    externalConsent,
+    accept: (json) => {
+      const validated = WeeklyNarrativeSchema.safeParse(json);
+      if (!validated.success) return null;
+      return checkTextsSafety(collectStrings(validated.data)).safe ? validated.data : null;
+    },
+    lastResort: notEnoughDataNarrative,
+  });
   return {
-    narrative: reValidated.success
-      ? reValidated.data
-      : {
-          headline: 'Not enough data yet for a weekly summary',
-          sections: [],
-          whatChanged: 'Not enough data yet to say what changed.',
-          whatWentWell: 'Not enough data yet to highlight what went well.',
-          whatToExploreNext: 'Keep logging consistently.',
-          questionsForClinician: [],
-        },
-    providerId: fallbackResult.providerId,
-    usedFallback: true,
+    narrative: outcome.value,
+    providerId: outcome.providerId,
+    usedFallback: outcome.usedFallback,
   };
 }
 
@@ -299,6 +390,8 @@ export async function summarizePeriod(
 export interface ParseNoteTextParams {
   text: string;
   provider: AIProvider;
+  /** Whether the user has consented to external AI processing. Required: see the file header. */
+  externalConsent: boolean;
 }
 
 export interface ParseNoteTextResult {
@@ -307,8 +400,45 @@ export interface ParseNoteTextResult {
   usedFallback: boolean;
 }
 
+function numbersIn(text: string): Set<number> {
+  const out = new Set<number>();
+  for (const m of normalizeForSafety(text).matchAll(/\d+(?:[.,]\d+)?/g)) {
+    out.add(Number(m[0].replace(',', '.')));
+  }
+  return out;
+}
+
+/**
+ * A medication candidate may only carry numbers the user actually wrote. A
+ * dose the model inferred ("took my insulin" becoming 10 units) would be
+ * saved as if the user had logged it (review M1).
+ */
+function medicationNumbersAreFromInput(structure: NoteStructure, input: string): boolean {
+  const allowed = numbersIn(input);
+  for (const candidate of structure.candidates) {
+    if (candidate.type !== 'medication') continue;
+    const values = [
+      candidate.summary,
+      ...candidate.fields.map((f) => (f.value === null ? '' : String(f.value))),
+    ];
+    for (const value of values) {
+      for (const n of numbersIn(value)) if (!allowed.has(n)) return false;
+    }
+  }
+  return true;
+}
+
 export async function parseNoteText(params: ParseNoteTextParams): Promise<ParseNoteTextResult> {
-  const { text, provider } = params;
+  const { text, externalConsent } = params;
+  // Quick-log text is free text too, and someone logging "BG 2.8 and shaking"
+  // needs the same safety answer as someone asking about it. Triage runs
+  // before any provider; on a hit the parse runs on the local engine only, so
+  // nothing waits on (or is sent to) a model, and whatever was logged (the
+  // juice) still comes back to be saved.
+  const emergency = detectEmergency(text).emergency;
+  const provider = emergency
+    ? new LocalProvider()
+    : enforceExternalConsent(params.provider, externalConsent);
 
   const req: CompletionRequest = {
     system: buildNoteStructureSystemPrompt(),
@@ -318,34 +448,22 @@ export async function parseNoteText(params: ParseNoteTextParams): Promise<ParseN
     temperature: 0.1,
   };
 
-  let json: unknown;
-  let providerId = provider.id;
-  let usedFallback = false;
-
-  try {
-    const result = await provider.complete(req);
-    json = result.json;
-    providerId = result.providerId;
-  } catch (err) {
-    if (!(err instanceof AIProviderError)) throw err;
-    const fallback = new LocalProvider();
-    const fallbackResult = await fallback.complete(req);
-    json = fallbackResult.json;
-    providerId = fallbackResult.providerId;
-    usedFallback = true;
-  }
-
-  const validated = NoteStructureSchema.safeParse(json);
-  if (validated.success) {
-    return { structure: validated.data, providerId, usedFallback };
-  }
-
-  const fallback = new LocalProvider();
-  const fallbackResult = await fallback.complete(req);
-  const reValidated = NoteStructureSchema.safeParse(fallbackResult.json);
+  const outcome = await runTask<NoteStructure>({
+    provider,
+    req,
+    externalConsent,
+    accept: (json) => {
+      const validated = NoteStructureSchema.safeParse(json);
+      if (!validated.success) return null;
+      if (!medicationNumbersAreFromInput(validated.data, text)) return null;
+      const safety = checkTextsSafety(collectStrings(validated.data), { echoSource: text });
+      return safety.safe ? validated.data : null;
+    },
+    lastResort: () => ({ candidates: [], unparsed: [text] }),
+  });
   return {
-    structure: reValidated.success ? reValidated.data : { candidates: [], unparsed: [text] },
-    providerId: fallbackResult.providerId,
-    usedFallback: true,
+    structure: outcome.value,
+    providerId: outcome.providerId,
+    usedFallback: outcome.usedFallback,
   };
 }

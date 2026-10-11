@@ -4,10 +4,12 @@
  *
  * Structured JSON output uses Chat Completions `response_format: {
  * type: 'json_schema', json_schema: { ...strict } }`, the documented way to
- * constrain OpenAI output to a JSON Schema.
+ * constrain OpenAI output to a JSON Schema. Strict mode rejects string-length
+ * keywords, so `schema-compat.ts` strips them (zod still enforces them).
+ * `max_completion_tokens` replaces the deprecated `max_tokens` (review L3).
  *
  * Never logs request or response bodies (they contain health data) — only
- * status codes and durations.
+ * status codes, durations and the API's error type.
  */
 import {
   AIProviderError,
@@ -15,9 +17,20 @@ import {
   type CompletionRequest,
   type CompletionResult,
 } from '../provider';
+import { postJson, safeErrorType } from './http';
+import { adaptSchema, OPENAI_UNSUPPORTED_KEYWORDS } from './schema-compat';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Reasoning models (gpt-5 family, o-series) reject `temperature` with a 400,
+ * so an OPENAI_MODEL override to one made every call fail and silently answer
+ * from the local engine. They get no `temperature` and run at their default.
+ */
+export function isReasoningModel(model: string): boolean {
+  return /^(gpt-5|o1|o3|o4)/.test(model.trim().toLowerCase());
+}
 
 export class OpenAIProvider implements AIProvider {
   readonly id = 'openai';
@@ -29,7 +42,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   private model(): string {
-    return process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+    return process.env.OPENAI_MODEL || 'gpt-4o-mini';
   }
 
   available(): boolean {
@@ -42,50 +55,34 @@ export class OpenAIProvider implements AIProvider {
       throw new AIProviderError(this.id, 'unavailable', 'OPENAI_API_KEY is not configured');
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    const startedAt = Date.now();
-
-    let response: Response;
-    try {
-      response = await fetch(OPENAI_API_URL, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model(),
-          temperature: req.temperature,
-          max_tokens: req.maxTokens,
-          messages: [{ role: 'system', content: req.system }, ...req.messages],
-          response_format: {
-            type: 'json_schema',
-            json_schema: {
-              name: 'structured_output',
-              strict: true,
-              schema: req.responseSchema,
-            },
+    const response = await postJson({
+      providerId: this.id,
+      displayName: 'OpenAI',
+      url: OPENAI_API_URL,
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${apiKey}`,
+      },
+      payload: {
+        model: this.model(),
+        ...(isReasoningModel(this.model()) ? {} : { temperature: req.temperature }),
+        max_completion_tokens: req.maxTokens,
+        messages: [{ role: 'system', content: req.system }, ...req.messages],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'structured_output',
+            strict: true,
+            schema: adaptSchema(req.responseSchema, { strip: OPENAI_UNSUPPORTED_KEYWORDS }),
           },
-        }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      const durationMs = Date.now() - startedAt;
-      if (err instanceof Error && err.name === 'AbortError') {
-        console.error(`[ai:openai] request timed out after ${durationMs}ms`);
-        throw new AIProviderError(this.id, 'timeout', 'OpenAI request timed out');
-      }
-      console.error(`[ai:openai] request failed after ${durationMs}ms`);
-      throw new AIProviderError(this.id, 'unknown', 'OpenAI request failed');
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    const durationMs = Date.now() - startedAt;
-    console.info(`[ai:openai] status=${response.status} durationMs=${durationMs}`);
+        },
+      },
+      timeoutMs: REQUEST_TIMEOUT_MS,
+    });
 
     if (!response.ok) {
+      const errorType = safeErrorType(response.body);
+      if (errorType) console.error(`[ai:openai] errorType=${errorType}`);
       throw new AIProviderError(
         this.id,
         'http_error',
@@ -93,15 +90,15 @@ export class OpenAIProvider implements AIProvider {
         response.status,
       );
     }
-
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch {
+    if (!response.parsed) {
       throw new AIProviderError(this.id, 'malformed_json', 'OpenAI response was not valid JSON');
     }
 
-    const text = extractMessageContent(body);
+    const message = firstMessage(response.body);
+    if (typeof message?.refusal === 'string' && message.refusal.length > 0) {
+      throw new AIProviderError(this.id, 'refused', 'OpenAI declined the request');
+    }
+    const text = message?.content ?? undefined;
     if (text === undefined) {
       throw new AIProviderError(
         this.id,
@@ -125,17 +122,16 @@ export class OpenAIProvider implements AIProvider {
   }
 }
 
-interface OpenAIChoice {
-  message?: { content?: string | null };
+interface OpenAIMessage {
+  content?: string | null;
+  refusal?: string | null;
 }
 
 interface OpenAIChatResponse {
-  choices?: OpenAIChoice[];
+  choices?: { message?: OpenAIMessage }[];
 }
 
-function extractMessageContent(body: unknown): string | undefined {
+function firstMessage(body: unknown): OpenAIMessage | undefined {
   if (!body || typeof body !== 'object') return undefined;
-  const choices = (body as OpenAIChatResponse).choices;
-  const content = choices?.[0]?.message?.content;
-  return content ?? undefined;
+  return (body as OpenAIChatResponse).choices?.[0]?.message;
 }

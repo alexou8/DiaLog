@@ -43,6 +43,7 @@ export type AIProviderErrorKind =
   | 'http_error'
   | 'malformed_json'
   | 'schema_rejected'
+  | 'refused'
   | 'unavailable'
   | 'unknown';
 
@@ -98,4 +99,30 @@ export function getProvider(preferred?: string): AIProvider {
   if (requested.available()) return requested;
   if (requestedId === 'local') return requested; // local is always "available"; defensive
   return registry.local();
+}
+
+/**
+ * The consent gate. An external provider is only ever used for a user who
+ * has consented to external processing; otherwise the local provider is
+ * returned and nothing leaves the server.
+ *
+ * Why it lives here and is re-applied inside every `lib/ai/pipeline.ts` entry
+ * point (review C1/C2, 2026-10): withdrawing consent used to change only
+ * `redactForProvider`, which strips free-text *bundle* fields. The user's
+ * question was still sent word for word, and quick-log sent meal text with no
+ * consent check at all, because the gate depended on each caller remembering
+ * it. The pipeline now requires `externalConsent` and calls this itself, so a
+ * new caller cannot skip it.
+ */
+export function enforceExternalConsent(provider: AIProvider, externalConsent: boolean): AIProvider {
+  if (provider.isExternal && !externalConsent) return getRegistry().local();
+  return provider;
+}
+
+/** `getProvider` followed by the consent gate: what a signed-in user's request should use. */
+export function resolveProviderForUser(options: {
+  preferred?: string;
+  externalConsent: boolean;
+}): AIProvider {
+  return enforceExternalConsent(getProvider(options.preferred), options.externalConsent);
 }

@@ -3,11 +3,11 @@
 import { prisma } from '@/lib/db/prisma';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { audit } from '@/lib/auth/audit';
+import { isDemoEmail } from '@/lib/auth/demo';
 import { RATE_LIMITS, rateLimit } from '@/lib/auth/rate-limit';
 import { analyzeUser, defaultWindow, toEvidenceBundle } from '@/lib/services/analytics-service';
 import { answerQuestion, parseMealText } from '@/lib/ai/pipeline';
-import { getProvider } from '@/lib/ai/provider';
-import { redactForProvider } from '@/lib/ai/redact';
+import { resolveProviderForUser } from '@/lib/ai/provider';
 import type { AssistantAnswer, MealParse } from '@/lib/ai/schemas';
 import { assistantQuestionSchema, fieldErrors, quickLogSchema } from '@/lib/validation';
 
@@ -19,6 +19,8 @@ export interface AssistantState {
   answer?: AssistantAnswer;
   providerId?: string;
   usedFallback?: boolean;
+  /** The question described a possible emergency; `answer` is the fixed safety template. */
+  emergency?: boolean;
   /** Findings the answer is allowed to cite, so the UI can show the evidence. */
   citedFindings?: {
     id: string;
@@ -27,6 +29,19 @@ export interface AssistantState {
     basis: string;
     evidenceLevel: string;
   }[];
+}
+
+/**
+ * The shared demo account never counts as consenting to external AI, even if
+ * its row carries a consent timestamp (set before granting was locked for it,
+ * see updatePreferencesAction): one visitor's consent must not send another
+ * visitor's free text to a third party.
+ */
+function hasExternalConsent(user: {
+  email: string;
+  profile: { externalAiConsentAt: Date | null };
+}): boolean {
+  return !isDemoEmail(user.email) && user.profile.externalAiConsentAt != null;
 }
 
 const DETAIL_BY_PROFILE = { SIMPLE: 'simple', STANDARD: 'standard', DETAILED: 'detailed' } as const;
@@ -63,20 +78,17 @@ export async function askAssistantAction(
   const { result } = await analyzeUser(user.id, user.profile, window);
   const bundle = toEvidenceBundle(result, user.profile, window);
 
-  const provider = getProvider(process.env.AI_PROVIDER);
-  // Free-text is stripped before anything reaches an external provider unless
-  // the user has explicitly consented.
-  const redaction = redactForProvider(
-    bundle,
-    provider.isExternal,
-    Boolean(user.profile.externalAiConsentAt),
-  );
-
+  // Without consent this resolves to the local provider, so neither the
+  // question nor anything else leaves the server. The pipeline re-applies the
+  // same gate (and the bundle redaction) itself, so this call site cannot be
+  // the only thing standing between the question and a third party.
+  const externalConsent = hasExternalConsent(user);
   const outcome = await answerQuestion({
     question: parsed.data.question,
-    bundle: redaction.bundle,
+    bundle,
     detailLevel: parsed.data.detailLevel,
-    provider,
+    provider: resolveProviderForUser({ preferred: process.env.AI_PROVIDER, externalConsent }),
+    externalConsent,
   });
 
   const cited = outcome.answer.citedFindingIds
@@ -131,6 +143,7 @@ export async function askAssistantAction(
     answer: outcome.answer,
     providerId: outcome.providerId,
     usedFallback: outcome.usedFallback,
+    emergency: outcome.emergency,
     citedFindings: cited,
   };
 }
@@ -142,6 +155,10 @@ export interface QuickLogState {
   original?: string;
   proposal?: MealParse;
   providerId?: string;
+  /** The text described a possible emergency; show `emergencyAnswer` before the proposal. */
+  emergency?: boolean;
+  /** The fixed safety template (same as the assistant's); present only when `emergency`. */
+  emergencyAnswer?: AssistantAnswer;
 }
 
 /**
@@ -166,8 +183,15 @@ export async function proposeQuickLogAction(
   const parsed = quickLogSchema.safeParse({ text: formData.get('text') });
   if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
 
-  const provider = getProvider(process.env.AI_PROVIDER);
-  const outcome = await parseMealText({ text: parsed.data.text, provider });
+  // Quick-log text is free text (a meal sentence can name medication or
+  // symptoms), so it gets the same consent gate as a question. It used to go
+  // to the external provider word for word with no consent check (review C2).
+  const externalConsent = hasExternalConsent(user);
+  const outcome = await parseMealText({
+    text: parsed.data.text,
+    provider: resolveProviderForUser({ preferred: process.env.AI_PROVIDER, externalConsent }),
+    externalConsent,
+  });
 
   await audit({ userId: user.id, action: 'ai.quick_log_parse', detail: outcome.providerId });
 
@@ -176,5 +200,7 @@ export async function proposeQuickLogAction(
     original: parsed.data.text,
     proposal: outcome.parse,
     providerId: outcome.providerId,
+    emergency: outcome.emergency,
+    ...(outcome.emergencyAnswer ? { emergencyAnswer: outcome.emergencyAnswer } : {}),
   };
 }

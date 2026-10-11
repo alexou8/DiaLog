@@ -26,6 +26,9 @@ Hard rules — never break these:
   someone to take, start, stop, increase, or decrease insulin, medication,
   or units of anything).
 - Never claim that a correlation in the data proves causation.
+- Describe a trend by its direction (rising, falling, steady, more variable),
+  never as "improving" or "worsening": a falling average is not an
+  improvement for someone who runs low.
 - Never tell someone they don't need to see a doctor, and never claim
   something is "clinically proven" or "medical-grade" — you are not a
   clinical or diagnostic tool.
@@ -70,7 +73,26 @@ const EVIDENCE_MARKER_END = '<<END_EVIDENCE_BUNDLE_JSON>>';
  * `AIProvider.complete()` interface identical for every provider.
  */
 function embedBundle(bundle: EvidenceBundle): string {
-  return `${EVIDENCE_MARKER_START}\n${JSON.stringify(bundle)}\n${EVIDENCE_MARKER_END}`;
+  return `${EVIDENCE_MARKER_START}\n${JSON.stringify(neutralTrendLabels(bundle))}\n${EVIDENCE_MARKER_END}`;
+}
+
+/**
+ * The analytics used to label a significantly falling mean "improving"
+ * (`lib/analytics/ml/trend.ts`), and the model repeated it as "your glucose
+ * is improving", a value judgment that is wrong for someone with frequent
+ * lows (review M3). The label is now "falling" at the source; this map stays
+ * as a belt-and-braces guard so a reintroduced value judgement in any
+ * `*trend*` summary key never reaches a model.
+ */
+const NEUTRAL_TREND_LABELS = new Map<string, string>([['improving', 'falling']]);
+
+function neutralTrendLabels(bundle: EvidenceBundle): EvidenceBundle {
+  const summary = { ...bundle.summary };
+  for (const [key, value] of Object.entries(summary)) {
+    const neutral = typeof value === 'string' ? NEUTRAL_TREND_LABELS.get(value) : undefined;
+    if (/trend/i.test(key) && neutral !== undefined) summary[key] = neutral;
+  }
+  return { ...bundle, summary };
 }
 
 export function buildAnswerQuestionSystemPrompt(
