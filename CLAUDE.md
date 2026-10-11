@@ -41,6 +41,13 @@ Reach for them rather than improvising:
   done for any UI change, not an optional extra.
 - `vercel-react-best-practices` — React 19 / Next.js 15 performance work.
 - `prisma-cli` — migrations, generate, seeding, studio.
+- `shadcn` — composing or adding `components/ui/` primitives. Its upstream
+  load-time CLI execution was removed when vendored; see SKILLS.md.
+- `playwright-best-practices` — any change under `tests/e2e/`, bounded by the
+  e2e rules in AGENTS.md (no retries, `workers: 1`).
+- `supabase-postgres-best-practices` — before changing the schema, an index or a
+  migration.
+- `security-and-hardening` — mandatory for auth, API-route and import changes.
 - `find-skills` — before hand-rolling a capability that probably already exists
   as a skill.
 

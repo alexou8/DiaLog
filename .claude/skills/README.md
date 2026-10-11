@@ -15,12 +15,42 @@ project source.
 | `ui-ux-pro-max` | `nextlevelbuilder/ui-ux-pro-max-skill` | Searchable local data for palettes, typography, motion, charts and layout. |
 | `accessibility` | `addyosmani/web-quality-skills` | WCAG 2.2 auditing. DiaLog is an accessibility-first product with an axe-core e2e suite, so this is load-bearing, not optional. |
 | `prisma-cli` | `prisma/skills` | Prisma CLI reference — this repo drives migrations, generate and seeding through it constantly. |
+| `shadcn` | `shadcn-ui/ui` | The official shadcn/ui skill (369K installs, 125K stars). `components.json` is committed and `components/ui/` is built from shadcn primitives over Radix, so composition, forms, styling and icon rules apply directly. **Patched when vendored — see below.** |
+| `playwright-best-practices` | `currents-dev/playwright-best-practices-skill` | Playwright e2e practice: flaky tests, auth, page objects, axe-core, offline/service workers, CI. Matches the Playwright + axe suite. Below the 1K-star bar (92K installs, ~395 stars, vendor Currents.dev) but accepted: 63 Markdown files and no executables. |
+| `supabase-postgres-best-practices` | `supabase/agent-skills` | Generic Postgres schema, index, query, pooling and migration rules ("Postgres anywhere" — most of it is not Supabase-specific). Complements `prisma-cli`, which covers the CLI only. |
+| `security-and-hardening` | `addyosmani/agent-skills` | OWASP-oriented review: trust boundaries, input validation, authN/Z, headers, secrets, dependency audit. Nothing else vendored covers security, and this app holds personal health data. |
+
+## Patched when vendored
+
+Vendored skills are third-party content and are not hand-edited. There is one
+deliberate, recorded exception:
+
+- **`shadcn`** — `SKILL.md` was patched. Upstream ran `npx shadcn@latest info
+  --json` at skill-load time through a `!` shell directive, and pre-approved
+  every `shadcn@latest` subcommand through `allowed-tools`. Both were removed:
+  this repository handles health data and must not execute an unpinned npm
+  package implicitly, or pre-approve one, on behalf of a third party. The patch
+  leaves an HTML comment in `SKILL.md` saying so, and the instruction to run the
+  command by hand. **Re-apply it after every update of this skill**, and expect
+  `skills-lock.json`'s hash for it to differ from a fresh upstream copy.
+
+Every other skill is what the CLI installed (line endings aside).
 
 ## Updating
 
+Update one skill at a time by re-adding it with `--copy`:
+
 ```bash
-npx skills update
+npx skills add <owner/repo@skill> --agent claude-code --copy -y
 ```
+
+Do **not** run `npx skills update` or `npx skills check` in this repository.
+Both replace the copied skill directories with symlinks into `.agents/skills`
+(absolute `C:\` paths on Windows) and rewrite `skills-lock.json`, which breaks
+the `--copy` convention below; the symlinks do not work in a fresh clone or in
+CI. If it has already happened, `git checkout -- .claude/skills
+skills-lock.json` undoes it. Vendored files are CRLF on Windows, so a re-add
+also changes the recorded hash without changing the content.
 
 ## Adding one
 
