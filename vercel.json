@@ -3,6 +3,7 @@
   "framework": "nextjs",
   "buildCommand": "prisma generate && if [ \"$VERCEL_ENV\" = \"production\" ]; then prisma migrate deploy; fi && next build",
   "installCommand": "npm ci",
+  "git": { "deploymentEnabled": { "dependabot/**": false } },
   "regions": ["iad1"],
   "headers": [
     {
