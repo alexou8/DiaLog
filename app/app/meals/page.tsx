@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/prisma';
 import { dayKeyInZone } from '@/lib/domain/time';
 import { Badge, ButtonLink, Card, CardHeader, EmptyState, Icon, PageHeader } from '@/components/ui';
 import { BarChart, type Bar } from '@/components/charts/BarChart';
-import { DeleteRecordButton } from './DeleteRecordButton';
+import { DeleteRecordButton } from '@/components/records/DeleteRecordButton';
 
 export const metadata: Metadata = { title: 'Meals' };
 export const dynamic = 'force-dynamic';
@@ -69,6 +69,16 @@ export default async function MealsPage() {
   });
   const timeFmt = new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  // Names a record in its delete control, so it needs the date as well as the
+  // time that the day heading above the row leaves out.
+  const labelFmt = new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    month: 'short',
+    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -158,7 +168,13 @@ export default async function MealsPage() {
                       <p className="mt-1 text-sm text-ink-muted">{formatMacros(meal)}</p>
                       {meal.note ? <p className="mt-1 text-sm">{meal.note}</p> : null}
                     </div>
-                    <DeleteRecordButton type="meal" id={meal.id} label="this meal" />
+                    <DeleteRecordButton
+                      type="meal"
+                      id={meal.id}
+                      noun="meal"
+                      when={labelFmt.format(meal.takenAt)}
+                      detail={meal.description}
+                    />
                   </li>
                 ))}
               </ul>

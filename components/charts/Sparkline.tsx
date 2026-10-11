@@ -1,3 +1,4 @@
+import { maxOf, minOf } from '@/lib/domain/units';
 import { linearScale } from './primitives';
 
 /**
@@ -14,8 +15,9 @@ export function Sparkline({
   height?: number;
 }) {
   if (values.length < 2) return null;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  // Loop-based: spreading a long series into Math.min/max throws a RangeError.
+  const min = minOf(values) ?? 0;
+  const max = maxOf(values) ?? 0;
   const x = linearScale([0, values.length - 1], [1, width - 1]);
   const y = linearScale(
     [min === max ? min - 1 : min, max === min ? max + 1 : max],

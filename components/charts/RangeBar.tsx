@@ -1,3 +1,4 @@
+import { Icon, isIconName, type IconName } from '@/components/ui/icon';
 import { ChartFrame } from './primitives';
 
 export interface RangeSlice {
@@ -7,6 +8,16 @@ export interface RangeSlice {
   tone: 'critical' | 'caution' | 'positive' | 'notice';
   /** Redundant non-colour cue. */
   icon: string;
+}
+
+/**
+ * The band icons from lib/domain/thresholds.ts use `check` where the icon
+ * registry says `ok`. Mapped here so the legend draws the glyph; it used to
+ * print the raw key, so the legend read "alert Well below your target range".
+ */
+function legendIcon(key: string): IconName | null {
+  if (key === 'check') return 'ok';
+  return isIconName(key) ? key : null;
 }
 
 const TONE_FILL: Record<RangeSlice['tone'], string> = {
@@ -52,7 +63,9 @@ export function RangeBar({ slices, total }: { slices: RangeSlice[]; total: numbe
                   className="inline-block h-3 w-3 rounded-sm"
                   style={{ background: TONE_FILL[s.tone] }}
                 />
-                <span aria-hidden="true">{s.icon}</span>
+                {legendIcon(s.icon) ? (
+                  <Icon name={legendIcon(s.icon)!} className="shrink-0" />
+                ) : null}
                 <span>
                   {s.label}: <strong className="tabular-nums">{Math.round(pct(s.count))}%</strong>{' '}
                   <span className="text-ink-muted">({s.count})</span>
@@ -76,6 +89,12 @@ export function RangeBar({ slices, total }: { slices: RangeSlice[]; total: numbe
                 width={Math.max(0, w)}
                 height={28}
                 fill={TONE_FILL[s.tone]}
+                // A gap between segments, so neighbouring bands whose fills
+                // are close (critical and caution measure 1.2:1) still read as
+                // separate blocks; the legend's icons and words carry which.
+                stroke="var(--color-surface)"
+                strokeWidth={3}
+                vectorEffect="non-scaling-stroke"
               >
                 <title>{`${s.label}: ${s.count} readings (${pct(s.count).toFixed(0)}%)`}</title>
               </rect>

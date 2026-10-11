@@ -17,7 +17,7 @@ import {
   ML_PER_FL_OZ,
 } from '@/lib/domain/units';
 import { zonedDateToUtc } from '@/lib/domain/time';
-import { deleteOwnedRecord, isRecordType } from '@/lib/db/health-records';
+import { deleteOwnedRecord, isDeletableRecordType } from '@/lib/db/health-records';
 import {
   bloodPressureEntrySchema,
   exerciseEntrySchema,
@@ -36,7 +36,51 @@ export interface RecordActionState {
   ok: boolean;
   message?: string;
   errors?: Record<string, string>;
+  /**
+   * The submitted form, echoed back whenever a save is refused. Without it a
+   * person submitting without JavaScript (or before hydration) got a fresh,
+   * empty form back along with the error, and had to retype a reading they
+   * had just typed. Only ever returned to the person who submitted it; never
+   * logged.
+   */
+  values?: Record<string, string | string[]>;
 }
+
+/** String fields only: files are never echoed, nor Next's own `$ACTION_*` keys. */
+function submittedValues(formData: FormData): Record<string, string | string[]> {
+  const out: Record<string, string | string[]> = {};
+  for (const [key, value] of formData) {
+    if (typeof value !== 'string' || key.startsWith('$')) continue;
+    const existing = out[key];
+    out[key] =
+      existing === undefined
+        ? value
+        : Array.isArray(existing)
+          ? [...existing, value]
+          : [existing, value];
+  }
+  return out;
+}
+
+function rejected(
+  formData: FormData,
+  problem: { errors?: Record<string, string>; message?: string },
+): RecordActionState {
+  return { ok: false, ...problem, values: submittedValues(formData) };
+}
+
+/**
+ * Quick-log saves several suggested entries from one page, one card at a
+ * time. Redirecting after the first one navigated away and threw the other
+ * suggestions away, so its forms ask for an in-place result instead. The
+ * field is only added once the page has hydrated; without JavaScript the
+ * ordinary redirect still happens, because there is no client state to keep.
+ */
+function wantsInlineResult(formData: FormData): boolean {
+  return formData.get('_result') === 'inline';
+}
+
+const SAVED_INLINE: RecordActionState = { ok: true, message: 'Saved.' };
 
 const DUPLICATE_MESSAGE =
   'You already have a record at that time with the same value, so nothing was added. Change the time if this is a separate entry.';
@@ -67,28 +111,26 @@ export async function addGlucoseAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = glucoseEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const { value, unit, takenAt, context, note } = parsed.data;
   if (!isPlausibleGlucose(value, unit as GlucoseUnit)) {
     const bounds = GLUCOSE_ENTRY_BOUNDS[unit as GlucoseUnit];
-    return {
-      ok: false,
+    return rejected(formData, {
       errors: {
         value: `Please enter a reading between ${bounds.min} and ${bounds.max} ${unitLabel(unit as GlucoseUnit)}. If that is really your reading, please double-check the unit.`,
       },
-    };
+    });
   }
 
   const when = zonedDateToUtc(takenAt, user.profile.timezone);
   if (when.getTime() > Date.now() + 60_000) {
-    return {
-      ok: false,
+    return rejected(formData, {
       errors: { takenAt: 'That time is in the future. Please check the date and time.' },
-    };
+    });
   }
 
   const valueMgdl = toMgdl(value, unit as GlucoseUnit);
@@ -105,7 +147,7 @@ export async function addGlucoseAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 
@@ -121,10 +163,10 @@ export async function addMealAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = mealEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const d = parsed.data;
   const when = zonedDateToUtc(d.takenAt, user.profile.timezone);
@@ -148,13 +190,14 @@ export async function addMealAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 
   await audit({ userId: user.id, action: 'record.create', entity: 'meal' });
   revalidatePath('/app');
   revalidatePath('/app/meals');
+  if (wantsInlineResult(formData)) return SAVED_INLINE;
   redirect('/app/meals?added=1');
 }
 
@@ -164,10 +207,10 @@ export async function addExerciseAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = exerciseEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const d = parsed.data;
   const when = zonedDateToUtc(d.takenAt, user.profile.timezone);
@@ -192,13 +235,14 @@ export async function addExerciseAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 
   await audit({ userId: user.id, action: 'record.create', entity: 'exercise' });
   revalidatePath('/app');
   revalidatePath('/app/activity');
+  if (wantsInlineResult(formData)) return SAVED_INLINE;
   redirect('/app/activity?added=1');
 }
 
@@ -208,22 +252,23 @@ export async function addSleepAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = sleepEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const start = zonedDateToUtc(parsed.data.takenAt, user.profile.timezone);
   const end = zonedDateToUtc(parsed.data.endedAt, user.profile.timezone);
   if (end.getTime() <= start.getTime()) {
-    return { ok: false, errors: { endedAt: 'The wake-up time needs to be after the bedtime.' } };
+    return rejected(formData, {
+      errors: { endedAt: 'The wake-up time needs to be after the bedtime.' },
+    });
   }
   const durationMin = Math.round((end.getTime() - start.getTime()) / 60_000);
   if (durationMin > 24 * 60) {
-    return {
-      ok: false,
+    return rejected(formData, {
       errors: { endedAt: 'That is more than 24 hours. Please check the dates.' },
-    };
+    });
   }
 
   try {
@@ -239,7 +284,7 @@ export async function addSleepAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 
@@ -255,10 +300,10 @@ export async function addMedicationAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = medicationEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const d = parsed.data;
   const when = zonedDateToUtc(d.takenAt, user.profile.timezone);
@@ -277,7 +322,7 @@ export async function addMedicationAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 
@@ -292,15 +337,15 @@ export async function addWeightAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = weightEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const when = zonedDateToUtc(parsed.data.takenAt, user.profile.timezone);
   const weightKg = parsed.data.unit === 'LB' ? parsed.data.weight * KG_PER_LB : parsed.data.weight;
   if (weightKg < 20 || weightKg > 400) {
-    return { ok: false, errors: { weight: 'Please check that number and the unit.' } };
+    return rejected(formData, { errors: { weight: 'Please check that number and the unit.' } });
   }
 
   try {
@@ -314,7 +359,7 @@ export async function addWeightAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 
@@ -329,17 +374,16 @@ export async function addBloodPressureAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = bloodPressureEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const d = parsed.data;
   if (d.diastolic >= d.systolic) {
-    return {
-      ok: false,
+    return rejected(formData, {
       errors: { diastolic: 'The lower number needs to be smaller than the upper number.' },
-    };
+    });
   }
   const when = zonedDateToUtc(d.takenAt, user.profile.timezone);
 
@@ -361,7 +405,7 @@ export async function addBloodPressureAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 
@@ -376,10 +420,10 @@ export async function addMoodAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = moodEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const when = zonedDateToUtc(parsed.data.takenAt, user.profile.timezone);
   try {
@@ -394,7 +438,7 @@ export async function addMoodAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 
@@ -408,14 +452,23 @@ export async function deleteRecordAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const type = String(formData.get('type') ?? '');
   const id = String(formData.get('id') ?? '');
-  if (!isRecordType(type) || !id) return;
+  // Deletable, not merely known: hydration and symptom entries used to be
+  // refused here, so those privacy-sensitive notes could never be removed.
+  if (!isDeletableRecordType(type) || !id) return;
 
   const deleted = await deleteOwnedRecord(user.id, type, id);
   if (deleted)
     await audit({ userId: user.id, action: 'record.delete', entity: type, entityId: id });
 
+  // Every page that lists records now carries the shared delete control, so
+  // each of them has to refresh; revalidating only History and Home left a
+  // deleted meal still showing on /app/meals until the next navigation.
   revalidatePath('/app/history');
   revalidatePath('/app');
+  revalidatePath('/app/glucose');
+  revalidatePath('/app/meals');
+  revalidatePath('/app/activity');
+  revalidatePath('/app/health');
 }
 
 export async function addHydrationAction(
@@ -424,17 +477,17 @@ export async function addHydrationAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = hydrationEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const when = zonedDateToUtc(parsed.data.takenAt, user.profile.timezone);
   // Canonical storage is millilitres; cups and fluid ounces are entry conveniences.
   const perUnit = { ML: 1, CUP: 250, FL_OZ: ML_PER_FL_OZ };
   const volumeMl = Math.round(parsed.data.volume * perUnit[parsed.data.unit]);
   if (volumeMl < 1 || volumeMl > 10_000) {
-    return { ok: false, errors: { volume: 'Please check that amount and the unit.' } };
+    return rejected(formData, { errors: { volume: 'Please check that amount and the unit.' } });
   }
 
   try {
@@ -447,7 +500,7 @@ export async function addHydrationAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 
@@ -462,10 +515,10 @@ export async function addSymptomAction(
 ): Promise<RecordActionState> {
   const user = await requireUser();
   const limited = await guardWrites(user.id);
-  if (limited) return limited;
+  if (limited) return rejected(formData, limited);
 
   const parsed = symptomEntrySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, errors: fieldErrors(parsed.error) };
+  if (!parsed.success) return rejected(formData, { errors: fieldErrors(parsed.error) });
 
   const when = zonedDateToUtc(parsed.data.takenAt, user.profile.timezone);
   try {
@@ -485,7 +538,7 @@ export async function addSymptomAction(
       },
     });
   } catch (error) {
-    if (isUniqueViolation(error)) return { ok: false, message: DUPLICATE_MESSAGE };
+    if (isUniqueViolation(error)) return rejected(formData, { message: DUPLICATE_MESSAGE });
     throw error;
   }
 

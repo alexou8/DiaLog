@@ -5,9 +5,9 @@
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#f7f6f2",
-  "theme_color": "#155e69",
+  "theme_color": "#f7f6f2",
   "categories": ["health", "medical", "lifestyle"],
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

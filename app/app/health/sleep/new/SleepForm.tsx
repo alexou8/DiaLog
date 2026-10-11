@@ -1,11 +1,9 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { addSleepAction, type RecordActionState } from '@/lib/actions/records';
 import { toLocalInputValue } from '@/lib/domain/time';
-import { Button } from '@/components/ui';
-import { Field, FormStatus, RadioCards, TextInput } from '@/components/ui/form';
+import { ActionForm, Field, RadioCards, SubmitButton, TextInput } from '@/components/ui/form';
 
 const QUALITY_OPTIONS: {
   value: '1' | '2' | '3' | '4' | '5';
@@ -19,26 +17,26 @@ const QUALITY_OPTIONS: {
   { value: '5', label: '5: Excellent', description: 'Deep, uninterrupted sleep' },
 ];
 
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending ? 'Saving…' : 'Save sleep'}
-    </Button>
-  );
-}
-
 export function SleepForm({ timezone }: { timezone: string }) {
-  const [state, action] = useActionState<RecordActionState | null, FormData>(addSleepAction, null);
+  const [state, action, pending] = useActionState<RecordActionState | null, FormData>(
+    addSleepAction,
+    null,
+  );
   const now = toLocalInputValue(new Date(), timezone);
 
   return (
-    <form action={action} noValidate>
-      <FormStatus
-        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
-      />
-
-      <Field label="Bedtime" required error={state?.errors?.takenAt} htmlFor="takenAt">
+    <ActionForm
+      action={action}
+      state={state}
+      pending={pending}
+      labels={{
+        takenAt: 'Bedtime',
+        endedAt: 'Wake time',
+        note: 'Note',
+        quality: 'Sleep quality',
+      }}
+    >
+      <Field label="Bedtime" required name="takenAt">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -52,7 +50,7 @@ export function SleepForm({ timezone }: { timezone: string }) {
         )}
       </Field>
 
-      <Field label="Wake time" required error={state?.errors?.endedAt} htmlFor="endedAt">
+      <Field label="Wake time" required name="endedAt">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -74,7 +72,7 @@ export function SleepForm({ timezone }: { timezone: string }) {
         columns={1}
       />
 
-      <Field label="Note" error={state?.errors?.note} htmlFor="note">
+      <Field label="Note" name="note">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -86,7 +84,7 @@ export function SleepForm({ timezone }: { timezone: string }) {
         )}
       </Field>
 
-      <Submit />
-    </form>
+      <SubmitButton className="w-full sm:w-auto">Save sleep</SubmitButton>
+    </ActionForm>
   );
 }

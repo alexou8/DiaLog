@@ -43,6 +43,51 @@ export function ticks(min: number, max: number, count = 4): number[] {
   return out;
 }
 
+/** A position in viewBox units as a percentage of the box, for HTML overlays. */
+export function pct(value: number, total: number): string {
+  return `${((value / total) * 100).toFixed(3)}%`;
+}
+
+/**
+ * Why chart text is HTML laid over the SVG rather than SVG <text>.
+ *
+ * Every chart draws in a fixed 720-unit viewBox scaled to its container. On a
+ * 343px phone that scale is 0.48, so `fontSize="12"` rendered at about 5.7px,
+ * and because SVG user units ignore the root font size, the larger-text
+ * setting did nothing to it. HTML labels positioned by percentage sit at the
+ * same coordinates (the SVG keeps its aspect ratio, so x/W and y/H map
+ * exactly), stay at `text-xs` (12px, more with larger text) on every screen,
+ * and reach axe's contrast check like any other text. Only marks, lines and
+ * fills stay in the SVG.
+ */
+export function AxisLabel({
+  x,
+  y,
+  align = 'center',
+  vAlign = 'middle',
+  className,
+  children,
+}: {
+  /** Percentage strings from `pct`, or omitted to pin to that edge. */
+  x?: string;
+  y?: string;
+  align?: 'start' | 'center' | 'end';
+  vAlign?: 'top' | 'middle';
+  className?: string;
+  children: ReactNode;
+}) {
+  const translateX = align === 'center' ? '-50%' : align === 'end' ? '-100%' : '0';
+  const translateY = vAlign === 'middle' ? '-50%' : '0';
+  return (
+    <span
+      className={`absolute whitespace-nowrap leading-none ${className ?? ''}`}
+      style={{ left: x, top: y, transform: `translate(${translateX}, ${translateY})` }}
+    >
+      {children}
+    </span>
+  );
+}
+
 /**
  * Wrapper providing the accessible contract shared by every chart: a caption,
  * a text summary announced to assistive technology, and a collapsible data

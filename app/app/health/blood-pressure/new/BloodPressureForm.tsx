@@ -1,41 +1,32 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { addBloodPressureAction, type RecordActionState } from '@/lib/actions/records';
 import { toLocalInputValue } from '@/lib/domain/time';
-import { Button } from '@/components/ui';
-import { Field, FormStatus, TextInput } from '@/components/ui/form';
-
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending ? 'Saving…' : 'Save blood pressure'}
-    </Button>
-  );
-}
+import { ActionForm, Field, SubmitButton, TextInput } from '@/components/ui/form';
 
 export function BloodPressureForm({ timezone }: { timezone: string }) {
-  const [state, action] = useActionState<RecordActionState | null, FormData>(
+  const [state, action, pending] = useActionState<RecordActionState | null, FormData>(
     addBloodPressureAction,
     null,
   );
   const now = toLocalInputValue(new Date(), timezone);
 
   return (
-    <form action={action} noValidate>
-      <FormStatus
-        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
-      />
-
+    <ActionForm
+      action={action}
+      state={state}
+      pending={pending}
+      labels={{
+        systolic: 'Upper number (systolic)',
+        diastolic: 'Lower number (diastolic)',
+        pulse: 'Pulse',
+        takenAt: 'When',
+        note: 'Note',
+      }}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Upper number (systolic)"
-          required
-          error={state?.errors?.systolic}
-          htmlFor="systolic"
-        >
+        <Field label="Upper number (systolic)" required name="systolic">
           {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
@@ -51,12 +42,7 @@ export function BloodPressureForm({ timezone }: { timezone: string }) {
             />
           )}
         </Field>
-        <Field
-          label="Lower number (diastolic)"
-          required
-          error={state?.errors?.diastolic}
-          htmlFor="diastolic"
-        >
+        <Field label="Lower number (diastolic)" required name="diastolic">
           {({ id, describedBy, invalid }) => (
             <TextInput
               id={id}
@@ -74,7 +60,7 @@ export function BloodPressureForm({ timezone }: { timezone: string }) {
         </Field>
       </div>
 
-      <Field label="Pulse" error={state?.errors?.pulse} htmlFor="pulse" hint="beats per minute">
+      <Field label="Pulse" name="pulse" hint="beats per minute">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -90,7 +76,7 @@ export function BloodPressureForm({ timezone }: { timezone: string }) {
         )}
       </Field>
 
-      <Field label="When" required error={state?.errors?.takenAt} htmlFor="takenAt">
+      <Field label="When" required name="takenAt">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -104,7 +90,7 @@ export function BloodPressureForm({ timezone }: { timezone: string }) {
         )}
       </Field>
 
-      <Field label="Note" error={state?.errors?.note} htmlFor="note">
+      <Field label="Note" name="note">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -116,7 +102,7 @@ export function BloodPressureForm({ timezone }: { timezone: string }) {
         )}
       </Field>
 
-      <Submit />
-    </form>
+      <SubmitButton className="w-full sm:w-auto">Save blood pressure</SubmitButton>
+    </ActionForm>
   );
 }

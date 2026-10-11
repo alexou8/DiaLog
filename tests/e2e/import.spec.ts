@@ -82,7 +82,8 @@ test.describe('import', () => {
     // Exactly the file's glucose rows were added, and they carry their origin.
     const afterFirstImport = await countRecordRows(page, '/app/history?type=glucose'); // navigates to history
     expect(afterFirstImport).toBe(before + GLUCOSE_ROWS_IN_SAMPLE);
-    await expect(page.getByText(/Imported from sample_logs\.csv via /i).first()).toBeVisible();
+    // Provenance reads "Imported from <connector> (<file name>)".
+    await expect(page.getByText(/Imported from .+ \(sample_logs\.csv\)/i).first()).toBeVisible();
 
     // Re-uploading the very same file reports every row as a duplicate and
     // adds nothing.

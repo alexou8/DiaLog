@@ -1,12 +1,11 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { useFormStatus } from 'react-dom';
 import type { Profile } from '@prisma/client';
 import { updatePreferencesAction, type ActionState } from '@/lib/actions/preferences';
 import { fromMgdl, toMgdl, unitLabel, unitPrecision } from '@/lib/domain/units';
-import { Button, Callout } from '@/components/ui';
-import { Field, FormStatus, RadioCards, TextInput } from '@/components/ui/form';
+import { Callout } from '@/components/ui';
+import { ActionForm, Field, RadioCards, SubmitButton, TextInput } from '@/components/ui/form';
 import { HiddenBool } from './HiddenBool';
 
 type Unit = Profile['glucoseUnit'];
@@ -15,17 +14,8 @@ function formatForUnit(mgdl: number, unit: Unit): string {
   return fromMgdl(mgdl, unit).toFixed(unitPrecision(unit));
 }
 
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? 'Saving…' : 'Save units and targets'}
-    </Button>
-  );
-}
-
 export function UnitsForm({ profile }: { profile: Profile }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(
+  const [state, action, pending] = useActionState<ActionState | null, FormData>(
     updatePreferencesAction,
     null,
   );
@@ -50,15 +40,17 @@ export function UnitsForm({ profile }: { profile: Profile }) {
   const step = unitPrecision(unit) === 0 ? '1' : '0.1';
 
   return (
-    <form
+    <ActionForm
       action={action}
-      noValidate
+      state={state}
+      pending={pending}
       className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6"
+      labels={{
+        targetLow: 'Low end',
+        targetHigh: 'High end',
+        glucoseUnit: 'How glucose numbers are shown',
+      }}
     >
-      <FormStatus
-        status={state && state.message ? { ok: state.ok, message: state.message } : null}
-      />
-
       <div onChange={handleUnitChange}>
         <RadioCards
           name="glucoseUnit"
@@ -81,7 +73,7 @@ export function UnitsForm({ profile }: { profile: Profile }) {
           stored.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={`Low end (${unitLabel(unit)})`} required error={state?.errors?.targetLow}>
+          <Field label={`Low end (${unitLabel(unit)})`} required name="targetLow">
             {({ id, describedBy, invalid }) => (
               <TextInput
                 id={id}
@@ -97,7 +89,7 @@ export function UnitsForm({ profile }: { profile: Profile }) {
               />
             )}
           </Field>
-          <Field label={`High end (${unitLabel(unit)})`} required error={state?.errors?.targetHigh}>
+          <Field label={`High end (${unitLabel(unit)})`} required name="targetHigh">
             {({ id, describedBy, invalid }) => (
               <TextInput
                 id={id}
@@ -132,8 +124,8 @@ export function UnitsForm({ profile }: { profile: Profile }) {
       <HiddenBool name="externalAiConsent" value={profile.externalAiConsentAt != null} />
 
       <div className="mt-5">
-        <Submit />
+        <SubmitButton>Save units and targets</SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

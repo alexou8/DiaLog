@@ -1,34 +1,21 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { signUpAction, type ActionState } from '@/lib/actions/auth';
-import { Button } from '@/components/ui';
-import { Field, FormStatus, TextInput } from '@/components/ui/form';
-
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Creating your account…' : 'Create account'}
-    </Button>
-  );
-}
+import { ActionForm, Field, SubmitButton, TextInput } from '@/components/ui/form';
 
 export function SignUpForm() {
-  const [state, action] = useActionState<ActionState | null, FormData>(signUpAction, null);
+  const [state, action, pending] = useActionState<ActionState | null, FormData>(signUpAction, null);
 
   return (
-    <form action={action} className="mt-8" noValidate>
-      <FormStatus
-        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
-      />
-
-      <Field
-        label="Your name"
-        hint="Used to greet you. You can leave it blank."
-        error={state?.errors?.displayName}
-      >
+    <ActionForm
+      action={action}
+      state={state}
+      pending={pending}
+      className="mt-8"
+      labels={{ displayName: 'Your name', email: 'Email address', password: 'Password' }}
+    >
+      <Field label="Your name" hint="Used to greet you. You can leave it blank." name="displayName">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -40,7 +27,7 @@ export function SignUpForm() {
         )}
       </Field>
 
-      <Field label="Email address" required error={state?.errors?.email}>
+      <Field label="Email address" required name="email">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -58,8 +45,8 @@ export function SignUpForm() {
       <Field
         label="Password"
         required
-        hint="At least 10 characters. A short phrase you will remember is stronger than a short jumble."
-        error={state?.errors?.password}
+        hint="10 to 72 characters (a little fewer with accented letters or emoji). A short phrase you will remember is stronger than a short jumble."
+        name="password"
       >
         {({ id, describedBy, invalid }) => (
           <TextInput
@@ -69,17 +56,21 @@ export function SignUpForm() {
             required
             autoComplete="new-password"
             minLength={10}
+            // Characters, not bytes; see reset-password-form.tsx.
+            maxLength={72}
             aria-describedby={describedBy}
             invalid={invalid}
           />
         )}
       </Field>
 
-      <Submit />
+      <SubmitButton className="w-full" pendingLabel="Creating your account…">
+        Create account
+      </SubmitButton>
       <p className="mt-4 text-sm text-ink-muted">
         By creating an account you agree to the terms of use. DiaLog does not provide medical
         advice.
       </p>
-    </form>
+    </ActionForm>
   );
 }

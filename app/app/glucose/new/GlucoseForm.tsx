@@ -1,11 +1,16 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import type { GlucoseUnit } from '@prisma/client';
 import { addGlucoseAction, type RecordActionState } from '@/lib/actions/records';
-import { Button } from '@/components/ui';
-import { Field, FormStatus, RadioCards, TextArea, TextInput } from '@/components/ui/form';
+import {
+  ActionForm,
+  Field,
+  RadioCards,
+  SubmitButton,
+  TextArea,
+  TextInput,
+} from '@/components/ui/form';
 
 const CONTEXTS = [
   { value: 'FASTING', label: 'Fasting', description: 'First thing, before eating' },
@@ -14,15 +19,6 @@ const CONTEXTS = [
   { value: 'BEDTIME', label: 'At bedtime' },
   { value: 'RANDOM', label: 'Any other time' },
 ] as const;
-
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full text-lg" disabled={pending}>
-      {pending ? 'Saving…' : 'Save reading'}
-    </Button>
-  );
-}
 
 export function GlucoseForm({
   unit,
@@ -35,24 +31,27 @@ export function GlucoseForm({
   defaultTime: string;
   targetHint: string;
 }) {
-  const [state, action] = useActionState<RecordActionState | null, FormData>(
+  const [state, action, pending] = useActionState<RecordActionState | null, FormData>(
     addGlucoseAction,
     null,
   );
+  const readingLabel = `Your reading (${unitLabel})`;
 
   return (
-    <form action={action} noValidate>
-      <FormStatus
-        status={state && !state.ok && state.message ? { ok: false, message: state.message } : null}
-      />
+    <ActionForm
+      action={action}
+      state={state}
+      pending={pending}
+      labels={{
+        value: readingLabel,
+        takenAt: 'When was it taken?',
+        context: 'What was happening around then?',
+        note: 'Note',
+      }}
+    >
       <input type="hidden" name="unit" value={unit} />
 
-      <Field
-        label={`Your reading (${unitLabel})`}
-        required
-        hint={targetHint}
-        error={state?.errors?.value}
-      >
+      <Field label={readingLabel} required hint={targetHint} name="value">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -61,15 +60,17 @@ export function GlucoseForm({
             step={unit === 'MMOLL' ? '0.1' : '1'}
             inputMode="decimal"
             required
-            autoFocus
-            className="text-2xl"
+            // Only on a fresh form. After a failed save, focus belongs to the
+            // error summary, not back on the first field.
+            autoFocus={!state}
+            className="dl-numeric text-2xl"
             aria-describedby={describedBy}
             invalid={invalid}
           />
         )}
       </Field>
 
-      <Field label="When was it taken?" required error={state?.errors?.takenAt}>
+      <Field label="When was it taken?" required name="takenAt">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -95,7 +96,7 @@ export function GlucoseForm({
       <Field
         label="A note, if you want one"
         hint="For example: “felt shaky”, or “after a long walk”."
-        error={state?.errors?.note}
+        name="note"
       >
         {({ id, describedBy, invalid }) => (
           <TextArea
@@ -109,7 +110,7 @@ export function GlucoseForm({
         )}
       </Field>
 
-      <Submit />
-    </form>
+      <SubmitButton className="w-full text-lg">Save reading</SubmitButton>
+    </ActionForm>
   );
 }

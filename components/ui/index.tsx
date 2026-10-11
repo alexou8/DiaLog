@@ -332,7 +332,9 @@ export function Stat({
         {value}
         {unit ? <span className="ml-1.5 text-base font-medium tracking-normal">{unit}</span> : null}
       </p>
-      {hint ? <p className="mt-2 text-sm opacity-90">{hint}</p> : null}
+      {/* Full opacity: the old `opacity-90` took the notice tone to 4.15:1,
+          under the 4.5:1 small text needs. */}
+      {hint ? <p className="mt-2 text-sm">{hint}</p> : null}
     </div>
   );
 }

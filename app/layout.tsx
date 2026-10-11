@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { getCurrentUser } from '@/lib/auth/current-user';
 import { PreferencesScript } from '@/components/PreferencesScript';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
+import { THEME_COLORS } from '@/components/theme';
 
 // Resolve the canonical origin. `NEXT_PUBLIC_APP_URL` may be present but empty
 // on Vercel, so fall back through the deployment URL before localhost.
@@ -47,25 +47,36 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f7f6f2' },
-    { media: '(prefers-color-scheme: dark)', color: '#14181f' },
+    // Initial values for the OS scheme. THEME_SCRIPT rewrites both to the
+    // in-app choice before paint, so a Dark choice on a light-mode phone
+    // still gets a dark browser bar.
+    { media: '(prefers-color-scheme: light)', color: THEME_COLORS.light },
+    { media: '(prefers-color-scheme: dark)', color: THEME_COLORS.dark },
   ],
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const user = await getCurrentUser();
-  const profile = user?.profile;
-
+/**
+ * The root layout reads no session, on purpose. It used to call
+ * `getCurrentUser()` for the language and the text-size and motion
+ * preferences, and reading cookies here made every route dynamic: each
+ * anonymous visit to `/`, `/privacy` or `/help` cost a database query and
+ * could not be served from a CDN. Account preferences are now applied by the
+ * signed-in shell (app/app/layout.tsx → AccountPreferences), the only place
+ * they were ever needed.
+ *
+ * `lang` is the language the interface actually renders, not the locale
+ * preference. Only the navigation chrome has a French translation (see
+ * lib/i18n/dictionaries.ts); declaring `fr-CA` on pages that are about 95%
+ * English made screen readers read every English sentence with a French
+ * voice (WCAG 3.1.1). The translated chrome marks itself `lang="fr-CA"`
+ * instead, and the locale preference still drives number and date formatting.
+ */
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang={profile?.locale.startsWith('fr') ? 'fr-CA' : 'en-CA'}
-      data-text={profile?.largeText ? 'large' : undefined}
-      data-motion={profile?.reduceMotion ? 'reduced' : undefined}
-      suppressHydrationWarning
-    >
+    <html lang="en-CA" suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
         <PreferencesScript />
         {children}

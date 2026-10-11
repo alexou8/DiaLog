@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { requireOnboardedUser } from '@/lib/auth/current-user';
 import { getProvider } from '@/lib/ai/provider';
 import { recordCounts } from '@/lib/db/health-records';
-import { Icon, PageHeader } from '@/components/ui';
+import { Callout, Icon, PageHeader } from '@/components/ui';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UnitsForm } from './UnitsForm';
 import { RegionForm } from './RegionForm';
@@ -13,6 +13,7 @@ import { ConnectedAccounts } from './ConnectedAccounts';
 import { prisma } from '@/lib/db/prisma';
 import { isGoogleEnabled } from '@/lib/auth/oauth/google';
 import { oauthMessage } from '@/lib/auth/oauth/link';
+import { DEMO_READ_ONLY_MESSAGE } from '@/lib/auth/demo';
 import {
   ChangePasswordForm,
   SignOutEverywhereForm,
@@ -135,7 +136,12 @@ export default async function SettingsPage({
   const linkNotice = notice(NOTICES.linked, params.linked) ?? unlinkNotice;
   // Only a completed disconnect is good news; the other two explain a refusal.
   const linkNoticeIsGood = params.unlinked ? params.unlinked === 'google' : true;
-  const linkError = oauthMessage(params.error);
+  // The demo account's refusal is shown once, above every credential form,
+  // because it is raised by the password and sessions forms as well as by
+  // Google. It used to render only inside the Connected accounts card, which
+  // does not exist when Google is not configured, so the refusal was silent.
+  const demoReadOnly = params.error === 'demo_read_only';
+  const linkError = demoReadOnly ? null : oauthMessage(params.error);
 
   return (
     <div className="space-y-10 pb-16">
@@ -196,6 +202,12 @@ export default async function SettingsPage({
         <h2 id="account-heading" className="text-xl font-semibold sm:text-2xl">
           Account
         </h2>
+
+        {demoReadOnly ? (
+          <Callout tone="caution" icon="caution" role="status">
+            {DEMO_READ_ONLY_MESSAGE}
+          </Callout>
+        ) : null}
 
         <div className="space-y-4">
           <ChangePasswordForm

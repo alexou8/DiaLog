@@ -13,6 +13,8 @@ import {
   MedicalDisclaimer,
   PageHeader,
 } from '@/components/ui';
+import { PrintButton } from './PrintButton';
+import { REPORT_PRINT_CSS } from './print-styles';
 
 export const metadata: Metadata = { title: 'Reports' };
 export const dynamic = 'force-dynamic';
@@ -28,11 +30,13 @@ export default async function ReportsPage({
   const days = params.period === 'month' ? 30 : 7;
   const window = defaultWindow(days);
 
-  const { result } = await analyzeUser(user.id, profile, window);
-  const insights = insightsFor(result);
   const unit = profile.glucoseUnit;
 
-  const [mealCount, carbStats, activity, sleep] = await Promise.all([
+  // The analysis and the four aggregates are independent, so they run together.
+  // They used to run one after the other, which added the aggregates' round
+  // trips to the (much longer) analysis time for nothing.
+  const [{ result }, mealCount, carbStats, activity, sleep] = await Promise.all([
+    analyzeUser(user.id, profile, window),
     prisma.meal.count({ where: { userId: user.id, takenAt: { gte: window.from } } }),
     prisma.meal.aggregate({
       where: { userId: user.id, takenAt: { gte: window.from }, carbsG: { not: null } },
@@ -56,24 +60,34 @@ export default async function ReportsPage({
     dateStyle: 'long',
   });
 
+  const insights = insightsFor(result);
   const summary = result.summary;
   const strongest = insights.filter((insight) => insight.evidenceLevel !== 'INSUFFICIENT');
   const clinicianQuestions = buildClinicianQuestions(result, insights.length);
 
   return (
-    <div className="space-y-8">
+    // `data-report-print` scopes the print stylesheet below to this page.
+    <div className="space-y-8" data-report-print>
+      <style>{REPORT_PRINT_CSS}</style>
       <PageHeader
         title={days === 7 ? 'Your week' : 'Your month'}
         description={`${dateFmt.format(window.from)} to ${dateFmt.format(window.to)}. Written to be understandable without medical training, and to be useful to bring to an appointment.`}
         action={
-          <ButtonLink
-            href={days === 7 ? '/app/reports?period=month' : '/app/reports?period=week'}
-            variant="secondary"
-          >
-            {days === 7 ? 'Show the month' : 'Show the week'}
-          </ButtonLink>
+          <div className="flex flex-wrap gap-2 print:hidden">
+            <ButtonLink
+              href={days === 7 ? '/app/reports?period=month' : '/app/reports?period=week'}
+              variant="secondary"
+            >
+              {days === 7 ? 'Show the month' : 'Show the week'}
+            </ButtonLink>
+            {summary.count > 0 ? <PrintButton /> : null}
+          </div>
         }
       />
+      {/* On paper the page needs to say when and for whom it was made. */}
+      <p className="hidden text-sm text-ink-muted print:block">
+        Printed from DiaLog on {dateFmt.format(new Date())}.
+      </p>
 
       {summary.count === 0 ? (
         <EmptyState
@@ -85,7 +99,7 @@ export default async function ReportsPage({
         </EmptyState>
       ) : (
         <>
-          <section aria-labelledby="report-glucose">
+          <section aria-labelledby="report-glucose" className="print:break-inside-avoid">
             <Card>
               <CardHeader id="report-glucose" title="Glucose" />
               <dl className="grid gap-4 sm:grid-cols-2">
@@ -127,7 +141,7 @@ export default async function ReportsPage({
             </Card>
           </section>
 
-          <section aria-labelledby="report-lifestyle">
+          <section aria-labelledby="report-lifestyle" className="print:break-inside-avoid">
             <Card>
               <CardHeader id="report-lifestyle" title="Food, movement and sleep" />
               <dl className="grid gap-4 sm:grid-cols-3">
@@ -167,7 +181,7 @@ export default async function ReportsPage({
             </Card>
           </section>
 
-          <section aria-labelledby="report-changed">
+          <section aria-labelledby="report-changed" className="print:break-inside-avoid">
             <Card>
               <CardHeader
                 id="report-changed"
@@ -197,7 +211,7 @@ export default async function ReportsPage({
             </Card>
           </section>
 
-          <section aria-labelledby="report-questions">
+          <section aria-labelledby="report-questions" className="print:break-inside-avoid">
             <Card>
               <CardHeader
                 id="report-questions"
@@ -209,7 +223,7 @@ export default async function ReportsPage({
                   <li key={index}>{question}</li>
                 ))}
               </ul>
-              <div className="mt-5">
+              <div className="mt-5 print:hidden">
                 <Callout tone="info" icon="info" title="Taking this to an appointment">
                   You can download your full history from Settings as a file, so your healthcare
                   professional can see the underlying readings rather than only this summary.
@@ -227,7 +241,7 @@ export default async function ReportsPage({
 
 function describeTrend(classification: string): string {
   switch (classification) {
-    case 'improving':
+    case 'falling':
       return 'Across this period your readings drifted downwards. A single period is not a trend on its own, so this is worth watching rather than concluding from.';
     case 'rising':
       return 'Across this period your readings drifted upwards. Many ordinary things can do that, including illness, a change in routine and different timing of tests, so it is a prompt to look, not a verdict.';

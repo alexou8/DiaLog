@@ -106,7 +106,7 @@ export function ChangePasswordForm({
       <Field
         label="New password"
         required
-        hint="At least 10 characters. A short phrase works well."
+        hint="10 to 72 characters (a little fewer with accented letters or emoji). A short phrase works well."
         error={fieldError(feedback, 'newPassword')}
       >
         {({ id, describedBy, invalid }) => (
@@ -116,6 +116,7 @@ export function ChangePasswordForm({
             type="password"
             required
             autoComplete="new-password"
+            maxLength={72}
             aria-describedby={describedBy}
             invalid={invalid}
           />

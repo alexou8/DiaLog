@@ -4,10 +4,10 @@ import {
   DEMO_PASSWORD,
   TEST_PASSWORD,
   completeOnboarding,
-  signIn,
   signOut,
   uniqueEmail,
 } from './helpers';
+import { securityState } from './setup/security-accounts';
 
 /**
  * The Google sign-in journeys, driven against the stand-in issuer in
@@ -20,8 +20,10 @@ import {
  *
  * Password accounts are never registered here: sign-up is rate limited to five
  * per hour per address (RATE_LIMITS.signUp) and the setup project already
- * spends most of that budget, so the cases needing an existing password account
- * borrow the seeded demo one. Google sign-ups are not rate limited by that
+ * spends most of that budget. Cases that only need an existing address to
+ * collide with borrow the seeded demo one; the case that changes an account's
+ * sign-in methods uses a disposable account provisioned in the database (the
+ * demo account is read-only for credentials). Google sign-ups are not rate limited by that
  * bucket, so accounts arriving through Google are created freely.
  */
 
@@ -134,37 +136,39 @@ test.describe('Google sign-in', () => {
 });
 
 test.describe('connecting and disconnecting Google', () => {
-  test('a password account can connect Google and then sign in with it', async ({ page }) => {
-    await signIn(page, DEMO_EMAIL, DEMO_PASSWORD);
+  test.describe('with a disposable password account', () => {
+    // Not the demo account: it is read-only for credentials, so connecting
+    // Google to it is refused (?error=demo_read_only). This account is
+    // provisioned straight into the database by the setup project, so it
+    // costs nothing from the sign-up or sign-in rate-limit budgets.
+    test.use({ storageState: securityState('google-link') });
 
-    const sub = `sub-link-${Date.now()}`;
-    const email = googleEmail('google.link');
-    await asGoogleUser(page, { sub, email });
+    test('a password account can connect Google and then sign in with it', async ({ page }) => {
+      const sub = `sub-link-${Date.now()}`;
+      const email = googleEmail('google.link');
+      await asGoogleUser(page, { sub, email });
 
-    await page.goto('/app/settings');
-    await page.getByRole('link', { name: 'Connect Google' }).click();
+      await page.goto('/app/settings');
+      await page.getByRole('link', { name: 'Connect Google' }).click();
 
-    await expect(page).toHaveURL(/\/app\/settings\?linked=google/);
-    await expect(page.getByText('Google account is now connected')).toBeVisible();
+      await expect(page).toHaveURL(/\/app\/settings\?linked=google/);
+      await expect(page.getByText('Google account is now connected')).toBeVisible();
 
-    // And that connection actually signs them in afterwards. Sign out from the
-    // dashboard — Settings also carries a "Sign out everywhere else" button.
-    await page.goto('/app');
-    await signOut(page);
-    await asGoogleUser(page, { sub, email });
-    await page.goto('/sign-in');
-    await page.getByRole('link', { name: 'Sign in with Google' }).click();
-    await expect(page).toHaveURL(/\/app$/);
+      // And that connection actually signs them in afterwards. Sign out from the
+      // dashboard — Settings also carries a "Sign out everywhere else" button.
+      await page.goto('/app');
+      await signOut(page);
+      await asGoogleUser(page, { sub, email });
+      await page.goto('/sign-in');
+      await page.getByRole('link', { name: 'Sign in with Google' }).click();
+      await expect(page).toHaveURL(/\/app$/);
 
-    // Disconnecting is allowed, because a password remains — and this leaves
-    // the shared demo account exactly as the spec found it.
-    await page.goto('/app/settings');
-    await page.getByRole('button', { name: 'Disconnect Google' }).click();
-    await expect(page).toHaveURL(/\/app\/settings\?unlinked=google/);
-    await expect(page.getByText('Google has been disconnected')).toBeVisible();
-    await page.goto('/app');
-    await signOut(page);
-    await signIn(page, DEMO_EMAIL, DEMO_PASSWORD);
+      // Disconnecting is allowed, because a password remains.
+      await page.goto('/app/settings');
+      await page.getByRole('button', { name: 'Disconnect Google' }).click();
+      await expect(page).toHaveURL(/\/app\/settings\?unlinked=google/);
+      await expect(page.getByText('Google has been disconnected')).toBeVisible();
+    });
   });
 
   test('will not disconnect Google while it is the only way in', async ({ page }) => {

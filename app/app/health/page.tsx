@@ -10,7 +10,7 @@ import {
   EmptyState,
   PageHeader,
 } from '@/components/ui';
-import { DeleteRecordButton } from './DeleteRecordButton';
+import { DeleteRecordButton } from '@/components/records/DeleteRecordButton';
 
 export const metadata: Metadata = { title: 'Health' };
 export const dynamic = 'force-dynamic';
@@ -132,7 +132,13 @@ export default async function HealthPage({
                       {s.quality != null ? ` · Quality ${s.quality}/5` : ''}
                     </p>
                   </div>
-                  <DeleteRecordButton type="sleep" id={s.id} label="this sleep entry" />
+                  <DeleteRecordButton
+                    type="sleep"
+                    id={s.id}
+                    noun="sleep entry"
+                    when={dtFmt.format(s.takenAt)}
+                    detail={`${Math.floor(s.durationMin / 60)}h ${s.durationMin % 60}m`}
+                  />
                 </li>
               ))}
             </ul>
@@ -175,7 +181,13 @@ export default async function HealthPage({
                       {m.route ? ` · ${m.route}` : ''}
                     </p>
                   </div>
-                  <DeleteRecordButton type="medication" id={m.id} label="this medication event" />
+                  <DeleteRecordButton
+                    type="medication"
+                    id={m.id}
+                    noun="medication event"
+                    when={dtFmt.format(m.takenAt)}
+                    detail={m.name}
+                  />
                 </li>
               ))}
             </ul>
@@ -210,7 +222,13 @@ export default async function HealthPage({
                     <p className="font-semibold">{formatWeight(w.weightKg, locale)} kg</p>
                     <p className="text-sm text-ink-muted">{dtFmt.format(w.takenAt)}</p>
                   </div>
-                  <DeleteRecordButton type="weight" id={w.id} label="this weight entry" />
+                  <DeleteRecordButton
+                    type="weight"
+                    id={w.id}
+                    noun="weight entry"
+                    when={dtFmt.format(w.takenAt)}
+                    detail={`${formatWeight(w.weightKg, locale)} kg`}
+                  />
                 </li>
               ))}
             </ul>
@@ -254,7 +272,9 @@ export default async function HealthPage({
                   <DeleteRecordButton
                     type="bloodPressure"
                     id={b.id}
-                    label="this blood pressure reading"
+                    noun="blood pressure reading"
+                    when={dtFmt.format(b.takenAt)}
+                    detail={`${b.systolic}/${b.diastolic} mmHg`}
                   />
                 </li>
               ))}
@@ -293,7 +313,13 @@ export default async function HealthPage({
                     </p>
                     <p className="mt-1 text-sm text-ink-muted">{dtFmt.format(m.takenAt)}</p>
                   </div>
-                  <DeleteRecordButton type="mood" id={m.id} label="this mood entry" />
+                  <DeleteRecordButton
+                    type="mood"
+                    id={m.id}
+                    noun="mood entry"
+                    when={dtFmt.format(m.takenAt)}
+                    detail={`Mood ${m.mood}/5`}
+                  />
                 </li>
               ))}
             </ul>
@@ -331,6 +357,13 @@ export default async function HealthPage({
                     <p className="font-semibold tabular-nums">{entry.volumeMl} mL</p>
                     <p className="mt-1 text-sm text-ink-muted">{dtFmt.format(entry.takenAt)}</p>
                   </div>
+                  <DeleteRecordButton
+                    type="hydration"
+                    id={entry.id}
+                    noun="drink entry"
+                    when={dtFmt.format(entry.takenAt)}
+                    detail={`${entry.volumeMl} mL`}
+                  />
                 </li>
               ))}
             </ul>
@@ -373,6 +406,13 @@ export default async function HealthPage({
                     </p>
                     {entry.note ? <p className="mt-1 text-sm">{entry.note}</p> : null}
                   </div>
+                  <DeleteRecordButton
+                    type="symptom"
+                    id={entry.id}
+                    noun="note"
+                    when={dtFmt.format(entry.takenAt)}
+                    detail={entry.symptom}
+                  />
                 </li>
               ))}
             </ul>

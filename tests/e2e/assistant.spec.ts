@@ -29,6 +29,27 @@ test.describe('assistant', () => {
       await disclosure.click();
       await expect(page.getByText(/Answer produced by:/)).toBeVisible();
     });
+
+    test('quick-log text describing an emergency gets the safety answer, not suggestions', async ({
+      page,
+    }) => {
+      await page.goto('/app/quick-log');
+      await page.waitForLoadState('networkidle');
+
+      await page.getByLabel('What did you eat or do?').fill('I fainted after lunch and had juice');
+      await page.getByRole('button', { name: 'Suggest entries' }).click();
+
+      // The same fixed template the assistant gives, as an alert that says
+      // what it is in words rather than through its colour alone.
+      const safety = page
+        .getByRole('alert')
+        .filter({ has: page.getByRole('heading', { name: /may need help now/ }) });
+      await expect(safety).toBeVisible();
+      await expect(safety).toContainText('call your local emergency number now');
+      // No suggestion cards for that result: nothing to review or save.
+      await expect(page.getByRole('heading', { name: 'Check these before saving' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /^Save this / })).toHaveCount(0);
+    });
   });
 
   test.describe('fresh empty account', () => {

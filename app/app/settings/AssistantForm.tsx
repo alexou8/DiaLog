@@ -1,22 +1,12 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import type { Profile } from '@prisma/client';
 import { updatePreferencesAction, type ActionState } from '@/lib/actions/preferences';
 import { fromMgdl } from '@/lib/domain/units';
-import { Button, Callout } from '@/components/ui';
-import { Checkbox, FormStatus } from '@/components/ui/form';
+import { Callout } from '@/components/ui';
+import { ActionForm, Checkbox, SubmitButton } from '@/components/ui/form';
 import { HiddenBool } from './HiddenBool';
-
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending}>
-      {pending ? 'Saving…' : 'Save assistant settings'}
-    </Button>
-  );
-}
 
 export function AssistantForm({
   profile,
@@ -27,21 +17,19 @@ export function AssistantForm({
   providerName: string;
   providerIsExternal: boolean;
 }) {
-  const [state, action] = useActionState<ActionState | null, FormData>(
+  const [state, action, pending] = useActionState<ActionState | null, FormData>(
     updatePreferencesAction,
     null,
   );
 
   return (
-    <form
+    <ActionForm
       action={action}
-      noValidate
+      state={state}
+      pending={pending}
       className="rounded-[var(--radius-card)] border border-line bg-surface p-5 sm:p-6"
+      labels={{}}
     >
-      <FormStatus
-        status={state && state.message ? { ok: state.ok, message: state.message } : null}
-      />
-
       <Checkbox
         name="aiEnabled"
         label="Turn the assistant on"
@@ -55,9 +43,9 @@ export function AssistantForm({
       >
         {providerIsExternal ? (
           <>
-            <strong>Currently configured: {providerName} (external).</strong> When the assistant
-            answers a question, a structured summary of your findings can be sent to this outside
-            service to help generate the reply.
+            <strong>Currently configured: {providerName} (external).</strong> Nothing is sent to it
+            unless you agree below. Until then the assistant answers on this server with its
+            built-in engine.
           </>
         ) : (
           <>
@@ -72,8 +60,12 @@ export function AssistantForm({
         <div className="mt-4">
           <Checkbox
             name="externalAiConsent"
-            label={`I agree to send structured findings to ${providerName}`}
-            description="This can include summaries such as your average reading or how often you are in range. It never includes raw readings, meal descriptions, notes, or anything else word-for-word, and only when the assistant is on."
+            label={`I agree to send my questions and summaries to ${providerName}`}
+            // Says exactly what leaves the server. The previous wording promised
+            // meal descriptions were never sent word for word, which stopped
+            // being true for consenting users: the pipeline sends the question
+            // and quick-log text to the chosen provider verbatim.
+            description="With this on, the questions you type and the text you enter in quick logging are sent word for word, together with summaries of your findings such as your average reading or time in range. Individual readings are never sent. With it off, nothing leaves this server and the built-in engine answers."
             defaultChecked={profile.externalAiConsentAt != null}
           />
           <p className="text-sm text-ink-muted">
@@ -110,8 +102,8 @@ export function AssistantForm({
       ) : null}
 
       <div className="mt-5">
-        <Submit />
+        <SubmitButton>Save assistant settings</SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

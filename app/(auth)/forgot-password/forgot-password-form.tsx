@@ -1,27 +1,24 @@
 'use client';
 
 import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { forgotPasswordAction } from '@/lib/actions/password-reset';
 import type { ActionState } from '@/lib/actions/auth';
-import { Button } from '@/components/ui';
-import { Field, FormStatus, TextInput } from '@/components/ui/form';
-
-function Submit() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Requesting link…' : 'Send reset link'}
-    </Button>
-  );
-}
+import { ActionForm, Field, SubmitButton, TextInput } from '@/components/ui/form';
 
 export function ForgotPasswordForm() {
-  const [state, action] = useActionState<ActionState | null, FormData>(forgotPasswordAction, null);
+  const [state, action, pending] = useActionState<ActionState | null, FormData>(
+    forgotPasswordAction,
+    null,
+  );
   return (
-    <form action={action} className="mt-6" noValidate>
-      <FormStatus status={state?.message ? { ok: state.ok, message: state.message } : null} />
-      <Field label="Email address" required error={state?.errors?.email}>
+    <ActionForm
+      action={action}
+      state={state}
+      pending={pending}
+      className="mt-6"
+      labels={{ email: 'Email address' }}
+    >
+      <Field label="Email address" required name="email">
         {({ id, describedBy, invalid }) => (
           <TextInput
             id={id}
@@ -36,7 +33,9 @@ export function ForgotPasswordForm() {
           />
         )}
       </Field>
-      <Submit />
-    </form>
+      <SubmitButton className="w-full" pendingLabel="Requesting link…">
+        Send reset link
+      </SubmitButton>
+    </ActionForm>
   );
 }

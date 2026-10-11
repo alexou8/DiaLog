@@ -1,5 +1,7 @@
-'use client';
-
+// No 'use client': nothing here needs the browser. The directive made every
+// chart's data table a client boundary, so each row was serialised into the
+// RSC payload on top of the HTML and then hydrated, roughly doubling the bytes
+// on chart pages for a table that never changes.
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';

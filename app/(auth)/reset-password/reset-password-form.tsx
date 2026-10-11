@@ -4,6 +4,9 @@ import { Button } from '@/components/ui';
 import { Field, FormStatus, TextInput } from '@/components/ui/form';
 
 export function ResetPasswordForm({ proof, error }: { proof: string; error?: string }) {
+  // maxLength is in characters while the real limit is 72 *bytes* (bcrypt
+  // ignores anything past that; lib/auth/password.ts). For plain ASCII the two
+  // agree; for anything else the server's own message explains it.
   // Client boundary only for Field's render prop. This is intentionally a
   // native form, never an Action: successful submission revokes all sessions.
   return (
@@ -13,7 +16,7 @@ export function ResetPasswordForm({ proof, error }: { proof: string; error?: str
       <Field
         label="New password"
         required
-        hint="Use 10–200 characters. A short phrase works well."
+        hint="10 to 72 characters (a little fewer with accented letters or emoji). A short phrase works well."
         error={error}
       >
         {({ id, describedBy, invalid }) => (
@@ -23,7 +26,7 @@ export function ResetPasswordForm({ proof, error }: { proof: string; error?: str
             type="password"
             autoComplete="new-password"
             required
-            maxLength={200}
+            maxLength={72}
             aria-describedby={describedBy}
             invalid={invalid}
           />
@@ -37,7 +40,7 @@ export function ResetPasswordForm({ proof, error }: { proof: string; error?: str
             type="password"
             autoComplete="new-password"
             required
-            maxLength={200}
+            maxLength={72}
             aria-describedby={describedBy}
             invalid={invalid}
           />
